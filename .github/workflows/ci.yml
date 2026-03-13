@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [dev]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Lint & type-check every package and service
+  # ─────────────────────────────────────────────────────────────
+  typecheck:
+    name: TypeScript
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install root workspace deps
+        run: npm ci
+
+      - name: Build shared packages first
+        run: |
+          for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
+            echo "Building $PKG..."
+            cd $PKG && npm ci --prefer-offline && npm run build --if-present || true
+            cd ../..
+          done
+
+      - name: Type-check all services
+        run: |
+          EXIT=0
+          for SERVICE_DIR in services/*/; do
+            echo "--- Checking $SERVICE_DIR ---"
+            (cd "$SERVICE_DIR" && npm ci --prefer-offline 2>/dev/null && npx tsc --noEmit) || EXIT=1
+          done
+          exit $EXIT
+
+  # ─────────────────────────────────────────────────────────────
+  # Lint Dockerfiles with hadolint
+  # ─────────────────────────────────────────────────────────────
+  dockerfile-lint:
+    name: Dockerfile Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint all Dockerfiles
+        run: |
+          docker run --rm -i hadolint/hadolint:latest-alpine hadolint \
+            --failure-threshold error - < /dev/null || true
+          for DFILE in services/*/Dockerfile; do
+            echo "Linting $DFILE"
+            docker run --rm -i hadolint/hadolint:latest-alpine hadolint \
+              --failure-threshold error - < "$DFILE"
+          done
+
+  # ─────────────────────────────────────────────────────────────
+  # Build Docker images (no push) to verify Dockerfiles compile.
+  # Runs only on PRs targeting main — avoids redundant builds on
+  # every dev push (the deploy pipeline handles actual pushes).
+  # ─────────────────────────────────────────────────────────────
+  build-test:
+    name: Build test — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - user-service
+          - product-service
+          - order-service
+          - payment-service
+          - inventory-service
+          - seller-service
+          - notification-service
+          - analytics-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: false
+          platforms: linux/amd64
+          cache-from: type=gha,scope=ci-${{ matrix.service }}
+          cache-to:   type=gha,mode=max,scope=ci-${{ matrix.service }}

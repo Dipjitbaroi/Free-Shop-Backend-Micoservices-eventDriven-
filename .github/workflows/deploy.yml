@@ -1,0 +1,202 @@
+name: Build, Push & Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_OWNER: ${{ github.repository_owner }}
+  NAMESPACE: freeshop
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 1: Build all 10 service images in parallel via matrix strategy.
+  # Each image is tagged with a short commit SHA (7 chars) for traceability,
+  # plus 'latest' so the k8s manifests can use either tag.
+  # Layer caching is scoped per-service to keep rebuilds fast.
+  # ─────────────────────────────────────────────────────────────────────────────
+  build:
+    name: Build — ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write          # required to push to GHCR
+
+    strategy:
+      fail-fast: false         # don't cancel sibling jobs on one failure
+      matrix:
+        service:
+          - api-gateway
+          - auth-service
+          - user-service
+          - product-service
+          - order-service
+          - payment-service
+          - inventory-service
+          - seller-service
+          - notification-service
+          - analytics-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Produce a short deterministic SHA used as the image tag.
+      # Stored in step output so it's the SAME value used in the deploy job.
+      - name: Compute short SHA
+        id: tag
+        run: echo "sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          platforms: linux/amd64
+          # Short SHA tag for precise rollouts; 'latest' for convenience
+          tags: |
+            ghcr.io/${{ env.REGISTRY_OWNER }}/freeshop-${{ matrix.service }}:${{ steps.tag.outputs.sha }}
+            ghcr.io/${{ env.REGISTRY_OWNER }}/freeshop-${{ matrix.service }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          # Per-service GHA cache — drastically reduces build time on reruns
+          cache-from: type=gha,scope=build-${{ matrix.service }}
+          cache-to:   type=gha,mode=max,scope=build-${{ matrix.service }}
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # JOB 2: Deploy to VPS over SSH after ALL builds succeed.
+  # Steps:
+  #   1. Create / refresh GHCR pull secret in k8s (so k3s can pull private images)
+  #   2. Patch default ServiceAccount to inherit the pull secret automatically
+  #   3. git pull latest manifests on VPS
+  #   4. kubectl set image — triggers a zero-downtime rolling update per service
+  #   5. Wait for all rollouts and print final status
+  # ─────────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: Deploy to VPS
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production    # enable manual approval gate in GitHub if desired
+
+    steps:
+      - name: Compute short SHA
+        id: tag
+        run: echo "sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          # Passing values via 'envs' is the correct way — avoids shell injection
+          # and works for secrets. The SSH action exports these on the remote side.
+          SHORT_SHA:  ${{ steps.tag.outputs.sha }}
+          GHCR_USER:  ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}  # PAT with read:packages — see README
+          REPO_OWNER: ${{ github.repository_owner }}
+          NAMESPACE:  freeshop
+        with:
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE
+          script_stop: true
+          script: |
+            export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            REGISTRY="ghcr.io/$REPO_OWNER"
+
+            echo "==================================================="
+            echo " Deploying commit $SHORT_SHA → namespace $NAMESPACE"
+            echo "==================================================="
+
+            # ── Step 1: Create/refresh the GHCR image-pull secret ──────────
+            # Uses --dry-run + apply so it's safe to re-run on every deploy.
+            kubectl create secret docker-registry ghcr-pull-secret \
+              --namespace="$NAMESPACE" \
+              --docker-server=ghcr.io \
+              --docker-username="$GHCR_USER" \
+              --docker-password="$GHCR_TOKEN" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+            # ── Step 2: Patch default SA — all pods inherit pull secret ─────
+            kubectl patch serviceaccount default \
+              --namespace="$NAMESPACE" \
+              -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}' \
+              2>/dev/null || true
+
+            # ── Step 3: Pull latest manifests from GitHub ───────────────────
+            cd /opt/freeshop-backend
+            git fetch origin main
+            git reset --hard origin/main
+
+            # ── Step 4: Rolling update — inject exact SHA image tag ─────────
+            SERVICES=(
+              api-gateway
+              auth-service
+              user-service
+              product-service
+              order-service
+              payment-service
+              inventory-service
+              seller-service
+              notification-service
+              analytics-service
+            )
+
+            for SERVICE in "${SERVICES[@]}"; do
+              IMAGE="$REGISTRY/freeshop-$SERVICE:$SHORT_SHA"
+              echo "  → updating $SERVICE to $IMAGE"
+              kubectl set image "deployment/$SERVICE" \
+                "$SERVICE=$IMAGE" \
+                --namespace="$NAMESPACE" 2>/dev/null || \
+              echo "  ! deployment/$SERVICE not found — run deploy.sh first"
+            done
+
+            # ── Step 5: Wait for rollouts ────────────────────────────────────
+            echo ""
+            echo "--- Waiting for rollouts (120s timeout each) ---"
+            FAILED=""
+            for SERVICE in "${SERVICES[@]}"; do
+              if ! kubectl rollout status "deployment/$SERVICE" \
+                   --namespace="$NAMESPACE" --timeout=120s 2>/dev/null; then
+                FAILED="$FAILED $SERVICE"
+              fi
+            done
+
+            # ── Step 6: Print summary ────────────────────────────────────────
+            echo ""
+            echo "--- Pods ---"
+            kubectl get pods --namespace="$NAMESPACE" --sort-by='.metadata.name'
+
+            echo ""
+            echo "--- HPA ---"
+            kubectl get hpa --namespace="$NAMESPACE"
+
+            if [ -n "$FAILED" ]; then
+              echo ""
+              echo "ERROR: These services failed to roll out:$FAILED"
+              exit 1
+            fi
+
+            echo ""
+            echo "✓ Deploy complete — SHA $SHORT_SHA is live"
