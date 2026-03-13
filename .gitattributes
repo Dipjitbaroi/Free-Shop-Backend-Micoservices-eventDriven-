@@ -1,0 +1,14 @@
+# Default behavior
+* text=auto
+
+# Force shell scripts to always use LF line endings (required for Linux/Docker)
+*.sh text eol=lf
+
+# Force other config/script files to LF
+Makefile text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.env text eol=lf
+*.conf text eol=lf

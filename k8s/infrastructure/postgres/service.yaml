@@ -1,0 +1,27 @@
+# Headless service — required for StatefulSet stable pod DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+  namespace: freeshop
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None
+---
+# ClusterIP service — used by application services to connect to postgres
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: freeshop
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  type: ClusterIP

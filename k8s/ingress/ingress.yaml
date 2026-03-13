@@ -1,0 +1,40 @@
+# ============================================================
+# Ingress Rules
+# Replace YOUR_DOMAIN.com with your actual domain.
+# Backend traffic → api-gateway (port 3000)
+# Frontend is deployed on Vercel (not on this cluster).
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: freeshop-ingress
+  namespace: freeshop
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    # Enable WebSocket support (for real-time features)
+    nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    # SSL / TLS
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.YOUR_DOMAIN.com       # <-- Change this
+      secretName: freeshop-tls
+  rules:
+    # Backend API (Frontend is deployed on Vercel, not on this VPS)
+    - host: api.YOUR_DOMAIN.com     # <-- Change this
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 3000

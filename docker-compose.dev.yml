@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  postgres:
+    image: postgres:15-alpine
+    container_name: freeshop-postgres-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_MULTIPLE_DATABASES: freeshop_auth,freeshop_user,freeshop_product,freeshop_order,freeshop_payment,freeshop_inventory,freeshop_seller,freeshop_notification,freeshop_analytics
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freeshop_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - freeshop-network-dev
+
+  redis:
+    image: redis:7-alpine
+    container_name: freeshop-redis-dev
+    command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
+    volumes:
+      - redis_data_dev:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - freeshop-network-dev
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: freeshop-rabbitmq-dev
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data_dev:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - freeshop-network-dev
+
+  # Database Management UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: freeshop-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@freeshop.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_LISTEN_PORT: 80
+    volumes:
+      - pgadmin_data_dev:/var/lib/pgadmin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - freeshop-network-dev
+
+networks:
+  freeshop-network-dev:
+    driver: bridge
+
+volumes:
+  postgres_data_dev:
+  redis_data_dev:
+  rabbitmq_data_dev:
+  pgadmin_data_dev:

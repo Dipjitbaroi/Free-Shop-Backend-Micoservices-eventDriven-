@@ -1,0 +1,134 @@
+import { Router } from 'express';
+import { productController } from '../controllers/product.controller';
+import { authenticate, authorize, optionalAuth } from '@freeshop/shared-middleware';
+import { validate } from '@freeshop/shared-middleware';
+import { UserRole } from '@freeshop/shared-types';
+import { body, param, query } from 'express-validator';
+import config from '../config';
+
+const router = Router();
+
+// Validation schemas
+const createProductValidation = [
+  body('name').isString().notEmpty().withMessage('Product name is required'),
+  body('categoryId').isUUID().withMessage('Valid category ID is required'),
+  body('price').isFloat({ min: 0 }).withMessage('Price must be a positive number'),
+  body('description').optional().isString(),
+  body('images').optional().isArray({ max: config.upload.maxImages }).withMessage(`Maximum ${config.upload.maxImages} images allowed`),
+  body('unit').optional().isString(),
+  body('stock').optional().isInt({ min: 0 }),
+  body('isOrganic').optional().isBoolean(),
+];
+
+const updateProductValidation = [
+  param('id').isUUID().withMessage('Valid product ID is required'),
+  body('name').optional().isString().notEmpty(),
+  body('categoryId').optional().isUUID(),
+  body('price').optional().isFloat({ min: 0 }),
+];
+
+const paginationValidation = [
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+];
+
+const productFilterValidation = [
+  ...paginationValidation,
+  query('search').optional().isString().trim(),
+  query('categoryId').optional().isUUID(),
+  query('sellerId').optional().isUUID(),
+  query('minPrice').optional().isFloat({ min: 0 }),
+  query('maxPrice').optional().isFloat({ min: 0 }),
+  query('isOrganic').optional().isIn(['true', 'false']),
+  query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED', 'INACTIVE']),
+  query('sortBy').optional().isIn(['price', 'createdAt', 'rating', 'sold']),
+  query('sortOrder').optional().isIn(['asc', 'desc']),
+];
+
+// Public routes
+router.get(
+  '/',
+  optionalAuth,
+  productFilterValidation,
+  validate,
+  productController.getProducts
+);
+
+router.get('/featured', productController.getFeaturedProducts);
+router.get('/flash-sale', productController.getFlashSaleProducts);
+
+router.get(
+  '/slug/:slug',
+  optionalAuth,
+  productController.getProductBySlug
+);
+
+// Seller routes
+router.get(
+  '/seller/:sellerId?',
+  authenticate,
+  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  [
+    ...paginationValidation,
+    query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED', 'INACTIVE']),
+  ],
+  validate,
+  productController.getSellerProducts
+);
+
+router.get(
+  '/:id',
+  optionalAuth,
+  param('id').isUUID().withMessage('Valid product ID is required'),
+  validate,
+  productController.getProductById
+);
+
+router.post(
+  '/',
+  authenticate,
+  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  createProductValidation,
+  validate,
+  productController.createProduct
+);
+
+router.patch(
+  '/:id',
+  authenticate,
+  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  updateProductValidation,
+  validate,
+  productController.updateProduct
+);
+
+router.delete(
+  '/:id',
+  authenticate,
+  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  param('id').isUUID().withMessage('Valid product ID is required'),
+  validate,
+  productController.deleteProduct
+);
+
+// Admin routes
+router.post(
+  '/:id/approve',
+  authenticate,
+  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  param('id').isUUID().withMessage('Valid product ID is required'),
+  validate,
+  productController.approveProduct
+);
+
+router.post(
+  '/:id/reject',
+  authenticate,
+  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  param('id').isUUID().withMessage('Valid product ID is required'),
+  body('reason').isString().notEmpty().withMessage('Rejection reason is required'),
+  validate,
+  productController.rejectProduct
+);
+
+export default router;

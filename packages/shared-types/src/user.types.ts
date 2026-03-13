@@ -1,0 +1,82 @@
+import { UserRole, UserStatus, OAuthProvider } from './enums';
+
+export interface IUser {
+  id: string;
+  email: string;
+  phone?: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  role: UserRole;
+  status: UserStatus;
+  oauthProvider: OAuthProvider;
+  oauthId?: string;
+  emailVerified: boolean;
+  phoneVerified: boolean;
+  lastLoginAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IUserCreate {
+  email: string;
+  password?: string;
+  phone?: string;
+  firstName: string;
+  lastName: string;
+  role?: UserRole;
+  oauthProvider?: OAuthProvider;
+  oauthId?: string;
+}
+
+export interface IUserUpdate {
+  email?: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  avatar?: string;
+  status?: UserStatus;
+}
+
+export interface IUserProfile extends IUser {
+  addresses?: IAddress[];
+  wishlist?: string[];
+}
+
+export interface IAddress {
+  id: string;
+  userId: string;
+  label: string;
+  fullName: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IAddressCreate {
+  label: string;
+  fullName: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault?: boolean;
+}
+
+export interface IGuestUser {
+  guestId: string;
+  email?: string;
+  phone?: string;
+  fullName?: string;
+  address?: Omit<IAddress, 'id' | 'userId' | 'createdAt' | 'updatedAt'>;
+}

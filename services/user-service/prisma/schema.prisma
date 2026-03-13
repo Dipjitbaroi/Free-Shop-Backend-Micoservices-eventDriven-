@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("USER_DATABASE_URL")
+}
+
+model UserProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique // References auth service user
+  email       String?
+  firstName   String?
+  lastName    String?
+  phone       String?
+  avatar      String?
+  dateOfBirth DateTime?
+  gender      Gender?
+  
+  addresses   Address[]
+  wishlist    WishlistItem[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Address {
+  id            String      @id @default(uuid())
+  userProfileId String
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  
+  label         String?     // Home, Office, etc.
+  fullName      String
+  phone         String
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  district      String?  // Also accepts state/province via service mapping
+  division      String?
+  postalCode    String?
+  country       String      @default("Bangladesh")
+  isDefault     Boolean     @default(false)
+  type          AddressType @default(SHIPPING)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([userProfileId])
+  @@index([isDefault])
+}
+
+model WishlistItem {
+  id            String      @id @default(uuid())
+  userProfileId String
+  userProfile   UserProfile @relation(fields: [userProfileId], references: [id], onDelete: Cascade)
+  
+  productId     String
+  addedAt       DateTime    @default(now())
+
+  @@unique([userProfileId, productId])
+  @@index([userProfileId])
+  @@index([productId])
+}
+
+model RecentlyViewed {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  viewedAt  DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([viewedAt])
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AddressType {
+  SHIPPING
+  BILLING
+  BOTH
+}

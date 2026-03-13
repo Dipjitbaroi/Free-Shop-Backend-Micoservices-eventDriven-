@@ -1,0 +1,9 @@
+import { createMessageBroker, createEventPublisher } from '@freeshop/shared-events';
+import config from '../config';
+
+export const messageBroker = createMessageBroker({
+  url: config.rabbitmq.url,
+  serviceName: 'auth-service',
+});
+
+export const eventPublisher = createEventPublisher(messageBroker);

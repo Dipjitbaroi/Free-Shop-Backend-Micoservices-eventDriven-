@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@freeshop/shared-types": ["../../packages/shared-types/dist"],
+      "@freeshop/shared-utils": ["../../packages/shared-utils/dist"],
+      "@freeshop/shared-middleware": ["../../packages/shared-middleware/dist"],
+      "@freeshop/shared-events": ["../../packages/shared-events/dist"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "prisma"]
+}

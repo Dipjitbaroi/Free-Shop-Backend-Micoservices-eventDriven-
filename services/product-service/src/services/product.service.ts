@@ -1,0 +1,435 @@
+import { Prisma, Product, ProductStatus } from '../../generated/prisma';
+import { 
+  IProductCreate, 
+  IProductUpdate, 
+  IProductFilter,
+  IPaginatedResult,
+} from '@freeshop/shared-types';
+import { 
+  generateSlug, 
+  generateSku, 
+  NotFoundError, 
+  calculateOffset,
+  createPaginatedResponse,
+} from '@freeshop/shared-utils';
+import { prisma } from '../lib/prisma';
+import { 
+  cacheGet, 
+  cacheSet, 
+  cacheDelete,
+  productCacheKey,
+  productSlugCacheKey,
+} from '../lib/redis';
+import { eventPublisher } from '../lib/message-broker';
+import config from '../config';
+
+class ProductService {
+  async createProduct(data: IProductCreate): Promise<Product> {
+    const slug = generateSlug(data.name);
+    const sku = data.sku || generateSku('PRD');
+
+    // Check for duplicate slug
+    const existingSlug = await prisma.product.findUnique({
+      where: { slug },
+    });
+
+    const finalSlug = existingSlug 
+      ? `${slug}-${Date.now().toString(36)}` 
+      : slug;
+
+    const product = await prisma.product.create({
+      data: {
+        sellerId: data.sellerId,
+        name: data.name,
+        slug: finalSlug,
+        description: data.description,
+        shortDescription: data.shortDescription,
+        sku,
+        categoryId: data.categoryId,
+        price: new Prisma.Decimal(data.price),
+        discountPrice: data.discountPrice ? new Prisma.Decimal(data.discountPrice) : null,
+        discountType: data.discountType,
+        discountValue: data.discountValue ? new Prisma.Decimal(data.discountValue) : null,
+        stock: data.stock || 0,
+        lowStockThreshold: data.lowStockThreshold || 10,
+        weight: data.weight ? new Prisma.Decimal(data.weight) : null,
+        unit: data.unit || 'piece',
+        isOrganic: data.isOrganic || false,
+        organicCertification: data.organicCertification,
+        images: data.images || [],
+        tags: data.tags || [],
+        isFeatured: data.isFeatured || false,
+        status: ProductStatus.PENDING_APPROVAL,
+        metadata: data.metadata as Prisma.JsonObject || {},
+      },
+      include: {
+        category: true,
+      },
+    });
+
+    // Update category product count
+    await prisma.category.update({
+      where: { id: data.categoryId },
+      data: { productCount: { increment: 1 } },
+    });
+
+    // Publish event
+    await eventPublisher.productCreated({
+      productId: product.id,
+      sellerId: product.sellerId,
+      name: product.name,
+      price: Number(product.price),
+      categoryId: product.categoryId,
+    });
+
+    return product;
+  }
+
+  async getProductById(id: string): Promise<Product> {
+    // Try cache first
+    const cached = await cacheGet<Product>(productCacheKey(id));
+    if (cached) return cached;
+
+    const product = await prisma.product.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        reviews: {
+          where: { status: 'APPROVED' },
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundError('Product not found');
+    }
+
+    // Cache the result
+    await cacheSet(productCacheKey(id), product, config.cache.productTTL);
+
+    return product;
+  }
+
+  async getProductBySlug(slug: string): Promise<Product> {
+    const cached = await cacheGet<Product>(productSlugCacheKey(slug));
+    if (cached) return cached;
+
+    const product = await prisma.product.findUnique({
+      where: { slug },
+      include: {
+        category: true,
+        reviews: {
+          where: { status: 'APPROVED' },
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundError('Product not found');
+    }
+
+    // Increment view count
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { viewCount: { increment: 1 } },
+    });
+
+    await cacheSet(productSlugCacheKey(slug), product, config.cache.productTTL);
+
+    return product;
+  }
+
+  async getProducts(filter: IProductFilter): Promise<IPaginatedResult<Product>> {
+    const page = filter.page || 1;
+    const limit = Math.min(filter.limit || config.pagination.defaultLimit, config.pagination.maxLimit);
+    const offset = calculateOffset(page, limit);
+
+    const where: Prisma.ProductWhereInput = {};
+
+    if (filter.status) {
+      where.status = filter.status as ProductStatus;
+    }
+
+    if (filter.categoryId) where.categoryId = filter.categoryId;
+    if (filter.sellerId) where.sellerId = filter.sellerId;
+    if (filter.isOrganic !== undefined) where.isOrganic = filter.isOrganic;
+    if (filter.isFeatured !== undefined) where.isFeatured = filter.isFeatured;
+    if (filter.isFlashSale !== undefined) where.isFlashSale = filter.isFlashSale;
+    
+    if (filter.minPrice || filter.maxPrice) {
+      where.price = {};
+      if (filter.minPrice) where.price.gte = new Prisma.Decimal(filter.minPrice);
+      if (filter.maxPrice) where.price.lte = new Prisma.Decimal(filter.maxPrice);
+    }
+
+    if (filter.search) {
+      where.OR = [
+        { name: { contains: filter.search, mode: 'insensitive' } },
+        { description: { contains: filter.search, mode: 'insensitive' } },
+        { tags: { has: filter.search.toLowerCase() } },
+      ];
+    }
+
+    if (filter.tags && filter.tags.length > 0) {
+      where.tags = { hasSome: filter.tags };
+    }
+
+    // Build orderBy
+    let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
+    if (filter.sortBy) {
+      const order = filter.sortOrder || 'desc';
+      switch (filter.sortBy) {
+        case 'price':
+          orderBy = { price: order };
+          break;
+        case 'rating':
+          orderBy = { averageRating: order };
+          break;
+        case 'sold':
+          orderBy = { totalSold: order };
+          break;
+        case 'createdAt':
+        default:
+          orderBy = { createdAt: order };
+      }
+    }
+
+    const [products, totalItems] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: {
+          category: {
+            select: { id: true, name: true, slug: true },
+          },
+        },
+        orderBy,
+        skip: offset,
+        take: limit,
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    return createPaginatedResponse(products, totalItems, { page, limit });
+  }
+
+  async updateProduct(id: string, data: IProductUpdate): Promise<Product> {
+    const product = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundError('Product not found');
+    }
+
+    // Handle category change
+    if (data.categoryId && data.categoryId !== product.categoryId) {
+      await Promise.all([
+        prisma.category.update({
+          where: { id: product.categoryId },
+          data: { productCount: { decrement: 1 } },
+        }),
+        prisma.category.update({
+          where: { id: data.categoryId },
+          data: { productCount: { increment: 1 } },
+        }),
+      ]);
+    }
+
+    const updateData: Prisma.ProductUpdateInput = {};
+    
+    if (data.name) {
+      updateData.name = data.name;
+      const newSlug = generateSlug(data.name);
+
+      // Check if another product already uses this slug
+      const existingSlug = await prisma.product.findFirst({
+        where: { slug: newSlug, id: { not: id } },
+      });
+
+      updateData.slug = existingSlug
+        ? `${newSlug}-${Date.now().toString(36)}`
+        : newSlug;
+    }
+    if (data.description) updateData.description = data.description;
+    if (data.shortDescription !== undefined) updateData.shortDescription = data.shortDescription;
+    if (data.categoryId) updateData.category = { connect: { id: data.categoryId } };
+    if (data.price !== undefined) updateData.price = new Prisma.Decimal(data.price);
+    if (data.discountPrice !== undefined) {
+      updateData.discountPrice = data.discountPrice ? new Prisma.Decimal(data.discountPrice) : null;
+    }
+    if (data.discountType !== undefined) updateData.discountType = data.discountType;
+    if (data.discountValue !== undefined) {
+      updateData.discountValue = data.discountValue ? new Prisma.Decimal(data.discountValue) : null;
+    }
+    if (data.stock !== undefined) updateData.stock = data.stock;
+    if (data.lowStockThreshold !== undefined) updateData.lowStockThreshold = data.lowStockThreshold;
+    if (data.weight !== undefined) updateData.weight = data.weight ? new Prisma.Decimal(data.weight) : null;
+    if (data.unit !== undefined) updateData.unit = data.unit;
+    if (data.isOrganic !== undefined) updateData.isOrganic = data.isOrganic;
+    if (data.organicCertification !== undefined) updateData.organicCertification = data.organicCertification;
+    if (data.images !== undefined) updateData.images = data.images;
+    if (data.tags !== undefined) updateData.tags = data.tags;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured;
+    if (data.metadata !== undefined) updateData.metadata = data.metadata as Prisma.JsonObject;
+
+    const updatedProduct = await prisma.product.update({
+      where: { id },
+      data: updateData,
+      include: { category: true },
+    });
+
+    // Clear cache
+    await Promise.all([
+      cacheDelete(productCacheKey(id)),
+      cacheDelete(productSlugCacheKey(product.slug)),
+      cacheDelete(productSlugCacheKey(updatedProduct.slug)),
+    ]);
+
+    // Publish event
+    await eventPublisher.productUpdated({
+      productId: id,
+      sellerId: product.sellerId,
+      changes: data as Record<string, unknown>,
+    });
+
+    return updatedProduct;
+  }
+
+  async deleteProduct(id: string): Promise<void> {
+    const product = await prisma.product.findUnique({
+      where: { id },
+    });
+
+    if (!product) {
+      throw new NotFoundError('Product not found');
+    }
+
+    await prisma.product.delete({
+      where: { id },
+    });
+
+    // Update category count
+    await prisma.category.update({
+      where: { id: product.categoryId },
+      data: { productCount: { decrement: 1 } },
+    });
+
+    // Clear cache
+    await Promise.all([
+      cacheDelete(productCacheKey(id)),
+      cacheDelete(productSlugCacheKey(product.slug)),
+    ]);
+  }
+
+  async approveProduct(id: string, _approverId?: string): Promise<Product> {
+    const product = await prisma.product.update({
+      where: { id },
+      data: {
+        status: ProductStatus.ACTIVE,
+        rejectionReason: null,
+      },
+      include: { category: true },
+    });
+
+    await eventPublisher.productStatusChanged({
+      productId: id,
+      sellerId: product.sellerId,
+      previousStatus: 'PENDING_APPROVAL',
+      newStatus: 'ACTIVE',
+    });
+
+    await cacheDelete(productCacheKey(id));
+
+    return product;
+  }
+
+  async rejectProduct(id: string, reason: string, _rejecterId?: string): Promise<Product> {
+    const product = await prisma.product.update({
+      where: { id },
+      data: {
+        status: ProductStatus.REJECTED,
+        rejectionReason: reason,
+      },
+      include: { category: true },
+    });
+
+    await eventPublisher.productStatusChanged({
+      productId: id,
+      sellerId: product.sellerId,
+      previousStatus: 'PENDING_APPROVAL',
+      newStatus: 'REJECTED',
+      reason,
+    });
+
+    await cacheDelete(productCacheKey(id));
+
+    return product;
+  }
+
+  async getSellerProducts(sellerId: string, filter: IProductFilter): Promise<IPaginatedResult<Product>> {
+    return this.getProducts({ ...filter, sellerId });
+  }
+
+  async getFeaturedProducts(limit: number = 10): Promise<Product[]> {
+    return prisma.product.findMany({
+      where: {
+        status: ProductStatus.ACTIVE,
+        isFeatured: true,
+      },
+      include: {
+        category: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+  }
+
+  async getFlashSaleProducts(limit: number = 10): Promise<Product[]> {
+    const now = new Date();
+    return prisma.product.findMany({
+      where: {
+        status: ProductStatus.ACTIVE,
+        isFlashSale: true,
+        flashSaleStartDate: { lte: now },
+        flashSaleEndDate: { gte: now },
+      },
+      include: {
+        category: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+      orderBy: { flashSaleEndDate: 'asc' },
+      take: limit,
+    });
+  }
+
+  async updateProductRating(productId: string): Promise<void> {
+    const result = await prisma.review.aggregate({
+      where: {
+        productId,
+        status: 'APPROVED',
+      },
+      _avg: { rating: true },
+      _count: { rating: true },
+    });
+
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        averageRating: result._avg.rating || 0,
+        totalReviews: result._count.rating,
+      },
+    });
+
+    await cacheDelete(productCacheKey(productId));
+  }
+}
+
+export const productService = new ProductService();

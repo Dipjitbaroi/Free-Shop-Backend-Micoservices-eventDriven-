@@ -1,0 +1,38 @@
+{
+  "name": "@freeshop/product-service",
+  "version": "1.0.0",
+  "description": "Product catalog service for Free Shop",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "clean": "rimraf dist",
+    "lint": "eslint src --ext .ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "keywords": ["freeshop", "product", "catalog"],
+  "license": "MIT",
+  "dependencies": {
+    "@freeshop/shared-types": "^1.0.0",
+    "@freeshop/shared-utils": "^1.0.0",
+    "@freeshop/shared-middleware": "^1.0.0",
+    "@freeshop/shared-events": "^1.0.0",
+    "@prisma/client": "^5.22.0",
+    "express": "^4.22.1",
+    "ioredis": "^5.9.3",
+    "dotenv": "^16.6.1",
+    "express-validator": "^7.3.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.25",
+    "@types/node": "^22.19.11",
+    "prisma": "^5.22.0",
+    "rimraf": "^6.1.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

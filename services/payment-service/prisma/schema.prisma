@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PAYMENT_DATABASE_URL")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  userId        String?
+  
+  amount        Float
+  currency      String        @default("BDT")
+  
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  
+  // Gateway specific
+  gatewayRef    String?       // bKash paymentID, etc.
+  gatewayStatus String?
+  gatewayResponse Json?
+  
+  // Transaction details
+  transactionId String?       @unique
+  paidAt        DateTime?
+  
+  // Refund tracking
+  refundedAmount Float        @default(0)
+  refundReason   String?
+  refundedAt     DateTime?
+  
+  // Metadata
+  metadata      Json?
+  ipAddress     String?
+  userAgent     String?
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  refunds       Refund[]
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([transactionId])
+  @@index([gatewayRef])
+}
+
+model Refund {
+  id          String       @id @default(uuid())
+  paymentId   String
+  payment     Payment      @relation(fields: [paymentId], references: [id])
+  
+  amount      Float
+  reason      String?
+  status      RefundStatus @default(PENDING)
+  
+  // Gateway info
+  gatewayRef  String?
+  gatewayResponse Json?
+  
+  processedAt DateTime?
+  processedBy String?
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([paymentId])
+  @@index([status])
+}
+
+model PaymentGatewayConfig {
+  id          String   @id @default(uuid())
+  gateway     String   @unique // bkash, nagad, eps, etc.
+  isActive    Boolean  @default(true)
+  isSandbox   Boolean  @default(true)
+  
+  // Encrypted credentials stored
+  credentials Json
+  
+  // Gateway specific settings
+  settings    Json?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum PaymentMethod {
+  COD
+  BKASH
+  NAGAD
+  ROCKET
+  EPS
+  CARD
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}

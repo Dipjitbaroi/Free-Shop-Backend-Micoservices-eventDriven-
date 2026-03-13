@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: freeshop
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: YOUR_REGISTRY/freeshop-payment-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3005
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "3005"
+            - name: PAYMENT_SERVICE_PORT
+              value: "3005"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: POSTGRES_PASSWORD
+            - name: PAYMENT_DATABASE_URL
+              value: "postgresql://postgres:$(POSTGRES_PASSWORD)@postgres:5432/freeshop_payment"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: REDIS_PASSWORD
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis:6379"
+            - name: REDIS_HOST
+              value: "redis"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: RABBITMQ_PASS
+            - name: RABBITMQ_URL
+              value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASS)@rabbitmq:5672"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: JWT_SECRET
+            - name: BKASH_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_APP_KEY
+            - name: BKASH_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_APP_SECRET
+            - name: BKASH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_USERNAME
+            - name: BKASH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_PASSWORD
+            - name: BKASH_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_BASE_URL
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "400m"
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3005
+            initialDelaySeconds: 10
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: freeshop
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - port: 3005
+      targetPort: 3005
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment-service-hpa
+  namespace: freeshop
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-service
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
