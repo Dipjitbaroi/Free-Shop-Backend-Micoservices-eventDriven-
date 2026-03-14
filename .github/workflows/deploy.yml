@@ -134,6 +134,7 @@ jobs:
           envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE
           script_stop: true
           script: |
+            set -x
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             REPO_OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
             REGISTRY="ghcr.io/$REPO_OWNER_LC"
@@ -154,8 +155,7 @@ jobs:
             # ── Step 2: Patch default SA — all pods inherit pull secret ─────
             kubectl patch serviceaccount default \
               --namespace="$NAMESPACE" \
-              -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}' \
-              2>/dev/null || true
+              -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}' || true
 
             # ── Step 3: Pull latest manifests from GitHub (clone if missing) ─
             REPO_PATH=/opt/freeshop-backend
@@ -206,7 +206,7 @@ jobs:
               echo "  → updating $SERVICE to $IMAGE"
               kubectl set image "deployment/$SERVICE" \
                 "$SERVICE=$IMAGE" \
-                --namespace="$NAMESPACE" 2>/dev/null || \
+                --namespace="$NAMESPACE" || \
               echo "  ! deployment/$SERVICE not found — run deploy.sh first"
             done
 
@@ -215,8 +215,8 @@ jobs:
             echo "--- Waiting for rollouts (300s timeout each) ---"
             FAILED=""
             for SERVICE in "${SERVICES[@]}"; do
-              if ! kubectl rollout status "deployment/$SERVICE" \
-                   --namespace="$NAMESPACE" --timeout=300s 2>/dev/null; then
+                  if ! kubectl rollout status "deployment/$SERVICE" \
+                    --namespace="$NAMESPACE" --timeout=300s; then
                 FAILED="$FAILED $SERVICE"
               fi
             done
