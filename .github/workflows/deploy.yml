@@ -134,9 +134,6 @@ jobs:
           envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE
           script_stop: true
           script: |
-            set -x
-            # Disable automatic exit on non-zero so we can handle errors explicitly
-            set +e
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             REPO_OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
             REGISTRY="ghcr.io/$REPO_OWNER_LC"
@@ -157,7 +154,7 @@ jobs:
             # ── Step 2: Patch default SA — all pods inherit pull secret ─────
             kubectl patch serviceaccount default \
               --namespace="$NAMESPACE" \
-              -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}' || true
+              -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}' 2>/dev/null || true
 
             # ── Step 3: Pull latest manifests from GitHub (clone if missing) ─
             REPO_PATH=/opt/freeshop-backend
@@ -166,14 +163,6 @@ jobs:
             if ! command -v git >/dev/null 2>&1; then
               echo "git not found on target host; please install git"
               exit 1
-            fi
-
-            # Ensure GitHub host key is known and prefer a repo-specific deploy key if present
-            mkdir -p ~/.ssh
-            ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null || true
-            if [ -f ~/.ssh/github_deploy ]; then
-              chmod 600 ~/.ssh/github_deploy || true
-              export GIT_SSH_COMMAND='ssh -i ~/.ssh/github_deploy -o UserKnownHostsFile=~/.ssh/known_hosts -o StrictHostKeyChecking=yes'
             fi
 
             if [ -d "$REPO_PATH/.git" ]; then
@@ -219,7 +208,7 @@ jobs:
               echo "  → updating $SERVICE to $IMAGE"
               kubectl set image "deployment/$SERVICE" \
                 "$SERVICE=$IMAGE" \
-                --namespace="$NAMESPACE" || \
+                --namespace="$NAMESPACE" 2>/dev/null || \
               echo "  ! deployment/$SERVICE not found — run deploy.sh first"
             done
 
@@ -229,7 +218,7 @@ jobs:
             FAILED=""
             for SERVICE in $SERVICES; do
                   if ! kubectl rollout status "deployment/$SERVICE" \
-                    --namespace="$NAMESPACE" --timeout=300s; then
+                    --namespace="$NAMESPACE" --timeout=300s 2>/dev/null; then
                 FAILED="$FAILED $SERVICE"
               fi
             done
