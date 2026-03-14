@@ -168,15 +168,7 @@ jobs:
               exit 1
             fi
 
-            if [ ! -d "$REPO_PATH/.git" ]; then
-              echo "Cloning manifests into $REPO_PATH"
-              mkdir -p "$(dirname "$REPO_PATH")"
-              git clone --depth=1 "$REPO_URL" "$REPO_PATH"
-              if [ $? -ne 0 ]; then
-                echo "git clone failed"
-                exit 1
-              fi
-            else
+            if [ -d "$REPO_PATH/.git" ]; then
               echo "Updating manifests in $REPO_PATH"
               cd "$REPO_PATH"
               git fetch origin main
@@ -187,6 +179,14 @@ jobs:
               git reset --hard origin/main
               if [ $? -ne 0 ]; then
                 echo "git reset failed"
+                exit 1
+              fi
+            else
+              echo "Cloning manifests into $REPO_PATH"
+              mkdir -p "$(dirname "$REPO_PATH")"
+              git clone --depth=1 "$REPO_URL" "$REPO_PATH"
+              if [ $? -ne 0 ]; then
+                echo "git clone failed"
                 exit 1
               fi
             fi
