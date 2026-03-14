@@ -67,6 +67,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Normalize registry owner
+        run: echo "REG_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
@@ -76,8 +79,8 @@ jobs:
           platforms: linux/amd64
           # Short SHA tag for precise rollouts; 'latest' for convenience
           tags: |
-            ghcr.io/${{ env.REGISTRY_OWNER }}/freeshop-${{ matrix.service }}:${{ steps.tag.outputs.sha }}
-            ghcr.io/${{ env.REGISTRY_OWNER }}/freeshop-${{ matrix.service }}:latest
+            ghcr.io/${{ env.REG_OWNER }}/freeshop-${{ matrix.service }}:${{ steps.tag.outputs.sha }}
+            ghcr.io/${{ env.REG_OWNER }}/freeshop-${{ matrix.service }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -123,7 +126,8 @@ jobs:
           script_stop: true
           script: |
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-            REGISTRY="ghcr.io/$REPO_OWNER"
+            REPO_OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
+            REGISTRY="ghcr.io/$REPO_OWNER_LC"
 
             echo "==================================================="
             echo " Deploying commit $SHORT_SHA → namespace $NAMESPACE"
