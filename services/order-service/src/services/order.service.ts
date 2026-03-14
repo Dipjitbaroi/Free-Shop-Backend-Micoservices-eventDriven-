@@ -23,7 +23,7 @@ interface CreateOrderData {
   guestEmail?: string;
   guestPhone?: string;
   shippingAddress: Record<string, unknown>;
-  billingAddress?: Record<string, unknown>;
+  // billingAddress?: Record<string, unknown>; // disabled - not currently used
   paymentMethod: PaymentMethod;
   customerNote?: string;
   couponCode?: string;
@@ -81,7 +81,7 @@ class OrderService {
         guestEmail: data.guestEmail,
         guestPhone: data.guestPhone,
         shippingAddress: data.shippingAddress as unknown as Prisma.InputJsonValue,
-        billingAddress: data.billingAddress as unknown as Prisma.InputJsonValue,
+        // billingAddress: data.billingAddress as unknown as Prisma.InputJsonValue, // disabled
         subtotal,
         shippingFee,
         discount,

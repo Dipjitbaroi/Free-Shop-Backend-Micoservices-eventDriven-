@@ -461,6 +461,32 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
     },
     '/users/addresses/{addressId}': {
+      get: {
+        tags: ['Users'],
+        summary: 'Get a single saved address by ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'addressId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'Address details',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { $ref: '#/components/schemas/Address' },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
       patch: {
         tags: ['Users'],
         summary: 'Update a saved address',
@@ -665,7 +691,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           { name: 'isOrganic', in: 'query', schema: { type: 'boolean' } },
           { name: 'isFeatured', in: 'query', schema: { type: 'boolean' } },
           { name: 'isFlashSale', in: 'query', schema: { type: 'boolean' } },
-          { name: 'status', in: 'query', description: 'Filter by status. If omitted, all statuses are returned.', schema: { type: 'string', enum: ['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] } },
+          { name: 'status', in: 'query', description: 'Filter by status. If omitted, all statuses are returned.', schema: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
           { name: 'sortBy', in: 'query', schema: { type: 'string', enum: ['price', 'createdAt', 'averageRating', 'totalSold'] } },
           { name: 'sortOrder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
@@ -813,26 +839,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/products/{id}/approve': {
-      post: {
+    '/products/{id}/status': {
+      patch: {
         tags: ['Products'],
-        summary: 'Approve a product (admin / manager)',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
-        responses: {
-          200: { description: 'Product approved' },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
-          404: { $ref: '#/components/responses/NotFound' },
-        },
-      },
-    },
-    '/products/{id}/reject': {
-      post: {
-        tags: ['Products'],
-        summary: 'Reject a product (admin / manager)',
+        summary: 'Update product status',
+        description: 'Single endpoint for all product status changes. Sellers can set INACTIVE or resubmit (PENDING_APPROVAL). Admins/Managers can set ACTIVE or REJECTED.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -843,14 +854,17 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['reason'],
-                properties: { reason: { type: 'string' } },
+                required: ['status'],
+                properties: {
+                  status: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'REJECTED'] },
+                  reason: { type: 'string', description: 'Required when status is REJECTED' },
+                },
               },
             },
           },
         },
         responses: {
-          200: { description: 'Product rejected' },
+          200: { description: 'Product status updated' },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
@@ -858,7 +872,6 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-
     // ─── REVIEWS ─────────────────────────────────────────────────────────────
     '/reviews': {
       get: {
@@ -3367,7 +3380,6 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           isOrganic: { type: 'boolean' },
           images: { type: 'array', items: { type: 'string', format: 'uri' } },
           tags: { type: 'array', items: { type: 'string' } },
-          status: { type: 'string', enum: ['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'INACTIVE'] },
           isFeatured: { type: 'boolean' },
         },
       },
@@ -3385,7 +3397,8 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       CreateOrderRequest: {
         type: 'object',
-        required: ['items', 'shippingAddress', 'paymentMethod', 'customerEmail', 'customerName'],
+        required: ['items', 'paymentMethod'],
+        description: 'Provide either `shippingAddressId` (UUID of a saved address) or a full `shippingAddress` inline object. One of the two is required.',
         properties: {
           customerEmail: { type: 'string', format: 'email' },
           customerName: { type: 'string' },
@@ -3402,8 +3415,16 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               },
             },
           },
-          shippingAddress: { $ref: '#/components/schemas/Address' },
-          billingAddress: { $ref: '#/components/schemas/Address' },
+          shippingAddressId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'ID of a saved address from the user profile. The server will fetch and inherit all address fields.',
+          },
+          shippingAddress: {
+            allOf: [{ $ref: '#/components/schemas/Address' }],
+            description: 'Full shipping address object. Required when shippingAddressId is not provided.',
+          },
+          // billingAddress is disabled — not currently used
           paymentMethod: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'] },
           discountCode: { type: 'string' },
           notes: { type: 'string' },
@@ -3544,7 +3565,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           images: { type: 'array', items: { type: 'string', format: 'uri' } },
           thumbnail: { type: 'string', format: 'uri' },
           tags: { type: 'array', items: { type: 'string' } },
-          status: { type: 'string', enum: ['DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] },
+          status: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] },
           isFeatured: { type: 'boolean' },
           isFlashSale: { type: 'boolean' },
           flashSalePrice: { type: 'number' },
@@ -3632,7 +3653,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           paymentMethod: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'] },
           paymentId: { type: 'string', format: 'uuid', nullable: true },
           shippingAddress: { $ref: '#/components/schemas/Address' },
-          billingAddress: { $ref: '#/components/schemas/Address' },
+          // billingAddress disabled — not currently used
           notes: { type: 'string' },
           trackingNumber: { type: 'string' },
           estimatedDeliveryDate: { type: 'string', format: 'date-time' },

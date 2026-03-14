@@ -4,6 +4,7 @@ import { cartService } from '../services/cart.service';
 import { successResponse } from '@freeshop/shared-utils';
 import { UserRole } from '@freeshop/shared-types';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client';
+import { fetchAddressById } from '../lib/user-client';
 import { BadRequestError } from '@freeshop/shared-utils';
 
 export const orderController = {
@@ -36,8 +37,20 @@ export const orderController = {
         })
       );
 
+      // Resolve shipping address: prefer saved address ID, fall back to inline object
+      const { shippingAddressId, shippingAddress: inlineShippingAddress } = req.body;
+      let shippingAddress: Record<string, unknown>;
+
+      if (shippingAddressId) {
+        const authHeader = req.headers.authorization as string;
+        shippingAddress = (await fetchAddressById(shippingAddressId, authHeader)) as unknown as Record<string, unknown>;
+      } else {
+        shippingAddress = inlineShippingAddress as Record<string, unknown>;
+      }
+
       const order = await orderService.createOrder({
         ...req.body,
+        shippingAddress,
         items: resolvedItems,
         userId,
       });

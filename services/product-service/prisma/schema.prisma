@@ -9,7 +9,6 @@ datasource db {
 }
 
 enum ProductStatus {
-  DRAFT
   PENDING_APPROVAL
   ACTIVE
   INACTIVE
@@ -74,7 +73,7 @@ model Product {
   images              String[]
   thumbnail           String?
   tags                String[]
-  status              ProductStatus @default(DRAFT)
+  status              ProductStatus @default(PENDING_APPROVAL)
   rejectionReason     String?
   isFeatured          Boolean       @default(false)
   isFlashSale         Boolean       @default(false)

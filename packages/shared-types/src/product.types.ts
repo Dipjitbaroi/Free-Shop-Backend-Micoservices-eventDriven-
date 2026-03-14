@@ -77,7 +77,6 @@ export interface IProductUpdate {
   organicCertification?: string;
   images?: string[];
   tags?: string[];
-  status?: ProductStatus;
   isFeatured?: boolean;
   metadata?: Record<string, unknown>;
 }

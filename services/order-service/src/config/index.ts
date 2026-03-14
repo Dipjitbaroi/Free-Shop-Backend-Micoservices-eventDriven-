@@ -2,6 +2,7 @@ const config = {
   port: parseInt(process.env.ORDER_SERVICE_PORT || '3004', 10),
   environment: process.env.NODE_ENV || 'development',
   productServiceUrl: process.env.PRODUCT_SERVICE_URL || 'http://localhost:3003',
+  userServiceUrl: process.env.USER_SERVICE_URL || 'http://localhost:3001',
   
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key',

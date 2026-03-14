@@ -1,5 +1,5 @@
 import { UserProfile, Address, Gender, AddressType } from '../../generated/prisma';
-import { NotFoundError } from '@freeshop/shared-utils';
+import { NotFoundError, BadRequestError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma';
 import { 
   cacheGet, 
@@ -135,6 +135,12 @@ class UserService {
       });
     }
 
+    // Enforce address limit
+    const existingCount = await prisma.address.count({ where: { userProfileId: profile.id } });
+    if (existingCount >= 3) {
+      throw new BadRequestError('You can save a maximum of 3 addresses');
+    }
+
     // If this is the first address or set as default, update others
     if (data.isDefault) {
       await prisma.address.updateMany({
@@ -246,6 +252,24 @@ class UserService {
     }
 
     await cacheDelete(addressesCacheKey(userId));
+  }
+
+  async getAddressById(userId: string, addressId: string): Promise<Address> {
+    const profile = await prisma.userProfile.findUnique({
+      where: { userId },
+      include: { addresses: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundError('Profile not found');
+    }
+
+    const address = profile.addresses.find((a: Address) => a.id === addressId);
+    if (!address) {
+      throw new NotFoundError('Address not found');
+    }
+
+    return address;
   }
 
   async setDefaultAddress(userId: string, addressId: string): Promise<Address> {

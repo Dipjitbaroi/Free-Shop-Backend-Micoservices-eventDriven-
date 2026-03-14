@@ -67,6 +67,17 @@ export const userController = {
     }
   },
 
+  async getAddressById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id as string;
+      const { addressId } = req.params;
+      const address = await userService.getAddressById(userId, addressId);
+      res.json(successResponse(address, 'Address retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async setDefaultAddress(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id as string;

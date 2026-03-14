@@ -40,7 +40,7 @@ const productFilterValidation = [
   query('minPrice').optional().isFloat({ min: 0 }),
   query('maxPrice').optional().isFloat({ min: 0 }),
   query('isOrganic').optional().isIn(['true', 'false']),
-  query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED', 'INACTIVE']),
+  query('status').optional().isIn(['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED']),
   query('sortBy').optional().isIn(['price', 'createdAt', 'rating', 'sold']),
   query('sortOrder').optional().isIn(['asc', 'desc']),
 ];
@@ -70,7 +70,7 @@ router.get(
   authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
   [
     ...paginationValidation,
-    query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED', 'INACTIVE']),
+    query('status').optional().isIn(['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED']),
   ],
   validate,
   productController.getSellerProducts
@@ -111,24 +111,20 @@ router.delete(
   productController.deleteProduct
 );
 
-// Admin routes
-router.post(
-  '/:id/approve',
+// Unified status update (seller + admin)
+router.patch(
+  '/:id/status',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
-  param('id').isUUID().withMessage('Valid product ID is required'),
+  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  [
+    param('id').isUUID().withMessage('Valid product ID is required'),
+    body('status')
+      .isIn(['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'REJECTED'])
+      .withMessage('Invalid status value'),
+    body('reason').optional().isString().trim(),
+  ],
   validate,
-  productController.approveProduct
-);
-
-router.post(
-  '/:id/reject',
-  authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
-  param('id').isUUID().withMessage('Valid product ID is required'),
-  body('reason').isString().notEmpty().withMessage('Rejection reason is required'),
-  validate,
-  productController.rejectProduct
+  productController.updateProductStatus
 );
 
 export default router;
