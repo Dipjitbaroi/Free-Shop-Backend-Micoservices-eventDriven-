@@ -165,6 +165,12 @@ jobs:
               exit 1
             fi
 
+            # If a deploy key exists on the VPS, force git to use it for SSH
+            if [ -f ~/.ssh/github_deploy ]; then
+              chmod 600 ~/.ssh/github_deploy || true
+              export GIT_SSH_COMMAND='ssh -i ~/.ssh/github_deploy -o UserKnownHostsFile=~/.ssh/known_hosts -o StrictHostKeyChecking=yes'
+            fi
+
             if [ -d "$REPO_PATH/.git" ]; then
               echo "Updating manifests in $REPO_PATH"
               cd "$REPO_PATH"
