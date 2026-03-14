@@ -11,7 +11,7 @@ This project follows an **Event-Driven Microservices Architecture** with the fol
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              API Gateway                                    │
-│                    (Routing, Auth, Rate Limiting)                           │
+│                    (Routing, Auth, Rate Limiting)                            │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
         ┌───────────────────────────┼───────────────────────────┐
