@@ -32,6 +32,7 @@ const swaggerDocument = {
     { name: 'Notifications', description: 'Notification management (admin)' },
     { name: 'Analytics', description: 'Analytics & reporting (admin/manager)' },
     { name: 'Health', description: 'Service health checks' },
+    { name: 'Settings', description: 'Platform settings (delivery charges etc.)' },
   ],
   paths: {
     // ─── AUTH ────────────────────────────────────────────────────────────────
@@ -672,6 +673,82 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         responses: {
           200: { description: 'History cleared' },
           401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/settings/delivery': {
+      get: {
+        tags: ['Settings'],
+        summary: 'Get delivery charges (admin/manager)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Delivery charges object and zones',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        deliveryCharges: { type: 'object', additionalProperties: { type: 'number' } },
+                        zones: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+      put: {
+        tags: ['Settings'],
+        summary: 'Update delivery charges (admin/manager)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                additionalProperties: { type: 'number' },
+                example: { in_feni: 60, in_dhaka: 50, outside_dhaka: 120 },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Delivery charges updated' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/settings/delivery/zones': {
+      get: {
+        tags: ['Settings'],
+        summary: 'List available delivery zones (public)',
+        responses: {
+          200: {
+            description: 'Available delivery zones',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { type: 'object', properties: { zones: { type: 'array', items: { type: 'string' } } } },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },

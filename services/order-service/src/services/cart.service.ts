@@ -3,6 +3,7 @@ import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma';
 import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis';
 import config from '../config';
+import { settingsService } from './settings.service';
 
 type CartWithItems = Prisma.CartGetPayload<{
   include: { items: true };
@@ -185,21 +186,45 @@ class CartService {
     return this.getCart(userId, undefined);
   }
 
-  async getCartSummary(userId?: string, guestId?: string): Promise<{
+  /**
+   * Get cart summary with delivery charge by zone.
+   * @param userId
+   * @param guestId
+   * @param shippingZone (optional) - zone key to use for delivery charge
+   */
+  async getCartSummary(userId?: string, guestId?: string, shippingZone?: string): Promise<{
     itemCount: number;
     subtotal: number;
     shippingFee: number;
     total: number;
   }> {
     const cart = await this.getCart(userId, guestId);
-    
     if (!cart || cart.items.length === 0) {
       return { itemCount: 0, subtotal: 0, shippingFee: 0, total: 0 };
     }
 
     const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const shippingFee = subtotal >= config.order.freeShippingMinAmount ? 0 : config.order.defaultShippingFee;
-    
+
+    // Get deliveryCharges from settings
+    let deliveryCharges: Record<string, number> = {};
+    try {
+      const charges = await settingsService.get('deliveryCharges');
+      if (charges && typeof charges === 'object') {
+        deliveryCharges = charges;
+      }
+    } catch {}
+
+    // Determine shipping fee by zone
+    let shippingFee = 0;
+    if (shippingZone && deliveryCharges[shippingZone] !== undefined) {
+      shippingFee = deliveryCharges[shippingZone];
+    } else if (deliveryCharges['default'] !== undefined) {
+      shippingFee = deliveryCharges['default'];
+    } else {
+      // fallback to 0 if no deliveryCharges set
+      shippingFee = 0;
+    }
+
     return {
       itemCount: cart.items.reduce((sum, item) => sum + item.quantity, 0),
       subtotal,

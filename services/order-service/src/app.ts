@@ -8,9 +8,11 @@ import {
   notFoundHandler,
 } from '@freeshop/shared-middleware';
 
+
 import cartRoutes from './routes/cart.routes';
 import orderRoutes from './routes/order.routes';
 import healthRoutes from './routes/health.routes';
+import settingsRoutes from './routes/settings.routes';
 
 const app: Application = express();
 
@@ -23,8 +25,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/', healthRoutes);
+
 app.use('/cart', cartRoutes);
 app.use('/orders', orderRoutes);
+app.use('/settings', settingsRoutes);
 
 // Error handling
 app.use(notFoundHandler);

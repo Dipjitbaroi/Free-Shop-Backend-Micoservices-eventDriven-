@@ -17,8 +17,6 @@ const config = {
   },
   
   order: {
-    defaultShippingFee: parseFloat(process.env.DEFAULT_SHIPPING_FEE || '60'),
-    freeShippingMinAmount: parseFloat(process.env.FREE_SHIPPING_MIN_AMOUNT || '500'),
     guestCartExpiryHours: parseInt(process.env.GUEST_CART_EXPIRY_HOURS || '72', 10),
   },
   
