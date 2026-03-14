@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "ProductStatus" AS ENUM ('DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED');
+CREATE TYPE "ProductStatus" AS ENUM ('PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED');
 
 -- CreateEnum
 CREATE TYPE "DiscountType" AS ENUM ('PERCENTAGE', 'FIXED_AMOUNT');
@@ -49,7 +49,7 @@ CREATE TABLE "products" (
     "images" TEXT[],
     "thumbnail" TEXT,
     "tags" TEXT[],
-    "status" "ProductStatus" NOT NULL DEFAULT 'DRAFT',
+    "status" "ProductStatus" NOT NULL DEFAULT 'PENDING_APPROVAL',
     "rejectionReason" TEXT,
     "isFeatured" BOOLEAN NOT NULL DEFAULT false,
     "isFlashSale" BOOLEAN NOT NULL DEFAULT false,

@@ -9,6 +9,8 @@ import {
   generateSlug, 
   generateSku, 
   NotFoundError, 
+  BadRequestError,
+  ForbiddenError,
   calculateOffset,
   createPaginatedResponse,
 } from '@freeshop/shared-utils';
@@ -273,7 +275,6 @@ class ProductService {
     if (data.organicCertification !== undefined) updateData.organicCertification = data.organicCertification;
     if (data.images !== undefined) updateData.images = data.images;
     if (data.tags !== undefined) updateData.tags = data.tags;
-    if (data.status !== undefined) updateData.status = data.status;
     if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured;
     if (data.metadata !== undefined) updateData.metadata = data.metadata as Prisma.JsonObject;
 
@@ -326,49 +327,53 @@ class ProductService {
     ]);
   }
 
-  async approveProduct(id: string, _approverId?: string): Promise<Product> {
-    const product = await prisma.product.update({
+  async updateProductStatus(
+    id: string,
+    status: ProductStatus,
+    actorRole: string,
+    reason?: string,
+  ): Promise<Product> {
+    const product = await prisma.product.findUnique({ where: { id }, include: { category: true } });
+    if (!product) throw new NotFoundError('Product not found');
+
+    const isAdmin = ['ADMIN', 'MANAGER'].includes(actorRole);
+
+    if (status === ProductStatus.OUT_OF_STOCK) {
+      throw new BadRequestError('OUT_OF_STOCK is managed automatically by the inventory service');
+    }
+    if (status === ProductStatus.ACTIVE && !isAdmin) {
+      throw new ForbiddenError('Only admins can approve products');
+    }
+    if (status === ProductStatus.REJECTED) {
+      if (!isAdmin) throw new ForbiddenError('Only admins can reject products');
+      if (!reason) throw new BadRequestError('Rejection reason is required');
+    }
+    if (status === ProductStatus.PENDING_APPROVAL && isAdmin) {
+      throw new ForbiddenError('Admins cannot submit products for approval');
+    }
+
+    const updateData: Prisma.ProductUpdateInput = { status };
+    if (status === ProductStatus.ACTIVE) updateData.rejectionReason = null;
+    if (status === ProductStatus.REJECTED) updateData.rejectionReason = reason;
+    if (status === ProductStatus.PENDING_APPROVAL) updateData.rejectionReason = null;
+
+    const updated = await prisma.product.update({
       where: { id },
-      data: {
-        status: ProductStatus.ACTIVE,
-        rejectionReason: null,
-      },
+      data: updateData,
       include: { category: true },
     });
 
     await eventPublisher.productStatusChanged({
       productId: id,
-      sellerId: product.sellerId,
-      previousStatus: 'PENDING_APPROVAL',
-      newStatus: 'ACTIVE',
+      sellerId: updated.sellerId,
+      previousStatus: product.status,
+      newStatus: status,
+      ...(reason && { reason }),
     });
 
     await cacheDelete(productCacheKey(id));
 
-    return product;
-  }
-
-  async rejectProduct(id: string, reason: string, _rejecterId?: string): Promise<Product> {
-    const product = await prisma.product.update({
-      where: { id },
-      data: {
-        status: ProductStatus.REJECTED,
-        rejectionReason: reason,
-      },
-      include: { category: true },
-    });
-
-    await eventPublisher.productStatusChanged({
-      productId: id,
-      sellerId: product.sellerId,
-      previousStatus: 'PENDING_APPROVAL',
-      newStatus: 'REJECTED',
-      reason,
-    });
-
-    await cacheDelete(productCacheKey(id));
-
-    return product;
+    return updated;
   }
 
   async getSellerProducts(sellerId: string, filter: IProductFilter): Promise<IPaginatedResult<Product>> {

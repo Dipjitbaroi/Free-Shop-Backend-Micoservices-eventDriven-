@@ -19,7 +19,7 @@ export interface IOrder {
   paymentMethod: PaymentMethod;
   paymentId?: string;
   shippingAddress: IShippingAddress;
-  billingAddress?: IShippingAddress;
+  // billingAddress?: IShippingAddress; // disabled - not currently used
   notes?: string;
   trackingNumber?: string;
   estimatedDeliveryDate?: Date;
@@ -66,8 +66,10 @@ export interface IOrderCreate {
   customerPhone?: string;
   customerName: string;
   items: IOrderItemCreate[];
-  shippingAddress: IShippingAddress;
-  billingAddress?: IShippingAddress;
+  /** Provide either shippingAddressId (to inherit a saved address) or shippingAddress inline */
+  shippingAddressId?: string;
+  shippingAddress?: IShippingAddress;
+  // billingAddress?: IShippingAddress; // disabled - not currently used
   paymentMethod: PaymentMethod;
   discountCode?: string;
   notes?: string;
@@ -133,8 +135,10 @@ export interface ICartItemAdd {
 
 export interface ICheckoutData {
   cart: ICart;
-  shippingAddress: IShippingAddress;
-  billingAddress?: IShippingAddress;
+  /** Provide either shippingAddressId (to inherit a saved address) or shippingAddress inline */
+  shippingAddressId?: string;
+  shippingAddress?: IShippingAddress;
+  // billingAddress?: IShippingAddress; // disabled - not currently used
   paymentMethod: PaymentMethod;
   customerEmail: string;
   customerPhone?: string;

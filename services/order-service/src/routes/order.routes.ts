@@ -9,7 +9,21 @@ const router = Router();
 
 // Validation schemas
 const createOrderValidation = [
-  body('shippingAddress').isObject().withMessage('Shipping address is required'),
+  // Accept either a saved address ID or a full inline address object
+  body('shippingAddressId')
+    .optional()
+    .isUUID()
+    .withMessage('shippingAddressId must be a valid UUID'),
+  body('shippingAddress')
+    .optional()
+    .isObject()
+    .withMessage('shippingAddress must be an object'),
+  body().custom((value: Record<string, unknown>) => {
+    if (!value.shippingAddressId && !value.shippingAddress) {
+      throw new Error('Either shippingAddressId or shippingAddress is required');
+    }
+    return true;
+  }),
   body('paymentMethod').isIn(['COD', 'BKASH', 'NAGAD', 'ROCKET', 'EPS', 'CARD', 'BANK_TRANSFER'])
     .withMessage('Valid payment method is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),

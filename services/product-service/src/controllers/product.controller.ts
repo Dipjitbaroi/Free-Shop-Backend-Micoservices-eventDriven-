@@ -90,20 +90,13 @@ export const productController = {
     }
   },
 
-  async approveProduct(req: Request, res: Response, next: NextFunction) {
+  async updateProductStatus(req: Request, res: Response, next: NextFunction) {
     try {
-      const product = await productService.approveProduct(req.params.id);
-      res.json(successResponse(product, 'Product approved successfully'));
-    } catch (error) {
-      next(error);
-    }
-  },
-
-  async rejectProduct(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { reason } = req.body;
-      const product = await productService.rejectProduct(req.params.id, reason);
-      res.json(successResponse(product, 'Product rejected'));
+      const { id } = req.params;
+      const { status, reason } = req.body;
+      const actorRole = req.user?.role as string;
+      const product = await productService.updateProductStatus(id, status, actorRole, reason);
+      res.json(successResponse(product, 'Product status updated successfully'));
     } catch (error) {
       next(error);
     }

@@ -53,7 +53,7 @@ model Order {
   
   // Shipping info (snapshot)
   shippingAddress Json
-  billingAddress  Json?
+  // billingAddress  Json?  // disabled - not currently used
   
   // Order totals
   subtotal        Float
