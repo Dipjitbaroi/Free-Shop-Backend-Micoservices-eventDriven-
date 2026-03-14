@@ -212,20 +212,9 @@ jobs:
             fi
 
             # ── Step 4: Rolling update — inject exact SHA image tag ─────────
-            SERVICES=(
-              api-gateway
-              auth-service
-              user-service
-              product-service
-              order-service
-              payment-service
-              inventory-service
-              seller-service
-              notification-service
-              analytics-service
-            )
+            SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service seller-service notification-service analytics-service"
 
-            for SERVICE in "${SERVICES[@]}"; do
+            for SERVICE in $SERVICES; do
               IMAGE="$REGISTRY/freeshop-$SERVICE:$SHORT_SHA"
               echo "  → updating $SERVICE to $IMAGE"
               kubectl set image "deployment/$SERVICE" \
@@ -238,7 +227,7 @@ jobs:
             echo ""
             echo "--- Waiting for rollouts (300s timeout each) ---"
             FAILED=""
-            for SERVICE in "${SERVICES[@]}"; do
+            for SERVICE in $SERVICES; do
                   if ! kubectl rollout status "deployment/$SERVICE" \
                     --namespace="$NAMESPACE" --timeout=300s; then
                 FAILED="$FAILED $SERVICE"
