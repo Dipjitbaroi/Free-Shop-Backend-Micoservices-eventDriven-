@@ -26,8 +26,14 @@ jobs:
       - name: Install root workspace deps
         run: npm ci
 
-      - name: Generate Prisma client
-        run: npx prisma generate
+      - name: Generate Prisma client for all services
+        run: |
+          for SERVICE in services/*/; do
+            if [ -f "$SERVICE/prisma/schema.prisma" ]; then
+              echo "Generating Prisma client for $SERVICE"
+              npx prisma generate --schema="$SERVICE/prisma/schema.prisma"
+            fi
+          done
 
       - name: Build shared packages first
         run: |
