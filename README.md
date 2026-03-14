@@ -10,7 +10,7 @@ This project follows an **Event-Driven Microservices Architecture** with the fol
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              API Gateway                                     │
+│                              API Gateway                                    │
 │                    (Routing, Auth, Rate Limiting)                           │
 └─────────────────────────────────────────────────────────────────────────────┘
                                     │
