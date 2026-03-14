@@ -157,10 +157,25 @@ jobs:
               -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}' \
               2>/dev/null || true
 
-            # ── Step 3: Pull latest manifests from GitHub ───────────────────
-            cd /opt/freeshop-backend
-            git fetch origin main
-            git reset --hard origin/main
+            # ── Step 3: Pull latest manifests from GitHub (clone if missing) ─
+            REPO_PATH=/opt/freeshop-backend
+            REPO_URL="https://github.com/${REPO_OWNER}/Free-Shop-Backend-Micoservices-eventDriven-.git"
+
+            if ! command -v git >/dev/null 2>&1; then
+              echo "git not found on target host; please install git"
+              exit 1
+            fi
+
+            if [ ! -d "$REPO_PATH/.git" ]; then
+              echo "Cloning manifests into $REPO_PATH"
+              mkdir -p "$(dirname "$REPO_PATH")"
+              git clone --depth=1 "$REPO_URL" "$REPO_PATH" || { echo "git clone failed"; exit 1; }
+            else
+              echo "Updating manifests in $REPO_PATH"
+              cd "$REPO_PATH" && git fetch origin main && git reset --hard origin/main || { echo "git fetch/reset failed"; exit 1; }
+            fi
+
+            cd "$REPO_PATH"
 
             # ── Step 4: Rolling update — inject exact SHA image tag ─────────
             SERVICES=(
