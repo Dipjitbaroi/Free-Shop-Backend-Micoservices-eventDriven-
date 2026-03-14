@@ -73,9 +73,9 @@ spec:
             - name: ANALYTICS_SERVICE_URL
               value: "http://analytics-service:3009"
             - name: PUBLIC_API_URL
-              value: "https://api.YOUR_DOMAIN.com/api/v1"  # <-- Change this
+              value: "https://api.freeshopbd.com/api/v1"  # set to your live API base URL
             - name: CORS_ORIGIN
-              value: "https://YOUR_VERCEL_DOMAIN.vercel.app,https://YOUR_CUSTOM_DOMAIN.com"  # <-- Change to your Vercel frontend URL
+              value: "https://www.freeshopbd.com,https://api.freeshopbd.com"  # allow frontend + API (Swagger UI) origins
           resources:
             requests:
               cpu: "150m"
