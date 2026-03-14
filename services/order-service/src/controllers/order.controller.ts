@@ -5,6 +5,7 @@ import { successResponse } from '@freeshop/shared-utils';
 import { UserRole } from '@freeshop/shared-types';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client';
 import { fetchAddressById } from '../lib/user-client';
+import { settingsService } from '../services/settings.service';
 import { BadRequestError } from '@freeshop/shared-utils';
 
 export const orderController = {
@@ -42,10 +43,32 @@ export const orderController = {
       let shippingAddress: Record<string, unknown>;
 
       if (shippingAddressId) {
+        // Saved address IDs require an authenticated user to prevent guest misuse
+        if (!req.user || !req.headers.authorization) {
+          throw new BadRequestError('Authentication required to use a saved shippingAddressId');
+        }
         const authHeader = req.headers.authorization as string;
         shippingAddress = (await fetchAddressById(shippingAddressId, authHeader)) as unknown as Record<string, unknown>;
       } else {
         shippingAddress = inlineShippingAddress as Record<string, unknown>;
+      }
+
+      // Require shipping zone to be present on resolved address
+      if (!shippingAddress || typeof shippingAddress !== 'object' || !('zone' in shippingAddress) || !String((shippingAddress as any).zone).trim()) {
+        throw new BadRequestError('shippingAddress.zone is required');
+      }
+
+      // Validate zone exists in configured delivery charges
+      try {
+        const deliveryCharges = (await settingsService.get('deliveryCharges')) || {};
+        const zone = String((shippingAddress as any).zone);
+        if (!deliveryCharges || typeof deliveryCharges !== 'object' || deliveryCharges[zone] === undefined) {
+          throw new BadRequestError(`Unknown shipping zone: ${zone}`);
+        }
+      } catch (err) {
+        // If settings fetch fails, surface a generic error
+        if (err instanceof BadRequestError) throw err;
+        throw new BadRequestError('Could not validate shipping zone');
       }
 
       const order = await orderService.createOrder({
