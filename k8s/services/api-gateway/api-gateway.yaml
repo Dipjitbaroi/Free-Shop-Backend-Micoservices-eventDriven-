@@ -75,7 +75,7 @@ spec:
             - name: PUBLIC_API_URL
               value: "https://api.freeshopbd.com/api/v1"  # set to your live API base URL
             - name: CORS_ORIGIN
-              value: "https://www.freeshopbd.com,https://api.freeshopbd.com,http://localhost:3000"  # allow frontend + API (Swagger UI) origins
+              value: "https://www.freeshopbd.com,https://freeshopbd.com,https://api.freeshopbd.com,http://localhost:3000"  # allow frontend (www + non-www), API and Swagger UI origins
           resources:
             requests:
               cpu: "150m"
