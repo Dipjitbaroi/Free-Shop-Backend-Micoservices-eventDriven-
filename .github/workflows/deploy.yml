@@ -57,6 +57,13 @@ jobs:
         id: tag
         run: echo "sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
+      - name: Test SSH (verbose)
+        run: |
+          mkdir -p /tmp/sshkey
+          echo "${{ secrets.VPS_SSH_KEY }}" > /tmp/sshkey/key
+          chmod 600 /tmp/sshkey/key
+          ssh -i /tmp/sshkey/key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -vvv ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} exit || true
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -123,6 +130,7 @@ jobs:
           host:     ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key:      ${{ secrets.VPS_SSH_KEY }}
+          debug:    true
           envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE
           script_stop: true
           script: |
@@ -179,11 +187,11 @@ jobs:
 
             # ── Step 5: Wait for rollouts ────────────────────────────────────
             echo ""
-            echo "--- Waiting for rollouts (120s timeout each) ---"
+            echo "--- Waiting for rollouts (300s timeout each) ---"
             FAILED=""
             for SERVICE in "${SERVICES[@]}"; do
               if ! kubectl rollout status "deployment/$SERVICE" \
-                   --namespace="$NAMESPACE" --timeout=120s 2>/dev/null; then
+                   --namespace="$NAMESPACE" --timeout=300s 2>/dev/null; then
                 FAILED="$FAILED $SERVICE"
               fi
             done
