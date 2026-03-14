@@ -177,6 +177,16 @@ jobs:
 
             cd "$REPO_PATH"
 
+            # Use k8s manifests from the backend repo if present
+            MANIFESTS_DIR="$REPO_PATH/k8s"
+            if [ -d "$MANIFESTS_DIR" ]; then
+              echo "Using manifests from $MANIFESTS_DIR"
+              kubectl apply --dry-run=client -f "$MANIFESTS_DIR" --namespace="$NAMESPACE" || \
+                echo "WARNING: manifest dry-run failed (continue)"
+            else
+              echo "WARNING: no manifests directory at $MANIFESTS_DIR"
+            fi
+
             # ── Step 4: Rolling update — inject exact SHA image tag ─────────
             SERVICES=(
               api-gateway
