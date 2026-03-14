@@ -26,6 +26,9 @@ jobs:
       - name: Install root workspace deps
         run: npm ci
 
+      - name: Generate Prisma client
+        run: npx prisma generate
+
       - name: Build shared packages first
         run: |
           for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
