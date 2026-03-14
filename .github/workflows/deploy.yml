@@ -135,6 +135,8 @@ jobs:
           script_stop: true
           script: |
             set -x
+            # Disable automatic exit on non-zero so we can handle errors explicitly
+            set +e
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
             REPO_OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
             REGISTRY="ghcr.io/$REPO_OWNER_LC"
@@ -169,10 +171,24 @@ jobs:
             if [ ! -d "$REPO_PATH/.git" ]; then
               echo "Cloning manifests into $REPO_PATH"
               mkdir -p "$(dirname "$REPO_PATH")"
-              git clone --depth=1 "$REPO_URL" "$REPO_PATH" || { echo "git clone failed"; exit 1; }
+              git clone --depth=1 "$REPO_URL" "$REPO_PATH"
+              if [ $? -ne 0 ]; then
+                echo "git clone failed"
+                exit 1
+              fi
             else
               echo "Updating manifests in $REPO_PATH"
-              cd "$REPO_PATH" && git fetch origin main && git reset --hard origin/main || { echo "git fetch/reset failed"; exit 1; }
+              cd "$REPO_PATH"
+              git fetch origin main
+              if [ $? -ne 0 ]; then
+                echo "git fetch failed"
+                exit 1
+              fi
+              git reset --hard origin/main
+              if [ $? -ne 0 ]; then
+                echo "git reset failed"
+                exit 1
+              fi
             fi
 
             cd "$REPO_PATH"
