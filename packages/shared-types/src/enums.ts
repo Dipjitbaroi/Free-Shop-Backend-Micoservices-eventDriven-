@@ -58,7 +58,6 @@ export enum PaymentMethod {
 
 // Product Status
 export enum ProductStatus {
-  DRAFT = 'DRAFT',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',

@@ -2,6 +2,7 @@ const config = {
   port: parseInt(process.env.ORDER_SERVICE_PORT || '3004', 10),
   environment: process.env.NODE_ENV || 'development',
   productServiceUrl: process.env.PRODUCT_SERVICE_URL || 'http://localhost:3003',
+  userServiceUrl: process.env.USER_SERVICE_URL || 'http://localhost:3001',
   
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key',
@@ -16,8 +17,6 @@ const config = {
   },
   
   order: {
-    defaultShippingFee: parseFloat(process.env.DEFAULT_SHIPPING_FEE || '60'),
-    freeShippingMinAmount: parseFloat(process.env.FREE_SHIPPING_MIN_AMOUNT || '500'),
     guestCartExpiryHours: parseInt(process.env.GUEST_CART_EXPIRY_HOURS || '72', 10),
   },
   

@@ -39,6 +39,12 @@ router.patch('/profile', updateProfileValidation, validate, userController.updat
 
 // Address routes
 router.get('/addresses', userController.getAddresses);
+router.get(
+  '/addresses/:addressId',
+  param('addressId').isUUID(),
+  validate,
+  userController.getAddressById
+);
 router.post('/addresses', addAddressValidation, validate, userController.addAddress);
 router.patch(
   '/addresses/:addressId',

@@ -53,7 +53,7 @@ model Order {
   
   // Shipping info (snapshot)
   shippingAddress Json
-  billingAddress  Json?
+  // billingAddress  Json?  // disabled - not currently used
   
   // Order totals
   subtotal        Float
@@ -170,6 +170,15 @@ model CouponUsage {
   @@unique([couponId, orderId])
   @@index([couponId])
   @@index([userId])
+}
+
+// Platform-wide settings stored as key/value pairs. `value` is JSON to allow
+// structured settings (e.g. deliveryCharges object).
+model Setting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime?
 }
 
 enum OrderStatus {

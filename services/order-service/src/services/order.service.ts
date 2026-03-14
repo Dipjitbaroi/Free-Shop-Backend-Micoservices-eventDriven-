@@ -11,8 +11,10 @@ import { prisma } from '../lib/prisma';
 import { eventPublisher } from '../lib/message-broker';
 import { Events } from '@freeshop/shared-events';
 import { cacheDelete, orderCacheKey } from '../lib/redis';
+
 import config from '../config';
 import { cartService } from './cart.service';
+import { settingsService } from './settings.service';
 
 interface OrderWithItems extends Order {
   items: OrderItem[];
@@ -23,7 +25,7 @@ interface CreateOrderData {
   guestEmail?: string;
   guestPhone?: string;
   shippingAddress: Record<string, unknown>;
-  billingAddress?: Record<string, unknown>;
+  // billingAddress?: Record<string, unknown>; // disabled - not currently used
   paymentMethod: PaymentMethod;
   customerNote?: string;
   couponCode?: string;
@@ -51,6 +53,7 @@ interface OrderFilters {
 }
 
 class OrderService {
+
   async createOrder(data: CreateOrderData): Promise<OrderWithItems> {
     // Calculate totals
     const subtotal = data.items.reduce((sum, item) => {
@@ -58,9 +61,31 @@ class OrderService {
       return sum + itemTotal;
     }, 0);
 
-    const shippingFee = subtotal >= config.order.freeShippingMinAmount 
-      ? 0 
-      : config.order.defaultShippingFee;
+    // Get deliveryCharges from settings
+    let deliveryCharges: Record<string, number> = {};
+    try {
+      const charges = await settingsService.get('deliveryCharges');
+      if (charges && typeof charges === 'object') {
+        deliveryCharges = charges;
+      }
+    } catch {}
+
+    // Determine shipping zone from shippingAddress (expects a 'zone' property)
+    let shippingZone = '';
+    if (data.shippingAddress && typeof data.shippingAddress === 'object' && 'zone' in data.shippingAddress) {
+      shippingZone = String((data.shippingAddress as any).zone);
+    }
+
+    // shipping zone must be provided and must exist in deliveryCharges
+    if (!shippingZone) {
+      throw new BadRequestError('shippingAddress.zone is required');
+    }
+
+    if (!deliveryCharges || typeof deliveryCharges !== 'object' || deliveryCharges[shippingZone] === undefined) {
+      throw new BadRequestError(`Unknown shipping zone: ${shippingZone}`);
+    }
+
+    const shippingFee = deliveryCharges[shippingZone];
 
     // Apply coupon if provided
     let couponDiscount = 0;
@@ -81,7 +106,6 @@ class OrderService {
         guestEmail: data.guestEmail,
         guestPhone: data.guestPhone,
         shippingAddress: data.shippingAddress as unknown as Prisma.InputJsonValue,
-        billingAddress: data.billingAddress as unknown as Prisma.InputJsonValue,
         subtotal,
         shippingFee,
         discount,
@@ -373,9 +397,22 @@ class OrderService {
       case 'FIXED':
         discount = Math.min(coupon.value, subtotal);
         break;
-      case 'FREE_SHIPPING':
-        discount = config.order.defaultShippingFee;
+      case 'FREE_SHIPPING': {
+        // Try to use deliveryCharges['default'] if available, else fallback
+        let deliveryCharges: Record<string, number> = {};
+        try {
+          const charges = await settingsService.get('deliveryCharges');
+          if (charges && typeof charges === 'object') {
+            deliveryCharges = charges;
+          }
+        } catch {}
+        if (deliveryCharges['default'] !== undefined) {
+          discount = deliveryCharges['default'];
+        } else {
+          discount = 0;
+        }
         break;
+      }
     }
 
     return { valid: true, discount };
