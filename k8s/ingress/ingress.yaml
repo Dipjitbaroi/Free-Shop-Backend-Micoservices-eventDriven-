@@ -12,6 +12,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
@@ -24,13 +25,21 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.YOUR_DOMAIN.com       # <-- Change this
+        - api.freeshopbd.com       # <-- Change this
       secretName: freeshop-tls
   rules:
     # Backend API (Frontend is deployed on Vercel, not on this VPS)
-    - host: api.YOUR_DOMAIN.com     # <-- Change this
+    - host: api.freeshopbd.com     # <-- Change this
       http:
         paths:
+          - path: /api/v1(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 3000
+          # regex above strips /api/v1 prefix so the gateway receives /health, /ready, etc.
           - path: /
             pathType: Prefix
             backend:
