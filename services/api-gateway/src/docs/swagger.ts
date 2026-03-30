@@ -3499,7 +3499,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
           shippingAddress: {
             allOf: [{ $ref: '#/components/schemas/Address' }],
-            description: 'Full shipping address object. Required when shippingAddressId is not provided.',
+            description: 'Full shipping address object. Required when shippingAddressId is not provided. When providing an inline shippingAddress, include the `zone` property so the server can calculate delivery charges.',
           },
           // billingAddress is disabled — not currently used
           paymentMethod: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'] },
@@ -4031,6 +4031,8 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           addressLine2: { type: 'string' },
           city: { type: 'string' },
           state: { type: 'string' },
+          // Optional shipping zone identifier. Required for order creation when providing inline shippingAddress.
+          zone: { type: 'string' },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
         },

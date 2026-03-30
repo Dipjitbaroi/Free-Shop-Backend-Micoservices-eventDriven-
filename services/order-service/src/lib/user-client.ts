@@ -11,6 +11,7 @@ export interface AddressSnapshot {
   division?: string;
   postalCode: string;
   country: string;
+  zone?: string;
 }
 
 /**
@@ -49,6 +50,9 @@ export async function fetchAddressById(
   const body = (await response.json()) as any;
   const a = body?.data ?? body;
 
+  // Prefer an explicit 'zone' property from user-service, fall back to district/state
+  const zone = a.zone ?? a.zoneName ?? a.district ?? a.state ?? undefined;
+
   return {
     fullName: a.fullName,
     phone: a.phone,
@@ -59,5 +63,6 @@ export async function fetchAddressById(
     division: a.division ?? undefined,
     postalCode: a.postalCode ?? '',
     country: a.country ?? 'Bangladesh',
+    zone: zone ? String(zone) : undefined,
   };
 }

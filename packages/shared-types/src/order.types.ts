@@ -55,6 +55,8 @@ export interface IShippingAddress {
   addressLine2?: string;
   city: string;
   state: string;
+  /** Shipping zone identifier (used to calculate delivery charges) */
+  zone?: string;
   postalCode: string;
   country: string;
 }
