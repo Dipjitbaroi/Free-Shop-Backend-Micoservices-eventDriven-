@@ -15,7 +15,7 @@ export const orderController = {
       const guestId = req.headers['x-guest-id'] as string;
 
       // Resolve product details server-side — never trust client-supplied price/sellerId
-      const rawItems = req.body.items as { productId: string; quantity: number }[];
+      const rawItems = req.body.items as { productId: string; quantity: number; freeItemId?: string }[];
       const resolvedItems = await Promise.all(
         rawItems.map(async (item) => {
           const product = await fetchProduct(item.productId);
@@ -25,6 +25,13 @@ export const orderController = {
           if (product.stock < item.quantity) {
             throw new BadRequestError(`Insufficient stock for "${product.name}". Available: ${product.stock}`);
           }
+          // Validate freeItemId if provided
+          if (item.freeItemId) {
+            const found = Array.isArray((product as any).freeItems) && (product as any).freeItems.find((fi: any) => fi.id === item.freeItemId);
+            if (!found) {
+              throw new BadRequestError(`Invalid freeItemId for product "${product.name}"`);
+            }
+          }
           return {
             productId: product.id,
             sellerId: product.sellerId,
@@ -33,6 +40,7 @@ export const orderController = {
             productImage: product.images[0] ?? undefined,
             unit: product.unit,
             quantity: item.quantity,
+            freeItemId: item.freeItemId,
             price: resolveEffectivePrice(product),
           };
         })
