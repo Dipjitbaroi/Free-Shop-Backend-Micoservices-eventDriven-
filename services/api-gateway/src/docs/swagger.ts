@@ -3437,6 +3437,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           tags: { type: 'array', items: { type: 'string' } },
           isFeatured: { type: 'boolean' },
           metadata: { type: 'object', additionalProperties: true },
+          freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItemCreate' } },
         },
       },
       UpdateProductRequest: {
@@ -3458,6 +3459,30 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           images: { type: 'array', items: { type: 'string', format: 'uri' } },
           tags: { type: 'array', items: { type: 'string' } },
           isFeatured: { type: 'boolean' },
+          freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItemCreate' } },
+        },
+      },
+
+      FreeItemCreate: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          description: { type: 'string' },
+          sku: { type: 'string' },
+          image: { type: 'string', format: 'uri' },
+        },
+      },
+      FreeItem: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          productId: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          sku: { type: 'string' },
+          image: { type: 'string', format: 'uri' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
         },
       },
       CreateCategoryRequest: {
@@ -3642,6 +3667,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           images: { type: 'array', items: { type: 'string', format: 'uri' } },
           thumbnail: { type: 'string', format: 'uri' },
           tags: { type: 'array', items: { type: 'string' } },
+          freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItem' } },
           status: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] },
           isFeatured: { type: 'boolean' },
           isFlashSale: { type: 'boolean' },

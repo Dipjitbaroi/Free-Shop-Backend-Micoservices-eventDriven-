@@ -33,6 +33,7 @@ export interface IProduct {
   totalReviews: number;
   totalSold: number;
   metadata?: Record<string, unknown>;
+  freeItems?: IFreeItem[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,6 +59,25 @@ export interface IProductCreate {
   tags?: string[];
   isFeatured?: boolean;
   metadata?: Record<string, unknown>;
+  freeItems?: IFreeItemCreate[];
+}
+
+export interface IFreeItem {
+  id: string;
+  productId: string;
+  name: string;
+  description?: string;
+  sku?: string;
+  image?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IFreeItemCreate {
+  name: string;
+  description?: string;
+  sku?: string;
+  image?: string;
 }
 
 export interface IProductUpdate {
@@ -79,6 +99,7 @@ export interface IProductUpdate {
   tags?: string[];
   isFeatured?: boolean;
   metadata?: Record<string, unknown>;
+  freeItems?: IFreeItemCreate[];
 }
 
 export interface ICategory {
