@@ -298,7 +298,7 @@ class ProductService {
           sku: fi.sku,
           image: fi.image,
         })),
-      } as unknown as Prisma.ProductUpdateinput;
+      };
     }
 
     const updatedProduct = await prisma.product.update({

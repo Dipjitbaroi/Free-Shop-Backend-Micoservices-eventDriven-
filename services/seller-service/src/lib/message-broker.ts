@@ -5,6 +5,7 @@ import logger from '@freeshop/shared-utils';
 class MessageBroker {
   private connection: ChannelModel | null = null;
   private channel: Channel | null = null;
+  private isConnected = false;
 
   async connect(): Promise<void> {
     try {
@@ -12,12 +13,16 @@ class MessageBroker {
       this.channel = await this.connection.createChannel();
       
       this.connection.on('error', (err) => {
+        this.isConnected = false;
         logger.error('RabbitMQ connection error', { error: err.message });
       });
 
       this.connection.on('close', () => {
+        this.isConnected = false;
         logger.warn('RabbitMQ connection closed');
       });
+
+      this.isConnected = true;
 
       logger.info('Connected to RabbitMQ');
     } catch (error) {
@@ -96,6 +101,11 @@ class MessageBroker {
     if (this.connection) {
       await this.connection.close();
     }
+    this.isConnected = false;
+  }
+
+  isConnectedToBroker(): boolean {
+    return this.isConnected;
   }
 }
 

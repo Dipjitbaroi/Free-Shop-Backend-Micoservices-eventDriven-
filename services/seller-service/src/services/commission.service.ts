@@ -115,19 +115,25 @@ class CommissionService {
   }
 
   async cancelCommissionsForOrder(orderId: string) {
-    const commissions = await prisma.commission.updateMany({
-      where: { orderId, status: 'PENDING' },
-      data: { status: 'CANCELLED' },
+    const cancelledCommissions = await prisma.$transaction(async (tx) => {
+      const pendingCommissions = await tx.commission.findMany({
+        where: { orderId, status: 'PENDING' },
+      });
+
+      if (pendingCommissions.length > 0) {
+        await tx.commission.updateMany({
+          where: { id: { in: pendingCommissions.map((commission) => commission.id) } },
+          data: { status: 'CANCELLED' },
+        });
+      }
+
+      return pendingCommissions;
     });
 
-    const updatedCommissions = await prisma.commission.findMany({
-      where: { orderId },
-    });
-
-    const sellerIds = [...new Set(updatedCommissions.map(c => c.sellerId))];
+    const sellerIds = [...new Set(cancelledCommissions.map(c => c.sellerId))];
     await Promise.all(sellerIds.map(id => redis.del(`seller:stats:${id}`)));
 
-    return commissions;
+    return cancelledCommissions;
   }
 
   async getSellerCommissions(sellerId: string, filters: {
@@ -199,16 +205,26 @@ class CommissionService {
       });
 
       let remainingAmount = input.amount;
+      let coveredAmount = 0;
       const commissionIds: string[] = [];
 
       for (const commission of settledCommissions) {
         if (remainingAmount <= 0) break;
 
         const commissionNet = Number(commission.netAmount);
-        if (commissionNet <= remainingAmount) {
+        if (commissionNet <= 0) {
+          continue;
+        }
+
+        if (commissionNet <= remainingAmount || commissionIds.length === 0) {
           commissionIds.push(commission.id);
           remainingAmount -= commissionNet;
+          coveredAmount += commissionNet;
         }
+      }
+
+      if (coveredAmount < input.amount) {
+        throw new BadRequestError('Insufficient settled commission balance to back this withdrawal');
       }
 
       const newWithdrawal = await tx.withdrawal.create({
