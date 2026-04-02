@@ -124,10 +124,8 @@ export interface ICartItem {
   unitPrice: number;
   discountPrice?: number;
   totalPrice: number;
-  product?: {
-    name: string;
-    image?: string;
-  };
+  productName?: string;
+  productImage?: string;
   freeItems?: Array<{
     id: string;
     name: string;
