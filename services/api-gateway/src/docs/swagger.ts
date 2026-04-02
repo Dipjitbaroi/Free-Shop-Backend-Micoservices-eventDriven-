@@ -1567,20 +1567,35 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/cart': {
       get: {
         tags: ['Cart'],
-        summary: 'Get current cart',
-        security: [{ bearerAuth: [] }],
+        summary: 'Get current cart with product name/image and free items',
+        parameters: [
+          {
+            name: 'x-guest-id',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Guest cart identifier when user is not authenticated',
+          },
+        ],
         responses: {
           200: {
-            description: 'Cart contents',
+            description: 'Cart contents with flattened product fields and associated free items',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/CartResponse' } } },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
       post: {
         tags: ['Cart'],
-        summary: 'Add item to cart',
-        security: [{ bearerAuth: [] }],
+        summary: 'Add item to cart and return updated cart with free items',
+        parameters: [
+          {
+            name: 'x-guest-id',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Guest cart identifier when user is not authenticated',
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -1599,21 +1614,27 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
         responses: {
           200: {
-            description: 'Item added / quantity updated',
+            description: 'Item added / quantity updated, returns cart with free items',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/CartResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
-          401: { $ref: '#/components/responses/Unauthorized' },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
       delete: {
         tags: ['Cart'],
         summary: 'Clear entire cart',
-        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'x-guest-id',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Guest cart identifier when user is not authenticated',
+          },
+        ],
         responses: {
           200: { description: 'Cart cleared' },
-          401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
     },
@@ -1621,7 +1642,15 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['Cart'],
         summary: 'Get cart summary (totals, counts)',
-        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'x-guest-id',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Guest cart identifier when user is not authenticated',
+          },
+        ],
         responses: {
           200: {
             description: 'Cart summary',
@@ -1636,6 +1665,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                       properties: {
                         itemCount: { type: 'integer' },
                         subtotal: { type: 'number' },
+                        shippingFee: { type: 'number' },
                         total: { type: 'number' },
                       },
                     },
@@ -1644,7 +1674,6 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               },
             },
           },
-          401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
     },
@@ -1679,8 +1708,14 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       patch: {
         tags: ['Cart'],
         summary: 'Update cart item quantity',
-        security: [{ bearerAuth: [] }],
         parameters: [
+          {
+            name: 'x-guest-id',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Guest cart identifier when user is not authenticated',
+          },
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         requestBody: {
@@ -1701,20 +1736,27 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             content: { 'application/json': { schema: { $ref: '#/components/schemas/CartResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
-          401: { $ref: '#/components/responses/Unauthorized' },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
       delete: {
         tags: ['Cart'],
         summary: 'Remove a specific item from cart',
-        security: [{ bearerAuth: [] }],
         parameters: [
+          {
+            name: 'x-guest-id',
+            in: 'header',
+            required: false,
+            schema: { type: 'string' },
+            description: 'Guest cart identifier when user is not authenticated',
+          },
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Item removed' },
-          401: { $ref: '#/components/responses/Unauthorized' },
+          200: {
+            description: 'Item removed, returns updated cart and summary',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/CartResponse' } } },
+          },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -1801,6 +1843,21 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         parameters: [
           { name: 'paymentID', in: 'query', schema: { type: 'string' } },
           { name: 'status', in: 'query', schema: { type: 'string' } },
+        ],
+        responses: {
+          302: { description: 'Redirect to frontend with payment result' },
+        },
+      },
+    },
+    '/payments/eps/callback': {
+      get: {
+        tags: ['Payments'],
+        summary: 'EPS payment callback (called by EPS gateway)',
+        description: 'This endpoint is called by EPS after the user completes/cancels payment. Not for direct use.',
+        parameters: [
+          { name: 'payment_id', in: 'query', schema: { type: 'string' } },
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'transaction_id', in: 'query', schema: { type: 'string' } },
         ],
         responses: {
           302: { description: 'Redirect to frontend with payment result' },
@@ -1926,24 +1983,6 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/webhooks/payment': {
-      post: {
-        tags: ['Payments'],
-        summary: 'Payment gateway webhook receiver',
-        description: 'Receives callbacks from bKash / EPS. Should not be called directly.',
-        requestBody: {
-          content: {
-            'application/json': {
-              schema: { type: 'object', additionalProperties: true },
-            },
-          },
-        },
-        responses: {
-          200: { description: 'Webhook received' },
-        },
-      },
-    },
-
     // ─── SELLERS ─────────────────────────────────────────────────────────────
     '/sellers': {
       get: {
@@ -3437,6 +3476,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           tags: { type: 'array', items: { type: 'string' } },
           isFeatured: { type: 'boolean' },
           metadata: { type: 'object', additionalProperties: true },
+          freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItemCreate' } },
         },
       },
       UpdateProductRequest: {
@@ -3458,6 +3498,30 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           images: { type: 'array', items: { type: 'string', format: 'uri' } },
           tags: { type: 'array', items: { type: 'string' } },
           isFeatured: { type: 'boolean' },
+          freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItemCreate' } },
+        },
+      },
+
+      FreeItemCreate: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          description: { type: 'string' },
+          sku: { type: 'string' },
+          image: { type: 'string', format: 'uri' },
+        },
+      },
+      FreeItem: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          productId: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          description: { type: 'string' },
+          sku: { type: 'string' },
+          image: { type: 'string', format: 'uri' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
         },
       },
       CreateCategoryRequest: {
@@ -3642,6 +3706,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           images: { type: 'array', items: { type: 'string', format: 'uri' } },
           thumbnail: { type: 'string', format: 'uri' },
           tags: { type: 'array', items: { type: 'string' } },
+          freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItem' } },
           status: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] },
           isFeatured: { type: 'boolean' },
           isFlashSale: { type: 'boolean' },
@@ -3785,13 +3850,26 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
+          cartId: { type: 'string', format: 'uuid' },
           productId: { type: 'string', format: 'uuid' },
+          quantity: { type: 'integer' },
+          price: { type: 'number' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
           productName: { type: 'string' },
           productImage: { type: 'string', format: 'uri' },
-          sku: { type: 'string' },
-          price: { type: 'number' },
-          quantity: { type: 'integer' },
-          totalPrice: { type: 'number' },
+          freeItems: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                name: { type: 'string' },
+                sku: { type: 'string' },
+                image: { type: 'string', format: 'uri' },
+              },
+            },
+          },
         },
       },
       CartResponse: {
@@ -3801,11 +3879,29 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           data: {
             type: 'object',
             properties: {
-              id: { type: 'string', format: 'uuid' },
-              items: { type: 'array', items: { $ref: '#/components/schemas/CartItem' } },
-              subtotal: { type: 'number' },
-              itemCount: { type: 'integer' },
-              updatedAt: { type: 'string', format: 'date-time' },
+              cart: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', format: 'uuid' },
+                  userId: { type: 'string', format: 'uuid', nullable: true },
+                  guestId: { type: 'string', nullable: true },
+                  items: { type: 'array', items: { $ref: '#/components/schemas/CartItem' } },
+                  subtotal: { type: 'number' },
+                  totalItems: { type: 'integer' },
+                  createdAt: { type: 'string', format: 'date-time' },
+                  updatedAt: { type: 'string', format: 'date-time' },
+                  expiresAt: { type: 'string', format: 'date-time', nullable: true },
+                },
+              },
+              summary: {
+                type: 'object',
+                properties: {
+                  itemCount: { type: 'integer' },
+                  subtotal: { type: 'number' },
+                  shippingFee: { type: 'number' },
+                  total: { type: 'number' },
+                },
+              },
             },
           },
         },

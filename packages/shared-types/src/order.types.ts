@@ -1,4 +1,5 @@
 import { OrderStatus, PaymentMethod } from './enums';
+import { IFreeItem } from './product.types';
 
 export interface IOrder {
   id: string;
@@ -123,11 +124,14 @@ export interface ICartItem {
   unitPrice: number;
   discountPrice?: number;
   totalPrice: number;
-  product?: {
+  productName?: string;
+  productImage?: string;
+  freeItems?: Array<{
+    id: string;
     name: string;
+    sku?: string;
     image?: string;
-    stock: number;
-  };
+  }>;
 }
 
 export interface ICartItemAdd {

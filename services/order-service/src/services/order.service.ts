@@ -37,6 +37,7 @@ interface CreateOrderData {
     productImage?: string;
     unit?: string;
     quantity: number;
+    freeItemId?: string;
     price: number;
     discount?: number;
   }[];
@@ -123,6 +124,7 @@ class OrderService {
             productImage: item.productImage,
             unit: item.unit,
             quantity: item.quantity,
+            freeItemId: item.freeItemId || null,
             price: item.price,
             discount: item.discount || 0,
             total: (item.price * item.quantity) - (item.discount || 0),
@@ -152,6 +154,7 @@ class OrderService {
         sellerId: item.sellerId,
         quantity: item.quantity,
         price: item.price,
+        freeItemId: (item as any).freeItemId || undefined,
       })),
     });
 

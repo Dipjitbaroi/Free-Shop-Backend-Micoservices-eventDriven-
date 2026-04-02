@@ -4,10 +4,33 @@ import { prisma } from '../lib/prisma';
 import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis';
 import config from '../config';
 import { settingsService } from './settings.service';
+import { fetchProduct } from '../lib/product-client';
 
 type CartWithItems = Prisma.CartGetPayload<{
   include: { items: true };
 }>;
+
+interface EnrichedCartItem {
+  id: string;
+  cartId: string;
+  productId: string;
+  quantity: number;
+  price: number;
+  createdAt: Date;
+  updatedAt: Date;
+  productName?: string;
+  productImage?: string;
+  freeItems: Array<{
+    id: string;
+    name: string;
+    sku?: string;
+    image?: string;
+  }>;
+}
+
+interface EnrichedCart extends Omit<CartWithItems, 'items'> {
+  items: EnrichedCartItem[];
+}
 
 interface AddToCartData {
   productId: string;
@@ -16,12 +39,14 @@ interface AddToCartData {
 }
 
 class CartService {
-  async getCart(userId?: string, guestId?: string): Promise<CartWithItems | null> {
+  async getCart(userId?: string, guestId?: string): Promise<EnrichedCart | null> {
     const identifier = userId || guestId;
     if (!identifier) return null;
 
-    const cached = await cacheGet<CartWithItems>(cartCacheKey(identifier));
-    if (cached) return cached;
+    const cached = await cacheGet<EnrichedCart>(cartCacheKey(identifier));
+    if (cached && this.isCurrentCartCacheShape(cached)) {
+      return cached;
+    }
 
     const where = userId ? { userId } : { guestId };
     const cart = await prisma.cart.findFirst({
@@ -29,14 +54,64 @@ class CartService {
       include: { items: { orderBy: { createdAt: 'asc' } } },
     });
 
-    if (cart) {
-      await cacheSet(cartCacheKey(identifier), cart, config.cache.cartTTL);
-    }
+    if (!cart) return null;
 
-    return cart;
+    // Enrich items with product data
+    const enrichedItems: EnrichedCartItem[] = await Promise.all(
+      cart.items.map(async (item) => {
+        try {
+          const product = await fetchProduct(item.productId);
+          return {
+            id: item.id,
+            cartId: item.cartId,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            productName: product.name,
+            productImage: product.images?.[0],
+            freeItems: product.freeItems || [],
+          };
+        } catch (error) {
+          // If product fetch fails, return item without product data
+          console.warn(`Failed to fetch product ${item.productId} for cart:`, error);
+          return {
+            id: item.id,
+            cartId: item.cartId,
+            productId: item.productId,
+            quantity: item.quantity,
+            price: item.price,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            freeItems: [],
+          };
+        }
+      })
+    );
+
+    const enrichedCart: EnrichedCart = {
+      ...cart,
+      items: enrichedItems,
+    };
+
+    await cacheSet(cartCacheKey(identifier), enrichedCart, config.cache.cartTTL);
+
+    return enrichedCart;
   }
 
-  async getOrCreateCart(userId?: string, guestId?: string): Promise<CartWithItems> {
+  private isCurrentCartCacheShape(cart: EnrichedCart): boolean {
+    if (!Array.isArray(cart.items)) return false;
+
+    return cart.items.every((item) => {
+      const hasLegacyProductObject = Object.prototype.hasOwnProperty.call(item, 'product');
+      const hasFreeItemsField = Object.prototype.hasOwnProperty.call(item, 'freeItems');
+
+      return !hasLegacyProductObject && hasFreeItemsField;
+    });
+  }
+
+  async getOrCreateCart(userId?: string, guestId?: string): Promise<EnrichedCart> {
     if (!userId && !guestId) {
       throw new BadRequestError('User ID or Guest ID is required');
     }
@@ -53,13 +128,14 @@ class CartService {
             : undefined,
         },
         include: { items: true },
-      });
+      }) as EnrichedCart;
+      // Since it's a new cart, items will be empty, so no need to enrich
     }
 
     return cart;
   }
 
-  async addToCart(userId: string | undefined, guestId: string | undefined, data: AddToCartData): Promise<CartWithItems> {
+  async addToCart(userId: string | undefined, guestId: string | undefined, data: AddToCartData): Promise<EnrichedCart> {
     const cart = await this.getOrCreateCart(userId, guestId);
 
     // Check if product already in cart
@@ -95,7 +171,7 @@ class CartService {
     guestId: string | undefined, 
     productId: string, 
     quantity: number
-  ): Promise<CartWithItems> {
+  ): Promise<EnrichedCart> {
     const cart = await this.getCart(userId, guestId);
     if (!cart) {
       throw new NotFoundError('Cart not found');
@@ -123,7 +199,7 @@ class CartService {
     userId: string | undefined, 
     guestId: string | undefined, 
     productId: string
-  ): Promise<CartWithItems> {
+  ): Promise<EnrichedCart> {
     const cart = await this.getCart(userId, guestId);
     if (!cart) {
       throw new NotFoundError('Cart not found');
@@ -148,7 +224,7 @@ class CartService {
     await this.invalidateCache(userId, guestId);
   }
 
-  async mergeGuestCart(userId: string, guestId: string): Promise<CartWithItems | null> {
+  async mergeGuestCart(userId: string, guestId: string): Promise<EnrichedCart | null> {
     const guestCart = await this.getCart(undefined, guestId);
     if (!guestCart || guestCart.items.length === 0) return null;
 
@@ -233,7 +309,7 @@ class CartService {
     };
   }
 
-  private async getCartOrThrow(userId?: string, guestId?: string): Promise<CartWithItems> {
+  private async getCartOrThrow(userId?: string, guestId?: string): Promise<EnrichedCart> {
     const cart = await this.getCart(userId, guestId);
     if (!cart) throw new NotFoundError('Cart not found');
     return cart;

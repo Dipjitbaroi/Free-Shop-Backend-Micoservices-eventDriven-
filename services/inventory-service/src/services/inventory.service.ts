@@ -340,10 +340,18 @@ class InventoryService {
     // Publish reservation fulfilled event
     await eventPublisher.publish(Events.INVENTORY_RESERVED, {
       orderId,
-      items: reservations.map(r => ({
-        productId: r.inventory.productId,
-        quantity: r.quantity,
-      })),
+      items: reservations.map(r => {
+        const rawId = r.inventory.productId;
+        if (rawId.includes(':free:')) {
+          const [base, freeId] = rawId.split(':free:');
+          return { productId: base, freeItemId: freeId, quantity: r.quantity };
+        }
+        if (rawId.includes(':')) {
+          const [base, variant] = rawId.split(':');
+          return { productId: base, variantId: variant, quantity: r.quantity };
+        }
+        return { productId: rawId, quantity: r.quantity };
+      }),
     });
   }
 
@@ -398,10 +406,18 @@ class InventoryService {
     // Publish release event
     await eventPublisher.publish(Events.INVENTORY_RELEASED, {
       orderId,
-      items: reservations.map(r => ({
-        productId: r.inventory.productId,
-        quantity: r.quantity,
-      })),
+      items: reservations.map(r => {
+        const rawId = r.inventory.productId;
+        if (rawId.includes(':free:')) {
+          const [base, freeId] = rawId.split(':free:');
+          return { productId: base, freeItemId: freeId, quantity: r.quantity };
+        }
+        if (rawId.includes(':')) {
+          const [base, variant] = rawId.split(':');
+          return { productId: base, variantId: variant, quantity: r.quantity };
+        }
+        return { productId: rawId, quantity: r.quantity };
+      }),
     });
   }
 

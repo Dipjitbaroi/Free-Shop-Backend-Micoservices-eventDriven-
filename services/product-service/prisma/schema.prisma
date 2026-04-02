@@ -73,6 +73,7 @@ model Product {
   images              String[]
   thumbnail           String?
   tags                String[]
+  freeItems           FreeItem[]
   status              ProductStatus @default(PENDING_APPROVAL)
   rejectionReason     String?
   isFeatured          Boolean       @default(false)
@@ -100,6 +101,22 @@ model Product {
   @@index([isFeatured])
   @@index([isFlashSale])
   @@map("products")
+}
+
+model FreeItem {
+  id          String   @id @default(uuid())
+  productId   String
+  name        String
+  description String?
+  sku         String?
+  image       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("free_items")
 }
 
 model Review {

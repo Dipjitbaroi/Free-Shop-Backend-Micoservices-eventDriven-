@@ -14,6 +14,7 @@ export interface ProductPriceInfo {
   discountPrice: number | null;
   flashSalePrice: number | null;
   isFlashSale: boolean;
+  freeItems?: Array<{ id: string; name: string; sku?: string; image?: string }>;
 }
 
 /**
@@ -58,6 +59,7 @@ export async function fetchProduct(productId: string): Promise<ProductPriceInfo>
     discountPrice: p.discountPrice != null ? Number(p.discountPrice) : null,
     flashSalePrice: p.flashSalePrice != null ? Number(p.flashSalePrice) : null,
     isFlashSale: Boolean(p.isFlashSale),
+    freeItems: Array.isArray(p.freeItems) ? p.freeItems.map((fi: any) => ({ id: fi.id, name: fi.name, sku: fi.sku, image: fi.image })) : undefined,
   };
 }
 

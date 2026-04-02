@@ -429,14 +429,23 @@ class AnalyticsService {
         cancelledOrders: data.cancelledOrders !== undefined 
           ? { increment: data.cancelledOrders } 
           : undefined,
+        pendingOrders: data.pendingOrders !== undefined
+          ? { increment: data.pendingOrders }
+          : undefined,
         newCustomers: data.newCustomers !== undefined 
           ? { increment: data.newCustomers } 
+          : undefined,
+        returningCustomers: data.returningCustomers !== undefined
+          ? { increment: data.returningCustomers }
           : undefined,
         codOrders: data.codOrders !== undefined 
           ? { increment: data.codOrders } 
           : undefined,
         bkashOrders: data.bkashOrders !== undefined 
           ? { increment: data.bkashOrders } 
+          : undefined,
+        otherPayments: data.otherPayments !== undefined
+          ? { increment: data.otherPayments }
           : undefined,
       },
     });
