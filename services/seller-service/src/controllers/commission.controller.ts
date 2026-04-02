@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { commissionService } from '../services/commission.service';
 import { sellerService } from '../services/seller.service';
-import { successResponse, NotFoundError } from '@freeshop/shared-utils';
+import { successResponse, NotFoundError, ForbiddenError, UnauthorizedError } from '@freeshop/shared-utils';
 
 export const commissionController = {
   async getMyCommissions(req: Request, res: Response, next: NextFunction) {
@@ -94,6 +94,18 @@ export const commissionController = {
     try {
       const withdrawal = await commissionService.getWithdrawalById(req.params.id);
       if (!withdrawal) throw new NotFoundError('Withdrawal not found');
+
+      const userId = req.user?.id;
+      const userRole = req.user?.role;
+      if (!userId) throw new UnauthorizedError('User not authenticated');
+
+      const isPrivileged = userRole === 'ADMIN' || userRole === 'MANAGER';
+      if (!isPrivileged) {
+        const seller = await sellerService.getSellerByUserId(userId);
+        if (!seller || seller.id !== withdrawal.sellerId) {
+          throw new ForbiddenError('You do not have permission to access this withdrawal');
+        }
+      }
 
       res.json(successResponse(withdrawal, 'Withdrawal retrieved'));
     } catch (error) {

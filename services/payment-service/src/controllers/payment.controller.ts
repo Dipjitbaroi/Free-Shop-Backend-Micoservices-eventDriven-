@@ -46,6 +46,26 @@ export const paymentController = {
     }
   },
 
+  async epsCallback(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { paymentId, status } = req.query;
+
+      const payment = await paymentService.handleEpsCallback(
+        paymentId as string,
+        status as string
+      );
+
+      const redirectUrl = payment.status === 'COMPLETED'
+        ? `${process.env.FRONTEND_URL}/payment/success?orderId=${payment.orderId}`
+        : `${process.env.FRONTEND_URL}/payment/failed?orderId=${payment.orderId}`;
+
+      res.redirect(redirectUrl);
+    } catch (error) {
+      const redirectUrl = `${process.env.FRONTEND_URL}/payment/error`;
+      res.redirect(redirectUrl);
+    }
+  },
+
   async getPaymentById(req: Request, res: Response, next: NextFunction) {
     try {
       const payment = await paymentService.getPaymentById(req.params.id);

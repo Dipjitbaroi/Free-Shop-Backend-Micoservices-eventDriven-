@@ -21,6 +21,7 @@ router.post(
 
 // Payment gateway callbacks
 router.get('/bkash/callback', paymentController.bkashCallback);
+router.get('/eps/callback', paymentController.epsCallback);
 
 // Get payment by order
 router.get(

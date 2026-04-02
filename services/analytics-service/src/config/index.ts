@@ -23,5 +23,3 @@ export const config = {
     url: process.env.RABBITMQ_URL || "amqp://guest:guest@localhost:5672",
   },
 };
-
-console.log(process.env.ANALYTICS_DATABASE_URL, "Analytics DB URL");

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
+import { messageBroker } from '../lib/message-broker';
 
 const router = Router();
 
@@ -12,6 +13,11 @@ router.get('/ready', async (_req: Request, res: Response) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
     await redis.ping();
+    const rabbitmqConnected = messageBroker.isConnectedToBroker();
+
+    if (!rabbitmqConnected) {
+      throw new Error('RabbitMQ not connected');
+    }
 
     res.json({ 
       status: 'ready', 
@@ -19,6 +25,7 @@ router.get('/ready', async (_req: Request, res: Response) => {
       connections: {
         database: 'connected',
         redis: 'connected',
+        rabbitmq: 'connected',
       },
     });
   } catch (error) {

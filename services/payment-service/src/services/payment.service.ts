@@ -13,6 +13,7 @@ import { eventPublisher } from '../lib/message-broker';
 import { Events } from '@freeshop/shared-events';
 import { bkashGateway } from '../gateways/bkash/bkash.gateway';
 import { codGateway } from '../gateways/cod/cod.gateway';
+import { epsGateway } from '../gateways/eps/eps.gateway';
 import config from '../config';
 
 interface CreatePaymentData {
@@ -81,6 +82,28 @@ class PaymentService {
           break;
         }
 
+        case PaymentMethod.EPS: {
+          const callbackUrl = `${config.callbacks.baseUrl}/payments/eps/callback`;
+          const failRedirect = `${process.env.FRONTEND_URL}/payment/failed?orderId=${data.orderId}`;
+          const result = await epsGateway.createPayment(
+            data.orderId,
+            data.amount,
+            callbackUrl,
+            failRedirect
+          );
+
+          await prisma.payment.update({
+            where: { id: payment.id },
+            data: {
+              gatewayRef: result.paymentId,
+              status: PaymentStatus.PROCESSING,
+            },
+          });
+
+          redirectUrl = result.paymentUrl;
+          break;
+        }
+
         case PaymentMethod.COD: {
           const result = await codGateway.createPayment(data.orderId, data.amount);
           
@@ -95,7 +118,6 @@ class PaymentService {
 
         case PaymentMethod.NAGAD:
         case PaymentMethod.ROCKET:
-        case PaymentMethod.EPS:
         case PaymentMethod.CARD:
         case PaymentMethod.BANK_TRANSFER:
           // Placeholder for other payment methods
@@ -153,6 +175,32 @@ class PaymentService {
     } else {
       return this.failPayment(payment.id, 'Payment cancelled or failed by user');
     }
+  }
+
+  async handleEpsCallback(paymentId: string, status?: string): Promise<Payment> {
+    const payment = await prisma.payment.findFirst({
+      where: { gatewayRef: paymentId },
+    });
+
+    if (!payment) {
+      throw new NotFoundError('Payment not found');
+    }
+
+    // Query EPS for authoritative status
+    const result = await epsGateway.queryPayment(paymentId);
+
+    const epsStatus = result.status || (result.success ? 'Completed' : 'Failed');
+
+    if (result.success || epsStatus === 'Completed') {
+      const txId = result.transactionId || `EPS_${payment.orderId}_${Date.now()}`;
+      const updatedPayment = await this.completePayment(payment.id, txId, {
+        provider: 'EPS',
+        raw: result,
+      });
+      return updatedPayment;
+    }
+
+    return this.failPayment(payment.id, result.errorMessage || 'EPS payment failed');
   }
 
   async completePayment(
@@ -299,6 +347,19 @@ class PaymentService {
           }
           break;
 
+        case PaymentMethod.EPS:
+          if (payment.gatewayRef && payment.transactionId) {
+            const result = await epsGateway.refundPayment(
+              payment.gatewayRef,
+              payment.transactionId,
+              amount,
+              reason
+            );
+            refundSuccess = result.success;
+            gatewayRefundRef = result.refundId;
+          }
+          break;
+
         case PaymentMethod.COD:
           // COD refunds are manual - just mark as processed
           refundSuccess = true;
@@ -381,6 +442,15 @@ class PaymentService {
         return {
           verified: result.status === 'Completed',
           status: result.status,
+          transactionId: result.transactionId,
+        };
+      }
+
+      case PaymentMethod.EPS: {
+        const result = await epsGateway.queryPayment(payment.gatewayRef);
+        return {
+          verified: result.success === true || result.status === 'Completed',
+          status: result.status || (result.success ? 'Completed' : 'FAILED'),
           transactionId: result.transactionId,
         };
       }

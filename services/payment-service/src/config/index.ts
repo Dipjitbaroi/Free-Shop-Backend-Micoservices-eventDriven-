@@ -31,6 +31,13 @@ const config = {
     baseUrl: process.env.NAGAD_BASE_URL || 'https://sandbox.mynagad.com:10080/api/dfs',
     isSandbox: process.env.NAGAD_SANDBOX === 'true',
   },
+  eps: {
+    merchantId: process.env.EPS_MERCHANT_ID || '',
+    apiKey: process.env.EPS_API_KEY || '',
+    secretKey: process.env.EPS_SECRET_KEY || '',
+    baseUrl: process.env.EPS_BASE_URL || 'https://sandbox.eps-gateway.com',
+    isSandbox: process.env.EPS_SANDBOX === 'true',
+  },
   
   callbacks: {
     baseUrl: process.env.CALLBACK_BASE_URL || 'http://localhost:3005',

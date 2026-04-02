@@ -63,9 +63,18 @@ class ProductService {
         isFeatured: data.isFeatured || false,
         status: ProductStatus.PENDING_APPROVAL,
         metadata: data.metadata as Prisma.JsonObject || {},
+        freeItems: data.freeItems
+          ? { create: data.freeItems.map(fi => ({
+              name: fi.name,
+              description: fi.description,
+              sku: fi.sku,
+              image: fi.image,
+            })) }
+          : undefined,
       },
       include: {
         category: true,
+        freeItems: true,
       },
     });
 
@@ -101,6 +110,7 @@ class ProductService {
           take: 5,
           orderBy: { createdAt: 'desc' },
         },
+        freeItems: true,
       },
     });
 
@@ -127,6 +137,7 @@ class ProductService {
           take: 5,
           orderBy: { createdAt: 'desc' },
         },
+        freeItems: true,
       },
     });
 
@@ -207,6 +218,7 @@ class ProductService {
           category: {
             select: { id: true, name: true, slug: true },
           },
+          freeItems: true,
         },
         orderBy,
         skip: offset,
@@ -277,11 +289,22 @@ class ProductService {
     if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured;
     if (data.metadata !== undefined) updateData.metadata = data.metadata as Prisma.JsonObject;
+    if (data.freeItems !== undefined) {
+      updateData.freeItems = {
+        deleteMany: {},
+        create: data.freeItems.map(fi => ({
+          name: fi.name,
+          description: fi.description,
+          sku: fi.sku,
+          image: fi.image,
+        })),
+      };
+    }
 
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: updateData,
-      include: { category: true },
+      include: { category: true, freeItems: true },
     });
 
     // Clear cache

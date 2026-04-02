@@ -4,6 +4,21 @@ import { commissionService } from '../services/commission.service';
 import { EXCHANGES, getRoutingKey, QUEUES } from '@freeshop/shared-events';
 import logger from '@freeshop/shared-utils';
 
+interface EventEnvelope<T> {
+  data?: T;
+}
+
+const unwrapEventData = <T>(payload: T | EventEnvelope<T>): T => {
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    const maybeEnvelope = payload as EventEnvelope<T>;
+    if (maybeEnvelope.data) {
+      return maybeEnvelope.data;
+    }
+  }
+
+  return payload as T;
+};
+
 interface OrderItem {
   productId: string;
   sellerId: string;
@@ -12,11 +27,10 @@ interface OrderItem {
   subtotal: number;
 }
 
-interface OrderCompletedPayload {
+interface OrderCreatedPayload {
   orderId: string;
   userId: string;
   items: OrderItem[];
-  totalAmount: number;
 }
 
 interface OrderCancelledPayload {
@@ -34,7 +48,7 @@ interface ProductDeletedPayload {
   sellerId: string;
 }
 
-interface PaymentCompletedPayload {
+interface PaymentReceivedPayload {
   paymentId: string;
   orderId: string;
   amount: number;
@@ -42,13 +56,15 @@ interface PaymentCompletedPayload {
 }
 
 export const setupEventSubscribers = async (): Promise<void> => {
-  await messageBroker.subscribe<OrderCompletedPayload>(
+  await messageBroker.subscribe<OrderCreatedPayload>(
     EXCHANGES.ORDER,
     QUEUES.SELLER_ORDER_COMPLETED,
-    getRoutingKey('ORDER', 'COMPLETED'),
-    async (payload) => {
+    getRoutingKey('ORDER', 'CREATED'),
+    async (rawPayload) => {
+      let payload: OrderCreatedPayload | undefined;
       try {
-        logger.info('Processing order completed event for seller', { orderId: payload.orderId });
+        payload = unwrapEventData<OrderCreatedPayload>(rawPayload);
+        logger.info('Processing order created event for seller', { orderId: payload.orderId });
 
         const sellerItems = new Map<string, OrderItem[]>();
         
@@ -64,13 +80,15 @@ export const setupEventSubscribers = async (): Promise<void> => {
           let totalSellerAmount = 0;
 
           for (const item of items) {
+            const itemSubtotal = item.subtotal ?? item.price * item.quantity;
+
             await commissionService.createCommission({
               sellerId,
               orderId: payload.orderId,
               productId: item.productId,
-              orderAmount: item.subtotal,
+              orderAmount: itemSubtotal,
             });
-            totalSellerAmount += item.subtotal;
+            totalSellerAmount += itemSubtotal;
           }
 
           await sellerService.updateSellerStats(sellerId, {
@@ -81,9 +99,9 @@ export const setupEventSubscribers = async (): Promise<void> => {
 
         logger.info('Commissions created for order', { orderId: payload.orderId });
       } catch (error) {
-        logger.error('Error processing order completed for seller', {
+        logger.error('Error processing order creation for seller', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          orderId: payload.orderId,
+          orderId: payload?.orderId,
         });
       }
     }
@@ -93,28 +111,47 @@ export const setupEventSubscribers = async (): Promise<void> => {
     EXCHANGES.ORDER,
     QUEUES.SELLER_ORDER_CANCELLED,
     getRoutingKey('ORDER', 'CANCELLED'),
-    async (payload) => {
+    async (rawPayload) => {
+      let payload: OrderCancelledPayload | undefined;
       try {
+        payload = unwrapEventData<OrderCancelledPayload>(rawPayload);
         logger.info('Processing order cancelled event for seller', { orderId: payload.orderId });
 
-        await commissionService.cancelCommissionsForOrder(payload.orderId);
+        const cancelledCommissions = await commissionService.cancelCommissionsForOrder(payload.orderId);
+
+        const sellerTotals = new Map<string, { orders: number; revenue: number }>();
+        for (const commission of cancelledCommissions) {
+          const existing = sellerTotals.get(commission.sellerId) || { orders: 0, revenue: 0 };
+          existing.orders += 1;
+          existing.revenue += Number(commission.orderAmount);
+          sellerTotals.set(commission.sellerId, existing);
+        }
+
+        for (const [sellerId, totals] of sellerTotals) {
+          await sellerService.updateSellerStats(sellerId, {
+            ordersChange: -totals.orders,
+            revenueChange: -totals.revenue,
+          });
+        }
 
         logger.info('Commissions cancelled for order', { orderId: payload.orderId });
       } catch (error) {
         logger.error('Error cancelling commissions for order', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          orderId: payload.orderId,
+          orderId: payload?.orderId,
         });
       }
     }
   );
 
-  await messageBroker.subscribe<PaymentCompletedPayload>(
+  await messageBroker.subscribe<PaymentReceivedPayload>(
     EXCHANGES.PAYMENT,
     QUEUES.SELLER_PAYMENT_COMPLETED,
-    getRoutingKey('PAYMENT', 'COMPLETED'),
-    async (payload) => {
+    getRoutingKey('PAYMENT', 'RECEIVED'),
+    async (rawPayload) => {
+      let payload: PaymentReceivedPayload | undefined;
       try {
+        payload = unwrapEventData<PaymentReceivedPayload>(rawPayload);
         logger.info('Processing payment completed event for seller', { 
           paymentId: payload.paymentId, 
           orderId: payload.orderId 
@@ -126,7 +163,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
       } catch (error) {
         logger.error('Error settling commissions for payment', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          paymentId: payload.paymentId,
+          paymentId: payload?.paymentId,
         });
       }
     }
@@ -136,8 +173,10 @@ export const setupEventSubscribers = async (): Promise<void> => {
     EXCHANGES.PRODUCT,
     QUEUES.SELLER_PRODUCT_CREATED,
     getRoutingKey('PRODUCT', 'CREATED'),
-    async (payload) => {
+    async (rawPayload) => {
+      let payload: ProductCreatedPayload | undefined;
       try {
+        payload = unwrapEventData<ProductCreatedPayload>(rawPayload);
         logger.info('Processing product created event for seller', { 
           productId: payload.productId, 
           sellerId: payload.sellerId 
@@ -153,7 +192,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
       } catch (error) {
         logger.error('Error updating seller stats for product', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          productId: payload.productId,
+          productId: payload?.productId,
         });
       }
     }
@@ -163,8 +202,10 @@ export const setupEventSubscribers = async (): Promise<void> => {
     EXCHANGES.PRODUCT,
     QUEUES.SELLER_PRODUCT_DELETED,
     getRoutingKey('PRODUCT', 'DELETED'),
-    async (payload) => {
+    async (rawPayload) => {
+      let payload: ProductDeletedPayload | undefined;
       try {
+        payload = unwrapEventData<ProductDeletedPayload>(rawPayload);
         logger.info('Processing product deleted event for seller', { 
           productId: payload.productId, 
           sellerId: payload.sellerId 
@@ -180,7 +221,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
       } catch (error) {
         logger.error('Error updating seller stats for deleted product', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          productId: payload.productId,
+          productId: payload?.productId,
         });
       }
     }

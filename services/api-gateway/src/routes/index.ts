@@ -89,6 +89,14 @@ export const setupRoutes = (app: Application): void => {
     })
   );
 
+  app.use(
+    '/api/v1/reviews',
+    createProxyMiddleware({
+      ...getProxyOptions('product', config.services.product.url),
+      pathRewrite: async (path) => `/reviews${path === '/' ? '' : path}`,
+    })
+  );
+
   // Order Service routes
   app.use(
     '/api/v1/orders',
@@ -103,6 +111,14 @@ export const setupRoutes = (app: Application): void => {
     createProxyMiddleware({
       ...getProxyOptions('order', config.services.order.url),
       pathRewrite: async (path) => `/cart${path === '/' ? '' : path}`,
+    })
+  );
+
+  app.use(
+    '/api/v1/settings',
+    createProxyMiddleware({
+      ...getProxyOptions('order', config.services.order.url),
+      pathRewrite: async (path) => `/settings${path === '/' ? '' : path}`,
     })
   );
 

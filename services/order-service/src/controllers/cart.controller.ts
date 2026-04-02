@@ -12,6 +12,29 @@ export const cartController = {
       const cart = await cartService.getCart(userId, guestId);
       const summary = await cartService.getCartSummary(userId, guestId);
       
+      // Enrich cart items with free items
+      if (cart && cart.items.length > 0) {
+        const enrichedItems = await Promise.all(
+          cart.items.map(async (item) => {
+            try {
+              const product = await fetchProduct(item.productId);
+              return {
+                ...item,
+                product: {
+                  name: product.name,
+                  image: product.images?.[0],
+                },
+                freeItems: product.freeItems || [],
+              };
+            } catch (error) {
+              console.warn(`Failed to fetch product ${item.productId} for cart:`, error);
+              return item;
+            }
+          })
+        );
+        cart.items = enrichedItems;
+      }
+      
       res.json(successResponse({ cart, summary }, 'Cart retrieved successfully'));
     } catch (error) {
       next(error);

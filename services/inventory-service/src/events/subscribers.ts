@@ -6,6 +6,7 @@ import logger from '@freeshop/shared-utils';
 interface OrderItem {
   productId: string;
   variantId?: string;
+  freeItemId?: string;
   quantity: number;
   price?: number;
 }
@@ -44,7 +45,9 @@ export const setupEventSubscribers = async (): Promise<void> => {
         logger.info('Processing order created event for inventory', { orderId: payload.orderId });
 
         for (const item of payload.items) {
-          const inventoryKey = item.variantId 
+          const inventoryKey = item.freeItemId
+            ? `${item.productId}:free:${item.freeItemId}`
+            : item.variantId
             ? `${item.productId}:${item.variantId}`
             : item.productId;
 
@@ -83,6 +86,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
             items: payload.items.map((item) => ({
               productId: item.productId,
               variantId: item.variantId,
+              freeItemId: item.freeItemId,
               quantity: item.quantity,
             })),
           }
