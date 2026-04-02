@@ -5,7 +5,6 @@ import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis';
 import config from '../config';
 import { settingsService } from './settings.service';
 import { fetchProduct } from '../lib/product-client';
-import { IFreeItem } from '@freeshop/shared-types';
 
 type CartWithItems = Prisma.CartGetPayload<{
   include: { items: true };
@@ -19,10 +18,8 @@ interface EnrichedCartItem {
   price: number;
   createdAt: Date;
   updatedAt: Date;
-  product?: {
-    name: string;
-    image?: string;
-  };
+  productName?: string;
+  productImage?: string;
   freeItems: Array<{
     id: string;
     name: string;
@@ -47,7 +44,9 @@ class CartService {
     if (!identifier) return null;
 
     const cached = await cacheGet<EnrichedCart>(cartCacheKey(identifier));
-    if (cached) return cached;
+    if (cached && this.isCurrentCartCacheShape(cached)) {
+      return cached;
+    }
 
     const where = userId ? { userId } : { guestId };
     const cart = await prisma.cart.findFirst({
@@ -70,10 +69,8 @@ class CartService {
             price: item.price,
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
-            product: {
-              name: product.name,
-              image: product.images?.[0],
-            },
+            productName: product.name,
+            productImage: product.images?.[0],
             freeItems: product.freeItems || [],
           };
         } catch (error) {
@@ -101,6 +98,17 @@ class CartService {
     await cacheSet(cartCacheKey(identifier), enrichedCart, config.cache.cartTTL);
 
     return enrichedCart;
+  }
+
+  private isCurrentCartCacheShape(cart: EnrichedCart): boolean {
+    if (!Array.isArray(cart.items)) return false;
+
+    return cart.items.every((item) => {
+      const hasLegacyProductObject = Object.prototype.hasOwnProperty.call(item, 'product');
+      const hasFreeItemsField = Object.prototype.hasOwnProperty.call(item, 'freeItems');
+
+      return !hasLegacyProductObject && hasFreeItemsField;
+    });
   }
 
   async getOrCreateCart(userId?: string, guestId?: string): Promise<EnrichedCart> {
