@@ -3553,6 +3553,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               properties: {
                 productId: { type: 'string', format: 'uuid' },
                 quantity: { type: 'integer', minimum: 1 },
+                freeItemId: { 
+                  type: 'string', 
+                  format: 'uuid',
+                  description: 'Optional ID of a free item to select for this product'
+                },
               },
             },
           },
@@ -3569,6 +3574,70 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           paymentMethod: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'] },
           discountCode: { type: 'string' },
           notes: { type: 'string' },
+        },
+        examples: {
+          basic: {
+            summary: 'Basic order without free items',
+            value: {
+              shippingAddress: {
+                zone: 'in_dhaka',
+                name: 'John Doe',
+                phone: '+8801234567890',
+                address: '123 Main Street, Dhaka',
+                city: 'Dhaka',
+                postalCode: '1200'
+              },
+              paymentMethod: 'COD',
+              items: [
+                {
+                  productId: '550e8400-e29b-41d4-a716-446655440001',
+                  quantity: 2
+                }
+              ],
+              notes: 'Please deliver between 2-4 PM'
+            }
+          },
+          withFreeItem: {
+            summary: 'Order with free item selected',
+            value: {
+              shippingAddress: {
+                zone: 'in_dhaka',
+                name: 'John Doe',
+                phone: '+8801234567890',
+                address: '123 Main Street, Dhaka',
+                city: 'Dhaka',
+                postalCode: '1200'
+              },
+              paymentMethod: 'COD',
+              items: [
+                {
+                  productId: '550e8400-e29b-41d4-a716-446655440001',
+                  quantity: 1,
+                  freeItemId: '550e8400-e29b-41d4-a716-446655440002'
+                }
+              ],
+              notes: 'Handle with care'
+            }
+          },
+          savedAddress: {
+            summary: 'Order using saved shipping address',
+            value: {
+              shippingAddressId: '550e8400-e29b-41d4-a716-446655440003',
+              paymentMethod: 'ONLINE',
+              items: [
+                {
+                  productId: '550e8400-e29b-41d4-a716-446655440001',
+                  quantity: 1,
+                  freeItemId: '550e8400-e29b-41d4-a716-446655440002'
+                },
+                {
+                  productId: '550e8400-e29b-41d4-a716-446655440004',
+                  quantity: 3
+                }
+              ],
+              discountCode: 'SAVE10'
+            }
+          }
         },
       },
       CreateSellerRequest: {
@@ -3817,6 +3886,12 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           productImage: { type: 'string', format: 'uri' },
           sku: { type: 'string' },
           quantity: { type: 'integer' },
+          freeItemId: { 
+            type: 'string', 
+            format: 'uuid',
+            nullable: true,
+            description: 'ID of the selected free item, if any'
+          },
           unitPrice: { type: 'number' },
           discountAmount: { type: 'number' },
           totalPrice: { type: 'number' },
