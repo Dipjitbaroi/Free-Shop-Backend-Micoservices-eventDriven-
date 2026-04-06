@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: freeshop_auth,freeshop_user,freeshop_product,freeshop_order,freeshop_payment,freeshop_inventory,freeshop_seller,freeshop_notification,freeshop_analytics
+      POSTGRES_MULTIPLE_DATABASES: freeshop_auth,freeshop_user,freeshop_product,freeshop_order,freeshop_payment,freeshop_inventory,freeshop_seller,freeshop_notification,freeshop_analytics,freeshop_delivery
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
@@ -80,6 +80,7 @@ services:
       - SELLER_SERVICE_URL=http://seller-service:3007
       - NOTIFICATION_SERVICE_URL=http://notification-service:3008
       - ANALYTICS_SERVICE_URL=http://analytics-service:3009
+      - DELIVERY_SERVICE_URL=http://delivery-service:3010
       - JWT_SECRET=${JWT_SECRET}
       - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:3000/api/v1}
     ports:
@@ -89,6 +90,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      delivery-service:
+        condition: service_started
     networks:
       - freeshop-network
 
@@ -331,6 +334,30 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - freeshop-network
+
+  delivery-service:
+    build:
+      context: .
+      dockerfile: services/delivery-service/Dockerfile
+    container_name: freeshop-delivery-service
+    environment:
+      - NODE_ENV=production
+      - DELIVERY_SERVICE_PORT=3010
+      - DELIVERY_DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/freeshop_delivery
+      - STEADFAST_ENABLED=${STEADFAST_ENABLED}
+      - STEADFAST_BASE_URL=${STEADFAST_BASE_URL}
+      - STEADFAST_API_KEY=${STEADFAST_API_KEY}
+      - STEADFAST_SECRET_KEY=${STEADFAST_SECRET_KEY}
+      - STEADFAST_TIMEOUT_MS=${STEADFAST_TIMEOUT_MS}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      postgres:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy

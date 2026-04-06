@@ -78,6 +78,12 @@ const config: IConfig = {
       healthCheck: '/health',
       timeout: 10000,
     },
+    delivery: {
+      name: 'Delivery Service',
+      url: process.env.DELIVERY_SERVICE_URL || 'http://localhost:3010',
+      healthCheck: '/health',
+      timeout: 10000,
+    },
   },
   
   rateLimiting: {

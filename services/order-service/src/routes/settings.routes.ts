@@ -18,6 +18,13 @@ router.get(
 // Public: get available delivery zones (no auth)
 router.get('/delivery/zones', settingsController.getDeliveryZones);
 
+router.get(
+  '/delivery/routing',
+  authenticate,
+  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  settingsController.getDeliveryRouting
+);
+
 
 // Accepts a JSON object: { in_feni: 60, in_dhaka: 50, outside_dhaka: 120, ... }
 router.put(
@@ -25,6 +32,13 @@ router.put(
   authenticate,
   authorize([UserRole.ADMIN, UserRole.MANAGER]),
   settingsController.updateDeliverySettings
+);
+
+router.put(
+  '/delivery/routing',
+  authenticate,
+  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  settingsController.updateDeliveryRouting
 );
 
 export default router;

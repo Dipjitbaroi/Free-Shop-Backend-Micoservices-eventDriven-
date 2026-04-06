@@ -139,6 +139,7 @@ export class EventPublisher {
       seller: Exchanges.SELLER,
       notification: Exchanges.NOTIFICATION,
       analytics: Exchanges.ANALYTICS,
+      delivery: Exchanges.DELIVERY,
       review: Exchanges.PRODUCT,
     };
     return exchangeMap[prefix] || Exchanges.ANALYTICS;

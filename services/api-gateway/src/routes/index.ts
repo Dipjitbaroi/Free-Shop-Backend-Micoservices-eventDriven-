@@ -176,5 +176,14 @@ export const setupRoutes = (app: Application): void => {
     })
   );
 
+  // Delivery Service routes
+  app.use(
+    '/api/v1/deliveries',
+    createProxyMiddleware({
+      ...getProxyOptions('delivery', config.services.delivery.url),
+      pathRewrite: async (path) => `/deliveries${path === '/' ? '' : path}`,
+    })
+  );
+
   logger.info('API routes configured');
 };

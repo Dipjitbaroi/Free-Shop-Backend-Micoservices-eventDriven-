@@ -33,6 +33,7 @@ const swaggerDocument = {
     { name: 'Analytics', description: 'Analytics & reporting (admin/manager)' },
     { name: 'Health', description: 'Service health checks' },
     { name: 'Settings', description: 'Platform settings (delivery charges etc.)' },
+    { name: 'Deliveries', description: 'Delivery orchestration, assignment, and tracking' },
   ],
   paths: {
     // ─── AUTH ────────────────────────────────────────────────────────────────
@@ -749,6 +750,69 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               },
             },
           },
+        },
+      },
+    },
+    '/settings/delivery/routing': {
+      get: {
+        tags: ['Settings'],
+        summary: 'Get delivery routing config (admin/manager)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Delivery routing settings',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        inhouseZones: { type: 'array', items: { type: 'string' } },
+                        inhouseDistricts: { type: 'array', items: { type: 'string' } },
+                        inhouseAreas: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+      put: {
+        tags: ['Settings'],
+        summary: 'Update delivery routing config (admin/manager)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  inhouseZones: { type: 'array', items: { type: 'string' } },
+                  inhouseDistricts: { type: 'array', items: { type: 'string' } },
+                  inhouseAreas: { type: 'array', items: { type: 'string' } },
+                },
+                example: {
+                  inhouseZones: ['in_dhaka'],
+                  inhouseDistricts: ['dhaka'],
+                  inhouseAreas: ['mirpur', 'uttara'],
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Delivery routing settings updated' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
@@ -1555,6 +1619,203 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
         responses: {
           200: { description: 'Tracking info added' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
+    // ─── DELIVERIES ──────────────────────────────────────────────────────────
+    '/deliveries': {
+      get: {
+        tags: ['Deliveries'],
+        summary: 'List deliveries (role-scoped visibility)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING_ASSIGNMENT', 'ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'CANCELLED'] } },
+          { name: 'provider', in: 'query', schema: { type: 'string', enum: ['INHOUSE', 'STEADFAST'] } },
+          { name: 'dispatchStatus', in: 'query', schema: { type: 'string', enum: ['PENDING', 'DISPATCHED', 'FAILED'] } },
+          { name: 'deliveryAgentId', in: 'query', schema: { type: 'string' } },
+          { name: 'orderId', in: 'query', schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'Paginated delivery list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        items: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              orderId: { type: 'string', format: 'uuid' },
+                              orderNumber: { type: 'string' },
+                              provider: { type: 'string', enum: ['INHOUSE', 'STEADFAST'] },
+                              dispatchStatus: { type: 'string', enum: ['PENDING', 'DISPATCHED', 'FAILED'] },
+                              status: { type: 'string', enum: ['PENDING_ASSIGNMENT', 'ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'CANCELLED'] },
+                              deliveryAgentId: { type: 'string', nullable: true },
+                              trackingNumber: { type: 'string', nullable: true },
+                              createdAt: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            totalPages: { type: 'integer' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/deliveries/my-assignments': {
+      get: {
+        tags: ['Deliveries'],
+        summary: 'Get assigned deliveries for current delivery person',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ $ref: '#/components/parameters/page' }, { $ref: '#/components/parameters/limit' }],
+        responses: {
+          200: { description: 'Assigned deliveries retrieved' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/deliveries/{id}': {
+      get: {
+        tags: ['Deliveries'],
+        summary: 'Get single delivery by id',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: 'Delivery details' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/deliveries/order/{orderId}': {
+      get: {
+        tags: ['Deliveries'],
+        summary: 'Get delivery by order id',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: 'Delivery details' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/deliveries/{id}/assign': {
+      patch: {
+        tags: ['Deliveries'],
+        summary: 'Assign delivery agent (admin/manager)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['deliveryAgentId'],
+                properties: {
+                  deliveryAgentId: { type: 'string' },
+                  deliveryAgentName: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Delivery agent assigned' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/deliveries/{id}/status': {
+      patch: {
+        tags: ['Deliveries'],
+        summary: 'Update delivery status (admin/manager/seller/assigned agent)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['status'],
+                properties: {
+                  status: { type: 'string', enum: ['PENDING_ASSIGNMENT', 'ASSIGNED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'CANCELLED'] },
+                  note: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Delivery status updated' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/deliveries/{id}/provider': {
+      patch: {
+        tags: ['Deliveries'],
+        summary: 'Update provider/dispatch data (admin/manager)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['provider'],
+                properties: {
+                  provider: { type: 'string', enum: ['INHOUSE', 'STEADFAST'] },
+                  dispatchStatus: { type: 'string', enum: ['PENDING', 'DISPATCHED', 'FAILED'] },
+                  trackingNumber: { type: 'string' },
+                  dispatchNote: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Delivery provider updated' },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },

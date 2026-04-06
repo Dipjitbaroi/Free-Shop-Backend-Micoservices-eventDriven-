@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DELIVERY_DATABASE_URL")
+}
+
+enum DeliveryProvider {
+  INHOUSE
+  STEADFAST
+}
+
+enum DeliveryDispatchStatus {
+  PENDING
+  DISPATCHED
+  FAILED
+}
+
+enum DeliveryStatus {
+  PENDING_ASSIGNMENT
+  ASSIGNED
+  PICKED_UP
+  OUT_FOR_DELIVERY
+  DELIVERED
+  DELIVERY_FAILED
+  CANCELLED
+}
+
+model Delivery {
+  id                   String                 @id @default(uuid())
+  orderId              String                 @unique
+  orderNumber          String                 @unique
+
+  userId               String?
+  sellerIds            Json
+
+  provider             DeliveryProvider
+  dispatchStatus       DeliveryDispatchStatus @default(PENDING)
+  status               DeliveryStatus         @default(PENDING_ASSIGNMENT)
+
+  deliveryAgentId      String?
+  deliveryAgentName    String?
+
+  shippingAddress      Json
+
+  trackingNumber       String?
+  carrier              String?
+
+  dispatchNote         String?
+  statusNote           String?
+  failureReason        String?
+
+  providerMeta         Json?
+
+  dispatchedAt         DateTime?
+  assignedAt           DateTime?
+  pickedUpAt           DateTime?
+  outForDeliveryAt     DateTime?
+  deliveredAt          DateTime?
+  failedAt             DateTime?
+  cancelledAt          DateTime?
+
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+
+  @@index([orderId])
+  @@index([userId])
+  @@index([status])
+  @@index([provider])
+  @@index([deliveryAgentId])
+  @@index([createdAt])
+}

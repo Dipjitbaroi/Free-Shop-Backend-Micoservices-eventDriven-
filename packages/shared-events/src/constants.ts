@@ -27,6 +27,13 @@ export const Events = {
   ORDER_CANCELLED: 'order.cancelled',
   ORDER_REFUNDED: 'order.refunded',
   ORDER_STATUS_CHANGED: 'order.status_changed',
+  ORDER_DELIVERY_DISPATCHED: 'order.delivery_dispatched',
+  ORDER_DELIVERY_DISPATCH_FAILED: 'order.delivery_dispatch_failed',
+
+  // Delivery Events
+  DELIVERY_CREATED: 'delivery.created',
+  DELIVERY_UPDATED: 'delivery.updated',
+  DELIVERY_STATUS_CHANGED: 'delivery.status_changed',
 
   // Payment Events
   PAYMENT_INITIATED: 'payment.initiated',
@@ -89,6 +96,7 @@ export const Exchanges = {
   SELLER: 'freeshop.seller',
   NOTIFICATION: 'freeshop.notification',
   ANALYTICS: 'freeshop.analytics',
+  DELIVERY: 'freeshop.delivery',
   DEAD_LETTER: 'freeshop.dead_letter',
 } as const;
 
@@ -156,6 +164,11 @@ export const Queues = {
   ANALYTICS_ORDER_CANCELLED: 'analytics.order_cancelled',
   ANALYTICS_PRODUCT_VIEWED: 'analytics.product_viewed',
   ANALYTICS_USER_CREATED: 'analytics.user_created',
+
+  // Delivery Service Cross-Domain Queues
+  DELIVERY_ORDER_CREATED: 'delivery.order_created',
+  DELIVERY_ORDER_DISPATCHED: 'delivery.order_dispatched',
+  DELIVERY_ORDER_DISPATCH_FAILED: 'delivery.order_dispatch_failed',
   
   // Dead Letter Queue
   DEAD_LETTER: 'dead_letter.queue',

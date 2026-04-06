@@ -15,6 +15,7 @@ import { cacheDelete, orderCacheKey } from '../lib/redis';
 import config from '../config';
 import { cartService } from './cart.service';
 import { settingsService } from './settings.service';
+import { deliveryService } from './delivery.service';
 
 interface OrderWithItems extends Order {
   items: OrderItem[];
@@ -100,13 +101,21 @@ class OrderService {
 
     const orderNumber = generateOrderNumber();
 
+    const providerSelection = await deliveryService.resolveProvider(data.shippingAddress);
+    const shippingAddressWithMeta = deliveryService.attachDeliveryMeta(data.shippingAddress, {
+      provider: providerSelection.provider,
+      routedBy: providerSelection.matchedBy,
+      status: 'PENDING',
+      requestedAt: new Date().toISOString(),
+    });
+
     const order = await prisma.order.create({
       data: {
         orderNumber,
         userId: data.userId,
         guestEmail: data.guestEmail,
         guestPhone: data.guestPhone,
-        shippingAddress: data.shippingAddress as unknown as Prisma.InputJsonValue,
+        shippingAddress: shippingAddressWithMeta,
         subtotal,
         shippingFee,
         discount,
@@ -134,6 +143,36 @@ class OrderService {
       include: { items: true },
     });
 
+    const deliveryDispatch = await deliveryService.dispatchOrder({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      customerName: `${String((data.shippingAddress as any).firstName || '').trim()} ${String((data.shippingAddress as any).lastName || '').trim()}`.trim() || undefined,
+      customerPhone: data.guestPhone || String((data.shippingAddress as any).phone || ''),
+      address: data.shippingAddress,
+      total: order.total,
+      paymentMethod: order.paymentMethod,
+    });
+
+    const orderWithDelivery = await prisma.order.update({
+      where: { id: order.id },
+      data: {
+        shippingAddress: deliveryService.attachDeliveryMeta(data.shippingAddress, {
+          provider: deliveryDispatch.provider,
+          status: deliveryDispatch.status,
+          note: deliveryDispatch.note,
+          providerTrackingId: deliveryDispatch.providerTrackingId,
+          requestedAt: deliveryDispatch.requestedAt,
+        }),
+        ...(deliveryDispatch.providerTrackingId
+          ? {
+              carrier: deliveryDispatch.provider,
+              trackingNumber: deliveryDispatch.providerTrackingId,
+            }
+          : {}),
+      },
+      include: { items: true },
+    });
+
     // Clear cart after order
     // Note: Cart clearing should happen in the controller after successful order
     
@@ -144,12 +183,13 @@ class OrderService {
 
     // Publish order created event
     await eventPublisher.publish(Events.ORDER_CREATED, {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      userId: order.userId,
-      total: order.total,
-      paymentMethod: order.paymentMethod,
-      items: order.items.map(item => ({
+      orderId: orderWithDelivery.id,
+      orderNumber: orderWithDelivery.orderNumber,
+      userId: orderWithDelivery.userId,
+      total: orderWithDelivery.total,
+      paymentMethod: orderWithDelivery.paymentMethod,
+      shippingAddress: orderWithDelivery.shippingAddress,
+      items: orderWithDelivery.items.map(item => ({
         productId: item.productId,
         sellerId: item.sellerId,
         quantity: item.quantity,
@@ -158,7 +198,19 @@ class OrderService {
       })),
     });
 
-    return order;
+    const deliveryEvent = deliveryDispatch.status === 'DISPATCHED' ? Events.ORDER_DELIVERY_DISPATCHED : Events.ORDER_DELIVERY_DISPATCH_FAILED;
+    await eventPublisher.publish(deliveryEvent, {
+      orderId: orderWithDelivery.id,
+      orderNumber: orderWithDelivery.orderNumber,
+      userId: orderWithDelivery.userId,
+      provider: deliveryDispatch.provider,
+      status: deliveryDispatch.status,
+      note: deliveryDispatch.note,
+      trackingNumber: deliveryDispatch.providerTrackingId,
+      sellerIds: [...new Set(orderWithDelivery.items.map((item) => item.sellerId))],
+    });
+
+    return orderWithDelivery;
   }
 
   async getOrderById(orderId: string): Promise<OrderWithItems> {
