@@ -5,7 +5,7 @@ import { UserRole } from '@freeshop/shared-types';
 import { body } from 'express-validator';
 import { validate } from '@freeshop/shared-middleware';
 
-const router = Router();
+const router: Router = Router();
 
 // Only admin/manager can get or update delivery settings
 router.get(

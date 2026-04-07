@@ -5,7 +5,7 @@ import { validate } from '@freeshop/shared-middleware';
 import { UserRole } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 const paginationValidation = [
   query('page').optional().isInt({ min: 1 }),

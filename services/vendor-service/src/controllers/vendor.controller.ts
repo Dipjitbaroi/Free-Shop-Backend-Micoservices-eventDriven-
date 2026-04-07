@@ -40,7 +40,7 @@ export const vendorController = {
 
   async getVendorById(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendor = await vendorService.getVendorById(req.params.id);
+      const vendor = await vendorService.getVendorById(req.params.id as string);
       if (!vendor) throw new NotFoundError('vendor not found');
 
       res.json(successResponse(vendor, 'vendor retrieved'));
@@ -51,7 +51,7 @@ export const vendorController = {
 
   async getVendorBySlug(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendor = await vendorService.getVendorBySlug(req.params.slug);
+      const vendor = await vendorService.getVendorBySlug(req.params.slug as string);
       if (!vendor) throw new NotFoundError('Store not found');
 
       res.json(successResponse(vendor, 'vendor retrieved'));
@@ -97,7 +97,7 @@ export const vendorController = {
   async updateVendorStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const vendor = await vendorService.updateVendorStatus(
-        req.params.id,
+        req.params.id as string,
         req.body.status,
         req.body.reason
       );
@@ -111,7 +111,7 @@ export const vendorController = {
   async verifyVendor(req: Request, res: Response, next: NextFunction) {
     try {
       const vendor = await vendorService.verifyVendor(
-        req.params.id,
+        req.params.id as string,
         req.body.approved,
         req.body.reason
       );
@@ -161,7 +161,7 @@ export const vendorController = {
   async verifyDocument(req: Request, res: Response, next: NextFunction) {
     try {
       const document = await vendorService.verifyDocument(
-        req.params.documentId,
+        req.params.documentId as string,
         req.body.approved,
         req.body.reason
       );

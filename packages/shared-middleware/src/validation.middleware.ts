@@ -107,7 +107,7 @@ export const sanitizeQuery = (
  */
 export const validateUUID = (paramName: string) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const uuid = req.params[paramName];
+    const uuid = req.params[paramName] as string;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
     if (!uuid || !uuidRegex.test(uuid)) {

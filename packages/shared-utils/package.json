@@ -29,6 +29,6 @@
     "typescript": "^6.0.2"
   },
   "peerDependencies": {
-    "@freeshop/shared-types": "^1.0.0"
+    "@freeshop/shared-types": "workspace:*"
   }
 }

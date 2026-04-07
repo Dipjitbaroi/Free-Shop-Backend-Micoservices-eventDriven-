@@ -841,7 +841,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/products/Vendor/{VendorId}': {
+    '/products/vendor/{vendorId}': {
       get: {
         tags: ['Products'],
         summary: "List a Vendor's own products (Vendor / admin / manager)",
@@ -1379,7 +1379,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/orders/Vendor/{VendorId}': {
+    '/orders/vendor/{vendorId}': {
       get: {
         tags: ['Orders'],
         summary: "List a Vendor's orders (Vendor / admin / manager)",
@@ -1984,7 +1984,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
     },
     // ─── VendorS ─────────────────────────────────────────────────────────────
-    '/Vendors': {
+    '/vendors': {
       get: {
         tags: ['Vendors'],
         summary: 'List Vendors',
@@ -2024,7 +2024,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/me': {
+    '/vendors/me': {
       get: {
         tags: ['Vendors'],
         summary: 'Get current Vendor profile',
@@ -2059,7 +2059,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/me/stats': {
+    '/vendors/me/stats': {
       get: {
         tags: ['Vendors'],
         summary: 'Get current Vendor stats (orders, revenue, ratings)',
@@ -2071,7 +2071,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/me/documents': {
+    '/vendors/me/documents': {
       post: {
         tags: ['Vendors'],
         summary: 'Upload a verification document',
@@ -2099,7 +2099,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/store/{slug}': {
+    '/vendors/store/{slug}': {
       get: {
         tags: ['Vendors'],
         summary: 'Get Vendor store page by slug',
@@ -2115,7 +2115,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/finance/commissions': {
+    '/vendors/finance/commissions': {
       get: {
         tags: ['Vendors'],
         summary: 'Get Vendor commission records',
@@ -2132,7 +2132,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/finance/balance': {
+    '/vendors/finance/balance': {
       get: {
         tags: ['Vendors'],
         summary: 'Get available Vendor balance',
@@ -2164,7 +2164,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/finance/withdrawals': {
+    '/vendors/finance/withdrawals': {
       get: {
         tags: ['Vendors'],
         summary: 'List Vendor withdrawal requests',
@@ -2208,7 +2208,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/finance/admin/withdrawals': {
+    '/vendors/finance/admin/withdrawals': {
       get: {
         tags: ['Vendors'],
         summary: 'List all withdrawal requests (admin / manager)',
@@ -2226,7 +2226,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/finance/withdrawals/{id}': {
+    '/vendors/finance/withdrawals/{id}': {
       get: {
         tags: ['Vendors'],
         summary: 'Get a withdrawal request by ID',
@@ -2242,7 +2242,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/finance/withdrawals/{id}/process': {
+    '/vendors/finance/withdrawals/{id}/process': {
       patch: {
         tags: ['Vendors'],
         summary: 'Process a withdrawal (admin / manager)',
@@ -2275,7 +2275,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/finance/withdrawals/{id}/complete': {
+    '/vendors/finance/withdrawals/{id}/complete': {
       patch: {
         tags: ['Vendors'],
         summary: 'Complete a withdrawal (admin / manager)',
@@ -2304,7 +2304,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/documents/{documentId}/verify': {
+    '/vendors/documents/{documentId}/verify': {
       patch: {
         tags: ['Vendors'],
         summary: 'Verify a Vendor document (admin / manager)',
@@ -2336,7 +2336,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/{VendorId}/reviews': {
+    '/vendors/{vendorId}/reviews': {
       get: {
         tags: ['Vendors'],
         summary: 'Get reviews for a Vendor',
@@ -2383,7 +2383,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/reviews/{reviewId}': {
+    '/vendors/reviews/{reviewId}': {
       patch: {
         tags: ['Vendors'],
         summary: 'Update a Vendor review (owner)',
@@ -2428,7 +2428,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/reviews/{reviewId}/respond': {
+    '/vendors/reviews/{reviewId}/respond': {
       post: {
         tags: ['Vendors'],
         summary: 'Respond to a review (Vendor owner)',
@@ -2457,7 +2457,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/{id}': {
+    '/vendors/{id}': {
       get: {
         tags: ['Vendors'],
         summary: 'Get Vendor by ID',
@@ -2497,7 +2497,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/{id}/status': {
+    '/vendors/{id}/status': {
       patch: {
         tags: ['Vendors'],
         summary: 'Update Vendor status (admin / manager)',
@@ -2529,7 +2529,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/Vendors/{id}/verify': {
+    '/vendors/{id}/verify': {
       patch: {
         tags: ['Vendors'],
         summary: 'Approve or reject Vendor verification (admin / manager)',
@@ -2671,7 +2671,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/inventory/Vendor/{VendorId}': {
+    '/inventory/Vendor/{vendorId}': {
       get: {
         tags: ['Inventory'],
         summary: "Get a Vendor's full inventory (Vendor / admin / manager)",
@@ -3238,7 +3238,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/analytics/Vendors/{VendorId}': {
+    '/analytics/Vendors/{vendorId}': {
       get: {
         tags: ['Analytics'],
         summary: 'Get analytics report for a specific Vendor',
@@ -4301,4 +4301,6 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
 };
 
 export default swaggerDocument;
+
+
 

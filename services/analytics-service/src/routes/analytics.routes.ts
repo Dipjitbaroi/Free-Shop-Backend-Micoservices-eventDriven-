@@ -3,7 +3,7 @@ import { body, param, query } from 'express-validator';
 import { analyticsController } from '../controllers/analytics.controller';
 import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/dashboard',

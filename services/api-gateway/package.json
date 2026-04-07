@@ -13,9 +13,9 @@
   "keywords": ["freeshop", "api-gateway"],
   "license": "MIT",
   "dependencies": {
-    "@freeshop/shared-types": "^1.0.0",
-    "@freeshop/shared-utils": "^1.0.0",
-    "@freeshop/shared-middleware": "^1.0.0",
+    "@freeshop/shared-types": "workspace:*",
+    "@freeshop/shared-utils": "workspace:*",
+    "@freeshop/shared-middleware": "workspace:*",
     "express": "^5.2.1",
     "http-proxy-middleware": "^3.0.5",
     "ioredis": "^5.9.3",

@@ -60,7 +60,7 @@ export const productController = {
 
   async getProductById(req: Request, res: Response, next: NextFunction) {
     try {
-      const product = await productService.getProductById(req.params.id);
+      const product = await productService.getProductById(req.params.id as string);
       // Filter price field for vendors
       const filteredProduct = filterProductForUser(product, req.user?.role);
       res.json(successResponse(filteredProduct, 'Product retrieved successfully'));
@@ -71,7 +71,7 @@ export const productController = {
 
   async getProductBySlug(req: Request, res: Response, next: NextFunction) {
     try {
-      const product = await productService.getProductBySlug(req.params.slug);
+      const product = await productService.getProductBySlug(req.params.slug as string);
       // Filter price field for vendors
       const filteredProduct = filterProductForUser(product, req.user?.role);
       res.json(successResponse(filteredProduct, 'Product retrieved successfully'));
@@ -85,7 +85,7 @@ export const productController = {
       const { id } = req.params;
       const userRole = req.user?.role;
       const userId = req.user?.userId;
-      const product = await productService.updateProduct(id, req.body, userRole, userId);
+      const product = await productService.updateProduct(id as string, req.body, userRole, userId);
       // Filter price field for vendors
       const filteredProduct = filterProductForUser(product, req.user?.role);
       res.json(successResponse(filteredProduct, 'Product updated successfully'));
@@ -96,7 +96,7 @@ export const productController = {
 
   async deleteProduct(req: Request, res: Response, next: NextFunction) {
     try {
-      await productService.deleteProduct(req.params.id);
+      await productService.deleteProduct(req.params.id as string);
       res.json(successResponse(null, 'Product deleted successfully'));
     } catch (error) {
       next(error);
@@ -108,7 +108,7 @@ export const productController = {
       const { id } = req.params;
       const { status, reason, price } = req.body;
       const actorRole = req.user?.role as string;
-      const product = await productService.updateProductStatus(id, status, actorRole, reason, price);
+      const product = await productService.updateProductStatus(id as string, status, actorRole, reason, price);
       // Filter price field for vendors
       const filteredProduct = filterProductForUser(product, req.user?.role);
       res.json(successResponse(filteredProduct, 'Product status updated successfully'));
@@ -119,7 +119,7 @@ export const productController = {
 
   async getVendorProducts(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendorId = req.params.vendorId || req.user?.userId;
+      const vendorId = req.params.vendorId as string || req.user?.userId;
       const { status, page, limit } = req.query;
 
       const products = await productService.getVendorProducts(

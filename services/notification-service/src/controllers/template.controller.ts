@@ -23,7 +23,7 @@ export const templateController = {
 
   async updateTemplate(req: Request, res: Response, next: NextFunction) {
     try {
-      const template = await notificationService.updateTemplate(req.params.id, req.body);
+      const template = await notificationService.updateTemplate(req.params.id as string, req.body);
       res.json(successResponse(template, 'Template updated'));
     } catch (error) {
       next(error);
@@ -32,7 +32,7 @@ export const templateController = {
 
   async getTemplate(req: Request, res: Response, next: NextFunction) {
     try {
-      const template = await notificationService.getTemplate(req.params.id);
+      const template = await notificationService.getTemplate(req.params.id as string);
       if (!template) throw new NotFoundError('Template not found');
 
       res.json(successResponse(template, 'Template retrieved'));

@@ -33,7 +33,7 @@ export const wishlistController = {
     try {
       const userId = req.user?.id as string;
       const { productId } = req.params;
-      await wishlistService.removeFromWishlist(userId, productId);
+      await wishlistService.removeFromWishlist(userId, productId as string);
       res.json(successResponse(null, 'Product removed from wishlist'));
     } catch (error) {
       next(error);
@@ -44,7 +44,7 @@ export const wishlistController = {
     try {
       const userId = req.user?.id as string;
       const { productId } = req.params;
-      const inWishlist = await wishlistService.isInWishlist(userId, productId);
+      const inWishlist = await wishlistService.isInWishlist(userId, productId as string);
       res.json(successResponse({ inWishlist }, 'Wishlist status retrieved'));
     } catch (error) {
       next(error);

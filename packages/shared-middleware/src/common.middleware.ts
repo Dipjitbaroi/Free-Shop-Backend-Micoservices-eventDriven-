@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -100,7 +100,7 @@ export const corsMiddleware = cors({
 /**
  * Compression middleware
  */
-export const compressionMiddleware = compression({
+export const compressionMiddleware: RequestHandler = compression({
   filter: (req: Request, res: Response): boolean => {
     if (req.headers['x-no-compression']) {
       return false;
@@ -109,14 +109,14 @@ export const compressionMiddleware = compression({
   },
   level: 6,
   threshold: 1024, // Only compress responses > 1KB
-});
+}) as RequestHandler;
 
 /**
  * HTTP Parameter Pollution protection
  */
-export const hppMiddleware = hpp({
+export const hppMiddleware: RequestHandler = hpp({
   whitelist: ['sort', 'filter', 'fields', 'page', 'limit'],
-});
+}) as RequestHandler;
 
 const SKIP_LOG_PATHS = new Set(['/health', '/ready', '/ping']);
 

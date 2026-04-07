@@ -4,7 +4,7 @@ import { authenticate, authorize } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 // Validation schemas
 const updateProfileValidation = [

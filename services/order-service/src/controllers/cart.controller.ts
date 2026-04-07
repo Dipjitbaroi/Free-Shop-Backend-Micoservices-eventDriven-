@@ -53,7 +53,7 @@ export const cartController = {
       const { productId } = req.params;
       const { quantity } = req.body;
       
-      const cart = await cartService.updateCartItem(userId, guestId, productId, quantity);
+      const cart = await cartService.updateCartItem(userId, guestId, productId as string, quantity);
       const summary = await cartService.getCartSummary(userId, guestId);
       
       res.json(successResponse({ cart, summary }, 'Cart item updated'));
@@ -68,7 +68,7 @@ export const cartController = {
       const guestId = req.headers['x-guest-id'] as string;
       const { productId } = req.params;
       
-      const cart = await cartService.removeFromCart(userId, guestId, productId);
+      const cart = await cartService.removeFromCart(userId, guestId, productId as string);
       const summary = await cartService.getCartSummary(userId, guestId);
       
       res.json(successResponse({ cart, summary }, 'Item removed from cart'));

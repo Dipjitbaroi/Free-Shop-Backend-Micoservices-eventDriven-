@@ -3,7 +3,7 @@ import { body, param, query } from 'express-validator';
 import { notificationController } from '../controllers/notification.controller';
 import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
 
-const router = Router();
+const router: Router = Router();
 
 const notificationTypes = [
   'ORDER_CREATED', 'ORDER_CONFIRMED', 'ORDER_SHIPPED', 'ORDER_DELIVERED', 'ORDER_CANCELLED',

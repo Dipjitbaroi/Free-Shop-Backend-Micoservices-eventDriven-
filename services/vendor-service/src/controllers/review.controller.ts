@@ -10,7 +10,7 @@ export const reviewController = {
       if (!userId) throw new UnauthorizedError('User not authenticated');
 
       const review = await reviewService.createReview({
-        vendorId: req.params.vendorId,
+        vendorId: req.params.vendorId as string,
         userId,
         orderId: req.body.orderId,
         rating: req.body.rating,
@@ -29,7 +29,7 @@ export const reviewController = {
       const userId = req.user?.id;
       if (!userId) throw new UnauthorizedError('User not authenticated');
 
-      const review = await reviewService.updateReview(req.params.reviewId, userId, {
+      const review = await reviewService.updateReview(req.params.reviewId as string, userId, {
         rating: req.body.rating,
         title: req.body.title,
         comment: req.body.comment,
@@ -48,7 +48,7 @@ export const reviewController = {
 
       if (!userId) throw new UnauthorizedError('User not authenticated');
 
-      await reviewService.deleteReview(req.params.reviewId, userId, isAdmin);
+      await reviewService.deleteReview(req.params.reviewId as string, userId, isAdmin);
 
       res.json(successResponse(null, 'Review deleted successfully'));
     } catch (error) {
@@ -63,7 +63,7 @@ export const reviewController = {
       if (!vendor) throw new NotFoundError('vendor account not found');
 
       const review = await reviewService.respondToReview(
-        req.params.reviewId,
+        req.params.reviewId as string,
         vendor.id,
         req.body.response
       );
@@ -77,7 +77,7 @@ export const reviewController = {
   async getVendorReviews(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await reviewService.getVendorReviews({
-        vendorId: req.params.VendorId,
+        vendorId: req.params.VendorId as string,
         rating: req.query.rating ? parseInt(req.query.rating as string) : undefined,
         page: req.query.page ? parseInt(req.query.page as string) : undefined,
         limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,

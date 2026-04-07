@@ -92,7 +92,7 @@ export const commissionController = {
 
   async getWithdrawal(req: Request, res: Response, next: NextFunction) {
     try {
-      const withdrawal = await commissionService.getWithdrawalById(req.params.id);
+      const withdrawal = await commissionService.getWithdrawalById(req.params.id as string);
       if (!withdrawal) throw new NotFoundError('Withdrawal not found');
 
       const userId = req.user?.id;
@@ -118,7 +118,7 @@ export const commissionController = {
       const adminId = req.user?.id;
 
       const withdrawal = await commissionService.processWithdrawal(
-        req.params.id,
+        req.params.id as string,
         req.body.approved,
         adminId!,
         req.body.transactionId,
@@ -134,7 +134,7 @@ export const commissionController = {
   async completeWithdrawal(req: Request, res: Response, next: NextFunction) {
     try {
       const withdrawal = await commissionService.completeWithdrawal(
-        req.params.id,
+        req.params.id as string,
         req.body.transactionId
       );
 

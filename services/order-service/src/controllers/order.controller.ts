@@ -133,7 +133,7 @@ export const orderController = {
 
   async getOrderById(req: Request, res: Response, next: NextFunction) {
     try {
-      const order = await orderService.getOrderById(req.params.id);
+      const order = await orderService.getOrderById(req.params.id as string);
       res.json(successResponse(order, 'Order retrieved successfully'));
     } catch (error) {
       next(error);
@@ -142,7 +142,7 @@ export const orderController = {
 
   async getOrderByNumber(req: Request, res: Response, next: NextFunction) {
     try {
-      const order = await orderService.getOrderByNumber(req.params.orderNumber);
+      const order = await orderService.getOrderByNumber(req.params.orderNumber as string);
       res.json(successResponse(order, 'Order retrieved successfully'));
     } catch (error) {
       next(error);
@@ -152,7 +152,7 @@ export const orderController = {
   async updateOrderStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { status, note } = req.body;
-      const order = await orderService.updateOrderStatus(req.params.id, status, note);
+      const order = await orderService.updateOrderStatus(req.params.id as string, status, note);
       res.json(successResponse(order, 'Order status updated'));
     } catch (error) {
       next(error);
@@ -162,7 +162,7 @@ export const orderController = {
   async updatePaymentStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { paymentStatus, transactionId } = req.body;
-      const order = await orderService.updatePaymentStatus(req.params.id, paymentStatus, transactionId);
+      const order = await orderService.updatePaymentStatus(req.params.id as string, paymentStatus, transactionId);
       res.json(successResponse(order, 'Payment status updated'));
     } catch (error) {
       next(error);
@@ -173,7 +173,7 @@ export const orderController = {
     try {
       const userId = req.user?.id as string;
       const { reason } = req.body;
-      const order = await orderService.cancelOrder(req.params.id, userId, reason);
+      const order = await orderService.cancelOrder(req.params.id as string, userId, reason);
       res.json(successResponse(order, 'Order cancelled'));
     } catch (error) {
       next(error);
@@ -183,7 +183,7 @@ export const orderController = {
   async addTrackingInfo(req: Request, res: Response, next: NextFunction) {
     try {
       const { trackingNumber, carrier } = req.body;
-      const order = await orderService.addTrackingInfo(req.params.id, trackingNumber, carrier);
+      const order = await orderService.addTrackingInfo(req.params.id as string, trackingNumber, carrier);
       res.json(successResponse(order, 'Tracking info added'));
     } catch (error) {
       next(error);
@@ -203,7 +203,7 @@ export const orderController = {
 
   async getVendorOrders(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendorId = req.params.vendorId || req.user?.id as string;
+      const vendorId = (req.params.vendorId as string) || (req.user?.id as string);
       const { page, limit } = req.query;
 
       const orders = await orderService.getVendorOrders(

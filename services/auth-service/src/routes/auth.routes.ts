@@ -4,7 +4,7 @@ import * as authController from '../controllers/auth.controller';
 import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation } from '../validators/auth.validators';
 import { query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@ import { body, param, query } from 'express-validator';
 import { commissionController } from '../controllers/commission.controller';
 import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/commissions',

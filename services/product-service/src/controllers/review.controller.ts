@@ -38,7 +38,7 @@ export const reviewController = {
 
   async getReviewById(req: Request, res: Response, next: NextFunction) {
     try {
-      const review = await reviewService.getReviewById(req.params.id);
+      const review = await reviewService.getReviewById(req.params.id as string);
       res.json(successResponse(review, 'Review retrieved successfully'));
     } catch (error) {
       next(error);
@@ -51,7 +51,7 @@ export const reviewController = {
       const { page, limit } = req.query;
 
       const reviews = await reviewService.getReviews({
-        productId,
+        productId: productId as string,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
       });
@@ -64,7 +64,7 @@ export const reviewController = {
 
   async getProductRatingStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const stats = await reviewService.getProductRatingStats(req.params.productId);
+      const stats = await reviewService.getProductRatingStats(req.params.productId as string);
       res.json(successResponse(stats, 'Rating stats retrieved successfully'));
     } catch (error) {
       next(error);
@@ -74,7 +74,7 @@ export const reviewController = {
   async updateReview(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.userId as string;
-      const review = await reviewService.updateReview(req.params.id, userId, req.body);
+      const review = await reviewService.updateReview(req.params.id as string, userId, req.body);
       res.json(successResponse(review, 'Review updated successfully'));
     } catch (error) {
       next(error);
@@ -85,7 +85,7 @@ export const reviewController = {
     try {
       const userId = req.user?.userId as string;
       const isAdmin = [UserRole.ADMIN, UserRole.MANAGER].includes(req.user?.role as UserRole);
-      await reviewService.deleteReview(req.params.id, userId, isAdmin);
+      await reviewService.deleteReview(req.params.id as string, userId, isAdmin);
       res.json(successResponse(null, 'Review deleted successfully'));
     } catch (error) {
       next(error);
@@ -95,7 +95,7 @@ export const reviewController = {
   async addHelpfulVote(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.userId as string;
-      const review = await reviewService.addHelpfulVote(req.params.id, userId);
+      const review = await reviewService.addHelpfulVote(req.params.id as string, userId);
       res.json(successResponse(review, 'Vote recorded successfully'));
     } catch (error) {
       next(error);
@@ -106,7 +106,7 @@ export const reviewController = {
     try {
       const userId = req.user?.userId as string;
       const { reason } = req.body;
-      await reviewService.reportReview(req.params.id, userId, reason);
+      await reviewService.reportReview(req.params.id as string, userId, reason);
       res.json(successResponse(null, 'Review reported successfully'));
     } catch (error) {
       next(error);

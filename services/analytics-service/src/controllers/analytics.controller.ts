@@ -45,7 +45,7 @@ export const analyticsController = {
   async getVendorReport(req: Request, res: Response, next: NextFunction) {
     try {
       const dateRange = parseDateRange(req);
-      const report = await analyticsService.getVendorReport(req.params.vendorId, dateRange);
+      const report = await analyticsService.getVendorReport(req.params.vendorId as string, dateRange);
 
       res.json({
         success: true,
@@ -59,7 +59,7 @@ export const analyticsController = {
   async getProductAnalytics(req: Request, res: Response, next: NextFunction) {
     try {
       const dateRange = parseDateRange(req);
-      const analytics = await analyticsService.getProductAnalytics(req.params.productId, dateRange);
+      const analytics = await analyticsService.getProductAnalytics(req.params.productId as string, dateRange);
 
       res.json({
         success: true,

@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { redis } from '../lib/redis';
 import { messageBroker } from '../lib/message-broker';
 
-const router = Router();
+const router: Router = Router();
 
 router.get('/health', async (_req: Request, res: Response) => {
   res.json({ status: 'ok', service: 'analytics-service' });

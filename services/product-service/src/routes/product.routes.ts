@@ -6,7 +6,7 @@ import { UserRole } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 import config from '../config';
 
-const router = Router();
+const router: Router = Router();
 
 // Validation schemas
 const createProductValidation = [

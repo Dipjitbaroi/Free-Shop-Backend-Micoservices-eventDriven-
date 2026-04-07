@@ -12,10 +12,11 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@freeshop/shared-events": "^1.0.0",
-    "@freeshop/shared-middleware": "^1.0.0",
-    "@freeshop/shared-types": "^1.0.0",
-    "@freeshop/shared-utils": "^1.0.0",
+    "@freeshop/shared-events": "workspace:*",
+    "@freeshop/shared-middleware": "workspace:*",
+    "@freeshop/shared-types": "workspace:*",
+    "@freeshop/shared-utils": "workspace:*",
+    "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
     "amqplib": "^0.10.9",
     "compression": "^1.8.1",

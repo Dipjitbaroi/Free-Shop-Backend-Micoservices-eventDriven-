@@ -1,10 +1,13 @@
 FROM node:24-alpine AS builder
 
 RUN apk add --no-cache openssl
+RUN npm install -g pnpm@9
 
 WORKDIR /app
 
 COPY package*.json ./
+COPY pnpm-workspace.yaml ./
+COPY .pnpmrc ./
 COPY tsconfig.base.json ./
 
 COPY packages/shared-types/package*.json ./packages/shared-types/
@@ -13,7 +16,8 @@ COPY packages/shared-events/package*.json ./packages/shared-events/
 COPY packages/shared-middleware/package*.json ./packages/shared-middleware/
 COPY services/payment-service/package*.json ./services/payment-service/
 
-RUN npm ci --foreground-scripts
+# Install with pnpm and BuildKit cache, optimized for slow networks
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 COPY packages/shared-types/ ./packages/shared-types/
 COPY packages/shared-utils/ ./packages/shared-utils/
@@ -21,27 +25,27 @@ COPY packages/shared-events/ ./packages/shared-events/
 COPY packages/shared-middleware/ ./packages/shared-middleware/
 COPY services/payment-service/ ./services/payment-service/
 
-WORKDIR /app/services/payment-service
-RUN npx prisma generate
+# Build all packages in one command (reduces network calls and layer count)
 WORKDIR /app
-
-RUN npm run build --workspace=@freeshop/shared-types
-RUN npm run build --workspace=@freeshop/shared-utils
-RUN npm run build --workspace=@freeshop/shared-events
-RUN npm run build --workspace=@freeshop/shared-middleware
-RUN npm run build --workspace=services/payment-service
+RUN pnpm run build
 
 FROM node:24-alpine AS production
 
 RUN apk add --no-cache openssl
+RUN npm install -g pnpm@9
 
 WORKDIR /app
 
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/.pnpmrc ./
+
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
+
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/payment-service/dist ./services/payment-service/dist
 COPY --from=builder /app/services/payment-service/package*.json ./services/payment-service/
+COPY --from=builder /app/services/payment-service/prisma.config.ts ./services/payment-service/
 COPY --from=builder /app/services/payment-service/prisma ./services/payment-service/prisma
 COPY --from=builder /app/services/payment-service/generated ./services/payment-service/generated
 
