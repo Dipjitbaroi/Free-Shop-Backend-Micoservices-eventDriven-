@@ -19,7 +19,7 @@ export default {
   },
   
   database: {
-    url: process.env.AUTH_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/freeshop_auth',
+    url: process.env.AUTH_DATABASE_URL,
   },
   
   redis: {

@@ -8,7 +8,7 @@ export const config = {
   port: parseInt(process.env.PORT || '3008', 10),
   
   database: {
-    url: process.env.NOTIFICATION_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/freeshop_notification',
+    url: process.env.NOTIFICATION_DATABASE_URL,
   },
   
   redis: {
