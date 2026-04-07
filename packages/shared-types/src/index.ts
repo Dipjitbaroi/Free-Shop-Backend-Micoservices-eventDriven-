@@ -6,7 +6,7 @@ export * from './user.types';
 export * from './product.types';
 export * from './order.types';
 export * from './payment.types';
-export * from './seller.types';
+export * from './vendor.types';
 export * from './auth.types';
 export * from './notification.types';
 export * from './inventory.types';

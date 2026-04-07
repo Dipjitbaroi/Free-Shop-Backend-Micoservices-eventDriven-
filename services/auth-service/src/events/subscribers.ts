@@ -3,51 +3,51 @@ import { prisma } from '../lib/prisma';
 import { EXCHANGES, getRoutingKey } from '@freeshop/shared-events';
 import logger from '@freeshop/shared-utils';
 
-interface SellerCreatedPayload {
-  sellerId: string;
+interface VendorCreatedPayload {
+  vendorId: string;
   userId: string;
   storeName?: string;
   storeSlug?: string;
 }
 
-interface SellerStatusChangedPayload {
-  sellerId: string;
+interface VendorStatusChangedPayload {
+  vendorId: string;
   userId: string;
   status: string;
   reason?: string;
 }
 
 /**
- * Subscribe to seller events so the auth-service can keep the user's role
+ * Subscribe to Vendor events so the auth-service can keep the user's role
  * in sync.
  *
- * SELLER.CREATED  → upgrade the user's role from CUSTOMER → SELLER
- * SELLER.STATUS_CHANGED (BANNED | CLOSED) → downgrade role back to CUSTOMER
+ * Vendor.CREATED  → upgrade the user's role from CUSTOMER → Vendor
+ * Vendor.STATUS_CHANGED (BANNED | CLOSED) → downgrade role back to CUSTOMER
  */
 export const setupEventSubscribers = async (): Promise<void> => {
-  // ── SELLER.CREATED ────────────────────────────────────────────────────────
-  await messageBroker.subscribe<SellerCreatedPayload>(
-    EXCHANGES.SELLER,
-    'auth.seller_created',
-    getRoutingKey('SELLER', 'CREATED'),
+  // ── Vendor.CREATED ────────────────────────────────────────────────────────
+  await messageBroker.subscribe<VendorCreatedPayload>(
+    EXCHANGES.VENDOR,
+    'auth.Vendor_created',
+    getRoutingKey('Vendor', 'CREATED'),
     async (payload) => {
       try {
         if (!payload.userId) {
-          logger.warn('seller.created event missing userId', { payload });
+          logger.warn('Vendor.created event missing userId', { payload });
           return;
         }
 
         await prisma.user.update({
           where: { id: payload.userId },
-          data: { role: 'SELLER' },
+          data: { role: 'VENDOR' },
         });
 
-        logger.info('User role upgraded to SELLER', {
+        logger.info('User role upgraded to Vendor', {
           userId: payload.userId,
-          sellerId: payload.sellerId,
+          vendorId: payload.vendorId,
         });
       } catch (error) {
-        logger.error('Failed to upgrade user role to SELLER', {
+        logger.error('Failed to upgrade user role to Vendor', {
           userId: payload.userId,
           error: (error as Error).message,
         });
@@ -56,15 +56,15 @@ export const setupEventSubscribers = async (): Promise<void> => {
     }
   );
 
-  // ── SELLER.STATUS_CHANGED ─────────────────────────────────────────────────
-  await messageBroker.subscribe<SellerStatusChangedPayload>(
-    EXCHANGES.SELLER,
-    'auth.seller_status_changed',
-    getRoutingKey('SELLER', 'STATUS_CHANGED'),
+  // ── Vendor.STATUS_CHANGED ─────────────────────────────────────────────────
+  await messageBroker.subscribe<VendorStatusChangedPayload>(
+    EXCHANGES.VENDOR,
+    'auth.Vendor_status_changed',
+    getRoutingKey('Vendor', 'STATUS_CHANGED'),
     async (payload) => {
       try {
         if (!payload.userId) {
-          logger.warn('seller.status_changed event missing userId', { payload });
+          logger.warn('Vendor.status_changed event missing userId', { payload });
           return;
         }
 
@@ -75,14 +75,14 @@ export const setupEventSubscribers = async (): Promise<void> => {
             data: { role: 'CUSTOMER' },
           });
 
-          logger.info('User role downgraded to CUSTOMER (seller banned/closed)', {
+          logger.info('User role downgraded to CUSTOMER (Vendor banned/closed)', {
             userId: payload.userId,
-            sellerId: payload.sellerId,
+            vendorId: payload.vendorId,
             status: payload.status,
           });
         }
       } catch (error) {
-        logger.error('Failed to handle seller status change', {
+        logger.error('Failed to handle Vendor status change', {
           userId: payload.userId,
           status: payload.status,
           error: (error as Error).message,
@@ -94,3 +94,4 @@ export const setupEventSubscribers = async (): Promise<void> => {
 
   logger.info('Auth service event subscribers registered');
 };
+

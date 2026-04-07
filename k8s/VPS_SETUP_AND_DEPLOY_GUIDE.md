@@ -79,7 +79,7 @@ Your Local Machine
 │  ┌─────┴────── Microservices ──────┐ │
 │  │ auth    user    product         │ │
 │  │ order   payment inventory       │ │
-│  │ seller  notification analytics  │ │
+│  │ vendor  notification analytics  │ │
 │  │ (each: 1–3 replicas, HPA)       │ │
 │  └─────────────────────────────────┘ │
 │        │         │         │         │
@@ -475,7 +475,7 @@ Should list these 9 databases:
 - `freeshop_order`
 - `freeshop_payment`
 - `freeshop_inventory`
-- `freeshop_seller`
+- `freeshop_vendor`
 - `freeshop_notification`
 - `freeshop_analytics`
 
@@ -854,7 +854,7 @@ k8s/
 │   ├── order-service/
 │   ├── payment-service/
 │   ├── inventory-service/
-│   ├── seller-service/
+│   ├── vendor-service/
 │   ├── notification-service/
 │   └── analytics-service/
 ├── ingress/

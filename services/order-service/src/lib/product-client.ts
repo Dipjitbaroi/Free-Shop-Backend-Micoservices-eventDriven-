@@ -5,7 +5,7 @@ export interface ProductPriceInfo {
   id: string;
   name: string;
   slug: string;
-  sellerId: string;
+  vendorId: string;
   status: string;
   stock: number;
   unit: string;
@@ -50,7 +50,7 @@ export async function fetchProduct(productId: string): Promise<ProductPriceInfo>
     id: p.id,
     name: p.name,
     slug: p.slug ?? '',
-    sellerId: p.sellerId ?? '',
+    vendorId: p.vendorId ?? '',
     status: p.status,
     stock: Number(p.stock ?? 0),
     unit: p.unit ?? 'piece',

@@ -34,8 +34,8 @@ interface PaymentPayload {
   status: string;
 }
 
-interface SellerVerifiedPayload {
-  sellerId: string;
+interface VendorVerifiedPayload {
+  vendorId: string;
   userId: string;
   email?: string;
   storeName: string;
@@ -45,7 +45,7 @@ interface SellerVerifiedPayload {
 
 interface WithdrawalPayload {
   withdrawalId: string;
-  sellerId: string;
+  vendorId: string;
   userId: string;
   email?: string;
   amount: number;
@@ -56,7 +56,7 @@ interface WithdrawalPayload {
 interface InventoryAlertPayload {
   productId: string;
   productName: string;
-  sellerId: string;
+  vendorId: string;
   email?: string;
   currentStock: number;
   threshold: number;
@@ -262,18 +262,18 @@ export const setupEventSubscribers = async (): Promise<void> => {
     }
   );
 
-  await messageBroker.subscribe<SellerVerifiedPayload>(
-    EXCHANGES.SELLER,
-    QUEUES.NOTIFICATION_SELLER_VERIFIED,
-    getRoutingKey('SELLER', 'VERIFIED'),
+  await messageBroker.subscribe<VendorVerifiedPayload>(
+    EXCHANGES.VENDOR,
+    QUEUES.NOTIFICATION_VENDOR_VERIFIED,
+    getRoutingKey('Vendor', 'VERIFIED'),
     async (payload) => {
       try {
-        logger.info('Processing seller verified event for notification', { 
-          sellerId: payload.sellerId 
+        logger.info('Processing Vendor verified event for notification', { 
+          vendorId: payload.vendorId 
         });
 
-        const type = payload.verified ? 'SELLER_VERIFIED' : 'SELLER_SUSPENDED';
-        const templateId = payload.verified ? 'seller-verified' : 'seller-rejected';
+        const type = payload.verified ? 'VENDOR_VERIFIED' : 'VENDOR_SUSPENDED';
+        const templateId = payload.verified ? 'Vendor-verified' : 'Vendor-rejected';
 
         await notificationService.sendNotification({
           userId: payload.userId,
@@ -287,20 +287,20 @@ export const setupEventSubscribers = async (): Promise<void> => {
           },
         });
 
-        logger.info('Seller verification notification sent', { sellerId: payload.sellerId });
+        logger.info('Vendor verification notification sent', { vendorId: payload.vendorId });
       } catch (error) {
-        logger.error('Error sending seller verification notification', {
+        logger.error('Error sending Vendor verification notification', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          sellerId: payload.sellerId,
+          vendorId: payload.vendorId,
         });
       }
     }
   );
 
   await messageBroker.subscribe<WithdrawalPayload>(
-    EXCHANGES.SELLER,
+    EXCHANGES.VENDOR,
     QUEUES.NOTIFICATION_WITHDRAWAL_COMPLETED,
-    getRoutingKey('SELLER', 'WITHDRAWAL_COMPLETED'),
+    getRoutingKey('Vendor', 'WITHDRAWAL_COMPLETED'),
     async (payload) => {
       try {
         logger.info('Processing withdrawal completed event for notification', { 
@@ -365,3 +365,4 @@ export const setupEventSubscribers = async (): Promise<void> => {
 
   logger.info('Notification service event subscribers initialized');
 };
+

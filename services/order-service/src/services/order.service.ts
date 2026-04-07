@@ -31,7 +31,7 @@ interface CreateOrderData {
   couponCode?: string;
   items: {
     productId: string;
-    sellerId: string;
+    vendorId: string;
     productName: string;
     productSlug: string;
     productImage?: string;
@@ -118,7 +118,7 @@ class OrderService {
         items: {
           create: data.items.map(item => ({
             productId: item.productId,
-            sellerId: item.sellerId,
+            vendorId: item.vendorId,
             productName: item.productName,
             productSlug: item.productSlug,
             productImage: item.productImage,
@@ -151,7 +151,7 @@ class OrderService {
       paymentMethod: order.paymentMethod,
       items: order.items.map(item => ({
         productId: item.productId,
-        sellerId: item.sellerId,
+        vendorId: item.vendorId,
         quantity: item.quantity,
         price: item.price,
         freeItemId: (item as any).freeItemId || undefined,
@@ -452,10 +452,10 @@ class OrderService {
     }
   }
 
-  // Seller order methods
-  async getSellerOrders(sellerId: string, page: number = 1, limit: number = 20): Promise<IPaginatedResult<Order>> {
+  // Vendor order methods
+  async getVendorOrders(vendorId: string, page: number = 1, limit: number = 20): Promise<IPaginatedResult<Order>> {
     const orderItemsWithOrders = await prisma.orderItem.findMany({
-      where: { sellerId },
+      where: { vendorId },
       include: { order: true },
       distinct: ['orderId'],
       skip: calculateOffset(page, limit),
@@ -465,7 +465,7 @@ class OrderService {
 
     const total = await prisma.orderItem.groupBy({
       by: ['orderId'],
-      where: { sellerId },
+      where: { vendorId },
     });
 
     const orders = orderItemsWithOrders.map(item => item.order);
@@ -475,3 +475,4 @@ class OrderService {
 }
 
 export const orderService = new OrderService();
+

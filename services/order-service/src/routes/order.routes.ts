@@ -39,7 +39,7 @@ const createOrderValidation = [
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.productId').isUUID().withMessage('Valid product ID is required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-  // sellerId, productName, price are resolved server-side from product-service
+  // vendorId, productName, price are resolved server-side from product-service
 ];
 
 const paginationValidation = [
@@ -83,14 +83,14 @@ router.get(
   orderController.getOrderByNumber
 );
 
-// Seller routes
+// Vendor routes
 router.get(
-  '/seller/:sellerId?',
+  '/vendor/:vendorId?',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
   paginationValidation,
   validate,
-  orderController.getSellerOrders
+  orderController.getVendorOrders
 );
 
 // Cancel own order
@@ -131,7 +131,7 @@ router.get(
 router.patch(
   '/:id/status',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.SELLER]),
+  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.VENDOR]),
   param('id').isUUID(),
   body('status').isIn([
     'PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 
@@ -156,7 +156,7 @@ router.patch(
 router.patch(
   '/:id/tracking',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.SELLER]),
+  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.VENDOR]),
   param('id').isUUID(),
   body('trackingNumber').isString().notEmpty(),
   body('carrier').optional().isString(),

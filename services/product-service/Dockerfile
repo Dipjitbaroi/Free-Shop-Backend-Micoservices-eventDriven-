@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 RUN apk add --no-cache openssl
 
@@ -42,7 +42,7 @@ RUN npm run build --workspace=@freeshop/shared-middleware
 RUN npm run build --workspace=services/product-service
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 
 RUN apk add --no-cache openssl
 

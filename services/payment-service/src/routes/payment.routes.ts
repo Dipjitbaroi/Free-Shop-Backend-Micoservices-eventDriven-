@@ -85,7 +85,7 @@ router.post(
 router.post(
   '/:id/confirm-cod',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.SELLER]),
+  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.VENDOR]),
   param('id').isUUID(),
   body('collectedAmount').isFloat({ min: 0 }),
   validate,

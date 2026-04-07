@@ -46,7 +46,7 @@ migrate:
 	cd services/order-service && npx prisma migrate deploy
 	cd services/payment-service && npx prisma migrate deploy
 	cd services/inventory-service && npx prisma migrate deploy
-	cd services/seller-service && npx prisma migrate deploy
+	cd services/vendor-service && npx prisma migrate deploy
 	cd services/notification-service && npx prisma migrate deploy
 	cd services/analytics-service && npx prisma migrate deploy
 
@@ -64,7 +64,7 @@ install:
 	cd services/order-service && npm install
 	cd services/payment-service && npm install
 	cd services/inventory-service && npm install
-	cd services/seller-service && npm install
+	cd services/vendor-service && npm install
 	cd services/notification-service && npm install
 	cd services/analytics-service && npm install
 
@@ -76,7 +76,7 @@ prisma-generate:
 	cd services/order-service && npx prisma generate
 	cd services/payment-service && npx prisma generate
 	cd services/inventory-service && npx prisma generate
-	cd services/seller-service && npx prisma generate
+	cd services/vendor-service && npx prisma generate
 	cd services/notification-service && npx prisma generate
 	cd services/analytics-service && npx prisma generate
 
@@ -97,6 +97,6 @@ health:
 	@curl -s http://localhost:3004/health || echo "Order Service: DOWN"
 	@curl -s http://localhost:3005/health || echo "Payment Service: DOWN"
 	@curl -s http://localhost:3006/health || echo "Inventory Service: DOWN"
-	@curl -s http://localhost:3007/health || echo "Seller Service: DOWN"
+	@curl -s http://localhost:3007/health || echo "Vendor Service: DOWN"
 	@curl -s http://localhost:3008/health || echo "Notification Service: DOWN"
 	@curl -s http://localhost:3009/health || echo "Analytics Service: DOWN"

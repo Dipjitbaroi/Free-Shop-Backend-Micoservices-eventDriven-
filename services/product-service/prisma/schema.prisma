@@ -52,13 +52,14 @@ model Category {
 
 model Product {
   id                  String        @id @default(uuid())
-  sellerId            String
+  vendorId            String
   name                String
   slug                String        @unique
   description         String
   shortDescription    String?
   sku                 String        @unique
   categoryId          String
+  supplierPrice       Decimal       @db.Decimal(10, 2)
   price               Decimal       @db.Decimal(10, 2)
   discountPrice       Decimal?      @db.Decimal(10, 2)
   discountType        DiscountType?
@@ -92,7 +93,7 @@ model Product {
   category            Category      @relation(fields: [categoryId], references: [id])
   reviews             Review[]
 
-  @@index([sellerId])
+  @@index([vendorId])
   @@index([slug])
   @@index([sku])
   @@index([categoryId])

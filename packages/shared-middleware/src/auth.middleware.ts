@@ -178,17 +178,17 @@ export const selfOrAdmin = (userIdParam: string = 'userId') => {
 };
 
 /**
- * Seller owner authorization - allows sellers to access their own resources
+ * Vendor owner authorization - allows vendors to access their own resources
  */
-export const sellerOwnerOrAdmin = (sellerIdParam: string = 'sellerId') => {
+export const vendorOwnerOrAdmin = (vendorIdParam: string = 'vendorId') => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     try {
       if (!req.user) {
         throw new UnauthorizedError('Authentication required');
       }
 
-      // Get target seller ID for future validation
-      const targetSellerId = req.params[sellerIdParam] || req.body[sellerIdParam];
+      // Get target vendor ID for future validation
+      const targetVendorId = req.params[vendorIdParam] || req.body[vendorIdParam];
 
       // Allow admin and managers
       if ([UserRole.ADMIN, UserRole.MANAGER].includes(req.user.role)) {
@@ -196,11 +196,11 @@ export const sellerOwnerOrAdmin = (sellerIdParam: string = 'sellerId') => {
         return;
       }
 
-      // For sellers, check against their userId (seller profile linked to user)
-      // Note: In real implementation, you'd need to fetch the seller profile to compare
-      if (req.user.role === UserRole.SELLER) {
-        // Store targetSellerId for downstream use
-        (req as any).targetSellerId = targetSellerId;
+      // For vendors, check against their userId (vendor profile linked to user)
+      // Note: In real implementation, you'd need to fetch the vendor profile to compare
+      if (req.user.role === UserRole.VENDOR) {
+        // Store targetVendorId for downstream use
+        (req as any).targetVendorId = targetVendorId;
         next();
         return;
       }

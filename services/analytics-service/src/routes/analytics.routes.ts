@@ -30,15 +30,15 @@ router.get(
 );
 
 router.get(
-  '/sellers/:sellerId',
+  '/vendors/:vendorId',
   authenticate,
   [
-    param('sellerId').isUUID(),
+    param('vendorId').isUUID(),
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),
   ],
   validate,
-  analyticsController.getSellerReport
+  analyticsController.getVendorReport
 );
 
 router.get(
@@ -67,7 +67,7 @@ router.get(
 );
 
 router.get(
-  '/top-sellers',
+  '/top-vendors',
   authenticate,
   authorize('ADMIN', 'MANAGER'),
   [
@@ -76,7 +76,7 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 100 }),
   ],
   validate,
-  analyticsController.getTopSellers
+  analyticsController.getTopVendors
 );
 
 router.get(

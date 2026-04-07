@@ -33,7 +33,7 @@ router.get(
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('role').optional().isIn(['CUSTOMER', 'SELLER', 'MANAGER', 'ADMIN']),
+    query('role').optional().isIn(['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN']),
     query('status').optional().isIn(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']),
     query('search').optional().isString().trim(),
   ],
@@ -50,3 +50,4 @@ router.post('/admin/login', validate(adminLoginValidation), authController.admin
 router.post('/admin/create', validate(adminCreateValidation), authController.createAdminAccount);
 
 export default router;
+

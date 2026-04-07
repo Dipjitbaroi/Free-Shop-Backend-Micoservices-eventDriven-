@@ -35,9 +35,9 @@ model DailySalesReport {
   @@index([date])
 }
 
-model SellerReport {
+model VendorReport {
   id              String   @id @default(uuid())
-  sellerId        String
+  vendorId        String
   date            DateTime @db.Date
   
   totalOrders     Int      @default(0)
@@ -56,8 +56,8 @@ model SellerReport {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
-  @@unique([sellerId, date])
-  @@index([sellerId])
+  @@unique([vendorId, date])
+  @@index([vendorId])
   @@index([date])
 }
 

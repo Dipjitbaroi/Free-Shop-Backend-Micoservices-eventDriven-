@@ -1,7 +1,7 @@
 // User Roles
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
-  SELLER = 'SELLER',
+  VENDOR = 'VENDOR',
   MANAGER = 'MANAGER',
   ADMIN = 'ADMIN'
 }
@@ -65,12 +65,13 @@ export enum ProductStatus {
   REJECTED = 'REJECTED'
 }
 
-// Seller Status
-export enum SellerStatus {
+// Vendor Status
+export enum VendorStatus {
   PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
+  ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED',
-  REJECTED = 'REJECTED'
+  BANNED = 'BANNED',
+  CLOSED = 'CLOSED'
 }
 
 // Notification Types

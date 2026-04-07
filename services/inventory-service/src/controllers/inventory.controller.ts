@@ -5,10 +5,10 @@ import { successResponse } from '@freeshop/shared-utils';
 export const inventoryController = {
   async initializeInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId, sellerId, initialStock, lowStockThreshold } = req.body;
+      const { productId, vendorId, initialStock, lowStockThreshold } = req.body;
       const inventory = await inventoryService.initializeInventory(
         productId,
-        sellerId,
+        vendorId,
         initialStock,
         lowStockThreshold
       );
@@ -27,19 +27,19 @@ export const inventoryController = {
     }
   },
 
-  async getSellerInventory(req: Request, res: Response, next: NextFunction) {
+  async getVendorInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const sellerId = req.params.sellerId || req.user?.id as string;
+      const vendorId = req.params.vendorId || req.user?.id as string;
       const { page, limit, lowStockOnly } = req.query;
       
-      const inventory = await inventoryService.getSellerInventory(
-        sellerId,
+      const inventory = await inventoryService.getVendorInventory(
+        vendorId,
         page ? parseInt(page as string) : 1,
         limit ? parseInt(limit as string) : 20,
         lowStockOnly === 'true'
       );
       
-      res.json(successResponse(inventory, 'Seller inventory retrieved'));
+      res.json(successResponse(inventory, 'Vendor inventory retrieved'));
     } catch (error) {
       next(error);
     }
@@ -165,3 +165,4 @@ export const inventoryController = {
     }
   },
 };
+

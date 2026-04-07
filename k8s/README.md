@@ -25,7 +25,7 @@ Internet
 │  │  ┌────┴──── Services ───┐ │  │
 │  │  │ auth   user  product │ │  │
 │  │  │ order  payment  inv  │ │  │
-│  │  │ seller notif  analyt │ │  │
+│  │  │ vendor notif  analyt │ │  │
 │  │  │ (each HPA: 1–3)      │ │  │
 │  │  └──────────────────────┘ │  │
 │  │       │      │      │     │  │
@@ -268,7 +268,7 @@ k8s/
 │   ├── order-service/
 │   ├── payment-service/
 │   ├── inventory-service/
-│   ├── seller-service/
+│   ├── vendor-service/
 │   ├── notification-service/
 │   └── analytics-service/
 ├── ingress/

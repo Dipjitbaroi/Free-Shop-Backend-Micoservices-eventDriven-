@@ -10,7 +10,7 @@ datasource db {
 
 enum UserRole {
   CUSTOMER
-  SELLER
+  VENDOR
   MANAGER
   ADMIN
 }

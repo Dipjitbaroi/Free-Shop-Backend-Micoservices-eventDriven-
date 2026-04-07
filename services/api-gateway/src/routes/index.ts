@@ -149,12 +149,12 @@ export const setupRoutes = (app: Application): void => {
     })
   );
 
-  // Seller Service routes
+  // Vendor Service routes
   app.use(
-    '/api/v1/sellers',
+    '/api/v1/vendors',
     createProxyMiddleware({
-      ...getProxyOptions('seller', config.services.seller.url),
-      pathRewrite: async (path) => `/api/sellers${path === '/' ? '' : path}`,
+      ...getProxyOptions('vendor', config.services.vendor.url),
+      pathRewrite: async (path) => `/api/vendors${path === '/' ? '' : path}`,
     })
   );
 

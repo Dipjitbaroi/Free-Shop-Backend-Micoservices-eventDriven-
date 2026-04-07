@@ -16,9 +16,9 @@ const paginationValidation = [
 router.post(
   '/initialize',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SELLER]),
+  authorize([UserRole.ADMIN, UserRole.VENDOR]),
   body('productId').isUUID(),
-  body('sellerId').isUUID(),
+  body('vendorId').isUUID(),
   body('initialStock').optional().isInt({ min: 0 }),
   body('lowStockThreshold').optional().isInt({ min: 0 }),
   validate,
@@ -43,24 +43,24 @@ router.get(
   inventoryController.getInventory
 );
 
-// Get seller inventory
+// Get vendor inventory
 router.get(
-  '/seller/:sellerId?',
+  '/vendor/:vendorId?',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
   [
     ...paginationValidation,
     query('lowStockOnly').optional().isIn(['true', 'false']),
   ],
   validate,
-  inventoryController.getSellerInventory
+  inventoryController.getVendorInventory
 );
 
 // Add stock
 router.post(
   '/:productId/add',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
   param('productId').isUUID(),
   body('quantity').isInt({ min: 1 }),
   body('reason').optional().isString(),
@@ -72,7 +72,7 @@ router.post(
 router.post(
   '/:productId/reduce',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
   param('productId').isUUID(),
   body('quantity').isInt({ min: 1 }),
   body('reason').optional().isString(),
@@ -113,7 +113,7 @@ router.post(
 router.get(
   '/:productId/movements',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
   param('productId').isUUID(),
   paginationValidation,
   validate,
@@ -124,7 +124,7 @@ router.get(
 router.patch(
   '/:productId/threshold',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN]),
+  authorize([UserRole.VENDOR, UserRole.ADMIN]),
   param('productId').isUUID(),
   body('threshold').isInt({ min: 0 }),
   validate,

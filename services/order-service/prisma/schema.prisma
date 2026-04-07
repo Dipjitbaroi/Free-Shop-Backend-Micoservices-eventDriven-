@@ -102,7 +102,7 @@ model OrderItem {
   order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   
   productId   String
-  sellerId    String
+  vendorId    String
   
   // Product snapshot
   productName String
@@ -124,7 +124,7 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
-  @@index([sellerId])
+  @@index([vendorId])
 }
 
 model Coupon {
@@ -145,7 +145,7 @@ model Coupon {
   // Restrictions
   applicableProducts Json?    // Product IDs (null = all products)
   applicableCategories Json?  // Category IDs
-  applicableSellers Json?     // Seller IDs
+  applicableVendors Json?     // Vendor IDs
   
   startDate       DateTime    @default(now())
   endDate         DateTime?

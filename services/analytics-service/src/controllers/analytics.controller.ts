@@ -42,10 +42,10 @@ export const analyticsController = {
     }
   },
 
-  async getSellerReport(req: Request, res: Response, next: NextFunction) {
+  async getVendorReport(req: Request, res: Response, next: NextFunction) {
     try {
       const dateRange = parseDateRange(req);
-      const report = await analyticsService.getSellerReport(req.params.sellerId, dateRange);
+      const report = await analyticsService.getVendorReport(req.params.vendorId, dateRange);
 
       res.json({
         success: true,
@@ -85,15 +85,15 @@ export const analyticsController = {
     }
   },
 
-  async getTopSellers(req: Request, res: Response, next: NextFunction) {
+  async getTopVendors(req: Request, res: Response, next: NextFunction) {
     try {
       const dateRange = parseDateRange(req);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
-      const topSellers = await analyticsService.getTopSellers(dateRange, limit);
+      const topVendors = await analyticsService.getTopVendors(dateRange, limit);
 
       res.json({
         success: true,
-        data: topSellers,
+        data: topVendors,
       } as ApiResponse);
     } catch (error) {
       next(error);

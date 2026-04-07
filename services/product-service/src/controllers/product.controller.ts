@@ -2,16 +2,19 @@ import { Request, Response, NextFunction } from 'express';
 import { productService } from '../services/product.service';
 import { ProductStatus } from '@freeshop/shared-types';
 import { successResponse } from '@freeshop/shared-utils';
+import { filterProductForUser, filterProductsForUser, filterPaginatedProductsForUser } from '../lib/product-filter';
 
 export const productController = {
   async createProduct(req: Request, res: Response, next: NextFunction) {
     try {
-      const sellerId = req.user?.userId;
+      const vendorId = req.user?.userId;
       const product = await productService.createProduct({
         ...req.body,
-        sellerId,
+        vendorId,
       });
-      res.status(201).json(successResponse(product, 'Product created successfully'));
+      // Filter price field for vendors
+      const filteredProduct = filterProductForUser(product, req.user?.role);
+      res.status(201).json(successResponse(filteredProduct, 'Product created successfully'));
     } catch (error) {
       next(error);
     }
@@ -22,7 +25,7 @@ export const productController = {
       const {
         search,
         categoryId,
-        sellerId,
+        vendorId,
         minPrice,
         maxPrice,
         isOrganic,
@@ -36,7 +39,7 @@ export const productController = {
       const products = await productService.getProducts({
         search: search as string,
         categoryId: categoryId as string,
-        sellerId: sellerId as string,
+        vendorId: vendorId as string,
         minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
         isOrganic: isOrganic === 'true' ? true : isOrganic === 'false' ? false : undefined,
@@ -47,7 +50,9 @@ export const productController = {
         limit: limit ? parseInt(limit as string) : 20,
       });
 
-      res.json(successResponse(products, 'Products retrieved successfully'));
+      // Filter price field for vendors
+      const filteredProducts = filterPaginatedProductsForUser(products, req.user?.role);
+      res.json(successResponse(filteredProducts, 'Products retrieved successfully'));
     } catch (error) {
       next(error);
     }
@@ -56,7 +61,9 @@ export const productController = {
   async getProductById(req: Request, res: Response, next: NextFunction) {
     try {
       const product = await productService.getProductById(req.params.id);
-      res.json(successResponse(product, 'Product retrieved successfully'));
+      // Filter price field for vendors
+      const filteredProduct = filterProductForUser(product, req.user?.role);
+      res.json(successResponse(filteredProduct, 'Product retrieved successfully'));
     } catch (error) {
       next(error);
     }
@@ -65,7 +72,9 @@ export const productController = {
   async getProductBySlug(req: Request, res: Response, next: NextFunction) {
     try {
       const product = await productService.getProductBySlug(req.params.slug);
-      res.json(successResponse(product, 'Product retrieved successfully'));
+      // Filter price field for vendors
+      const filteredProduct = filterProductForUser(product, req.user?.role);
+      res.json(successResponse(filteredProduct, 'Product retrieved successfully'));
     } catch (error) {
       next(error);
     }
@@ -74,8 +83,12 @@ export const productController = {
   async updateProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const product = await productService.updateProduct(id, req.body);
-      res.json(successResponse(product, 'Product updated successfully'));
+      const userRole = req.user?.role;
+      const userId = req.user?.userId;
+      const product = await productService.updateProduct(id, req.body, userRole, userId);
+      // Filter price field for vendors
+      const filteredProduct = filterProductForUser(product, req.user?.role);
+      res.json(successResponse(filteredProduct, 'Product updated successfully'));
     } catch (error) {
       next(error);
     }
@@ -93,22 +106,24 @@ export const productController = {
   async updateProductStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const { status, reason } = req.body;
+      const { status, reason, price } = req.body;
       const actorRole = req.user?.role as string;
-      const product = await productService.updateProductStatus(id, status, actorRole, reason);
-      res.json(successResponse(product, 'Product status updated successfully'));
+      const product = await productService.updateProductStatus(id, status, actorRole, reason, price);
+      // Filter price field for vendors
+      const filteredProduct = filterProductForUser(product, req.user?.role);
+      res.json(successResponse(filteredProduct, 'Product status updated successfully'));
     } catch (error) {
       next(error);
     }
   },
 
-  async getSellerProducts(req: Request, res: Response, next: NextFunction) {
+  async getVendorProducts(req: Request, res: Response, next: NextFunction) {
     try {
-      const sellerId = req.params.sellerId || req.user?.userId;
+      const vendorId = req.params.vendorId || req.user?.userId;
       const { status, page, limit } = req.query;
 
-      const products = await productService.getSellerProducts(
-        sellerId as string,
+      const products = await productService.getVendorProducts(
+        vendorId as string,
         {
           status: status as ProductStatus,
           page: page ? parseInt(page as string) : 1,
@@ -116,7 +131,9 @@ export const productController = {
         }
       );
 
-      res.json(successResponse(products, 'Seller products retrieved successfully'));
+      // Filter price field for vendors
+      const filteredProducts = filterPaginatedProductsForUser(products, req.user?.role);
+      res.json(successResponse(filteredProducts, 'Vendor products retrieved successfully'));
     } catch (error) {
       next(error);
     }
@@ -126,7 +143,9 @@ export const productController = {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       const products = await productService.getFeaturedProducts(limit);
-      res.json(successResponse(products, 'Featured products retrieved successfully'));
+      // Featured products shown to customers, filter for vendors
+      const filteredProducts = filterProductsForUser(products, req.user?.role);
+      res.json(successResponse(filteredProducts, 'Featured products retrieved successfully'));
     } catch (error) {
       next(error);
     }

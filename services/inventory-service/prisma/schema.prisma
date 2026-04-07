@@ -11,7 +11,7 @@ datasource db {
 model Inventory {
   id              String   @id @default(uuid())
   productId       String   @unique
-  sellerId        String
+  vendorId        String
   
   // Stock levels
   totalStock      Int      @default(0)
@@ -34,7 +34,7 @@ model Inventory {
   updatedAt       DateTime @updatedAt
 
   @@index([productId])
-  @@index([sellerId])
+  @@index([vendorId])
   @@index([isLowStock])
   @@index([isOutOfStock])
 }
@@ -87,7 +87,7 @@ model InventoryAlert {
   id          String     @id @default(uuid())
   inventoryId String
   productId   String
-  sellerId    String
+  vendorId    String
   
   type        AlertType
   message     String
@@ -95,7 +95,7 @@ model InventoryAlert {
   
   createdAt   DateTime   @default(now())
 
-  @@index([sellerId])
+  @@index([vendorId])
   @@index([isRead])
   @@index([createdAt])
 }

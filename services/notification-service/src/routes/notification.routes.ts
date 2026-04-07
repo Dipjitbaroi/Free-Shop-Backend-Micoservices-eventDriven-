@@ -8,7 +8,7 @@ const router = Router();
 const notificationTypes = [
   'ORDER_CREATED', 'ORDER_CONFIRMED', 'ORDER_SHIPPED', 'ORDER_DELIVERED', 'ORDER_CANCELLED',
   'PAYMENT_RECEIVED', 'PAYMENT_FAILED', 'PAYMENT_REFUNDED',
-  'SELLER_VERIFIED', 'SELLER_SUSPENDED', 'WITHDRAWAL_COMPLETED', 'WITHDRAWAL_REJECTED',
+  'Vendor_VERIFIED', 'Vendor_SUSPENDED', 'WITHDRAWAL_COMPLETED', 'WITHDRAWAL_REJECTED',
   'LOW_STOCK_ALERT', 'PRICE_DROP', 'BACK_IN_STOCK',
   'WELCOME', 'PASSWORD_RESET', 'EMAIL_VERIFICATION', 'PROMOTION', 'CUSTOM'
 ];
@@ -96,7 +96,7 @@ router.patch(
     body('pushEnabled').optional().isBoolean(),
     body('orderUpdates').optional().isBoolean(),
     body('promotions').optional().isBoolean(),
-    body('sellerUpdates').optional().isBoolean(),
+    body('VendorUpdates').optional().isBoolean(),
     body('accountUpdates').optional().isBoolean(),
     body('priceAlerts').optional().isBoolean(),
   ],
@@ -142,3 +142,4 @@ router.patch(
 );
 
 export default router;
+

@@ -37,7 +37,7 @@ export interface IUserVerifiedPayload {
 // Product Event Payloads
 export interface IProductCreatedPayload {
   productId: string;
-  sellerId: string;
+  vendorId: string;
   name: string;
   price: number;
   categoryId: string;
@@ -45,13 +45,13 @@ export interface IProductCreatedPayload {
 
 export interface IProductUpdatedPayload {
   productId: string;
-  sellerId: string;
+  vendorId: string;
   changes: Record<string, unknown>;
 }
 
 export interface IProductStatusChangedPayload {
   productId: string;
-  sellerId: string;
+  vendorId: string;
   previousStatus: string;
   newStatus: string;
   reason?: string;
@@ -69,7 +69,7 @@ export interface IOrderCreatedPayload {
   paymentMethod?: string;
   items: Array<{
     productId: string;
-    sellerId: string;
+    vendorId: string;
     quantity: number;
     price: number;
     freeItemId?: string;
@@ -123,7 +123,7 @@ export interface IPaymentFailedPayload {
 // Inventory Event Payloads
 export interface IInventoryUpdatedPayload {
   productId: string;
-  sellerId: string;
+  vendorId: string;
   previousStock: number;
   newStock: number;
   action: string;
@@ -148,22 +148,22 @@ export interface IStockReleasedPayload {
 
 export interface ILowStockAlertPayload {
   productId: string;
-  sellerId: string;
+  vendorId: string;
   productName: string;
   currentStock: number;
   threshold: number;
 }
 
-// Seller Event Payloads
-export interface ISellerCreatedPayload {
-  sellerId: string;
+// Vendor Event Payloads
+export interface IVendorCreatedPayload {
+  vendorId: string;
   userId: string;
   businessName: string;
   email: string;
 }
 
-export interface ISellerStatusChangedPayload {
-  sellerId: string;
+export interface IVendorStatusChangedPayload {
+  vendorId: string;
   previousStatus: string;
   newStatus: string;
   reason?: string;
@@ -241,7 +241,7 @@ export type IUserCreatedEvent = IUserCreatedPayload;
 export type IUserDeletedEvent = { userId: string };
 export type IOrderCreatedEvent = IOrderCreatedPayload;
 export type IOrderCancelledEvent = IOrderCancelledPayload;
-export type ISellerApprovedEvent = ISellerStatusChangedPayload;
+export type IVendorApprovedEvent = IVendorStatusChangedPayload;
 export type IPaymentReceivedEvent = IPaymentCompletedPayload;
 export type IInventoryReservedEvent = IStockReservedPayload;
 export type IInventoryReleasedEvent = IStockReleasedPayload;

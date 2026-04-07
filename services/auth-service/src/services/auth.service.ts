@@ -486,19 +486,23 @@ class AuthService {
     }
 
     const passwordHash = await hashPassword(data.password);
-    const role = data.role ?? UserRole.ADMIN;
+
+    const createData: Parameters<typeof prisma.user.create>[0]['data'] = {
+      email: data.email.toLowerCase(),
+      firstName: data.firstName,
+      lastName: data.lastName,
+      passwordHash,
+      status: UserStatus.ACTIVE,
+      emailVerified: true,
+      oauthProvider: OAuthProvider.LOCAL,
+    };
+
+    if (data.role) {
+      createData.role = data.role;
+    }
 
     const user = await prisma.user.create({
-      data: {
-        email: data.email.toLowerCase(),
-        firstName: data.firstName,
-        lastName: data.lastName,
-        passwordHash,
-        role,
-        status: UserStatus.ACTIVE,
-        emailVerified: true,
-        oauthProvider: OAuthProvider.LOCAL,
-      },
+      data: createData,
     });
 
     logger.info('createAdminAccount → created', { userId: user.id, role: user.role });

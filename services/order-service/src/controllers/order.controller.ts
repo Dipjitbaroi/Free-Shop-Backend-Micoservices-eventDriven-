@@ -14,7 +14,7 @@ export const orderController = {
       const userId = req.user?.id;
       const guestId = req.headers['x-guest-id'] as string;
 
-      // Resolve product details server-side — never trust client-supplied price/sellerId
+      // Resolve product details server-side — never trust client-supplied price/vendorId
       const rawItems = req.body.items as { productId: string; quantity: number; freeItemId?: string }[];
       const resolvedItems = await Promise.all(
         rawItems.map(async (item) => {
@@ -34,7 +34,7 @@ export const orderController = {
           }
           return {
             productId: product.id,
-            sellerId: product.sellerId,
+            vendorId: product.vendorId,
             productName: product.name,
             productSlug: product.slug,
             productImage: product.images[0] ?? undefined,
@@ -201,20 +201,21 @@ export const orderController = {
     }
   },
 
-  async getSellerOrders(req: Request, res: Response, next: NextFunction) {
+  async getVendorOrders(req: Request, res: Response, next: NextFunction) {
     try {
-      const sellerId = req.params.sellerId || req.user?.id as string;
+      const vendorId = req.params.vendorId || req.user?.id as string;
       const { page, limit } = req.query;
-      
-      const orders = await orderService.getSellerOrders(
-        sellerId,
+
+      const orders = await orderService.getVendorOrders(
+        vendorId,
         page ? parseInt(page as string) : 1,
         limit ? parseInt(limit as string) : 20
       );
       
-      res.json(successResponse(orders, 'Seller orders retrieved'));
+      res.json(successResponse(orders, 'Vendor orders retrieved'));
     } catch (error) {
       next(error);
     }
   },
 };
+

@@ -27,7 +27,7 @@ const swaggerDocument = {
     { name: 'Orders', description: 'Order lifecycle management' },
     { name: 'Cart', description: 'Shopping cart management' },
     { name: 'Payments', description: 'Payment processing & webhooks' },
-    { name: 'Sellers', description: 'Seller / vendor management' },
+    { name: 'Vendors', description: 'Vendor / vendor management' },
     { name: 'Inventory', description: 'Stock & inventory management' },
     { name: 'Notifications', description: 'Notification management (admin)' },
     { name: 'Analytics', description: 'Analytics & reporting (admin/manager)' },
@@ -367,7 +367,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
-          { name: 'role', in: 'query', schema: { type: 'string', enum: ['CUSTOMER', 'SELLER', 'MANAGER', 'ADMIN'] }, description: 'Filter by role' },
+          { name: 'role', in: 'query', schema: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] }, description: 'Filter by role' },
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] }, description: 'Filter by account status' },
           { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by firstName, lastName, email, or phone' },
         ],
@@ -762,7 +762,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'categoryId', in: 'query', schema: { type: 'string' }, description: 'Filter by category ID' },
-          { name: 'sellerId', in: 'query', schema: { type: 'string' }, description: 'Filter by seller ID' },
+          { name: 'VendorId', in: 'query', schema: { type: 'string' }, description: 'Filter by Vendor ID' },
           { name: 'minPrice', in: 'query', schema: { type: 'number' } },
           { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
           { name: 'isOrganic', in: 'query', schema: { type: 'boolean' } },
@@ -782,7 +782,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       post: {
         tags: ['Products'],
-        summary: 'Create a new product (seller / admin)',
+        summary: 'Create a new product (Vendor / admin)',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -841,20 +841,20 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/products/seller/{sellerId}': {
+    '/products/Vendor/{VendorId}': {
       get: {
         tags: ['Products'],
-        summary: "List a seller's own products (seller / admin / manager)",
+        summary: "List a Vendor's own products (Vendor / admin / manager)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'sellerId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Omit to default to the authenticated seller' },
+          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Omit to default to the authenticated Vendor' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED', 'INACTIVE'] } },
         ],
         responses: {
           200: {
-            description: 'Seller product list',
+            description: 'Vendor product list',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedProducts' } } },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -879,7 +879,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       patch: {
         tags: ['Products'],
-        summary: 'Update a product (seller / admin / manager)',
+        summary: 'Update a product (Vendor / admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -903,7 +903,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       delete: {
         tags: ['Products'],
-        summary: 'Delete a product (seller / admin)',
+        summary: 'Delete a product (Vendor / admin)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -920,7 +920,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       patch: {
         tags: ['Products'],
         summary: 'Update product status',
-        description: 'Single endpoint for all product status changes. Sellers can set INACTIVE or resubmit (PENDING_APPROVAL). Admins/Managers can set ACTIVE or REJECTED.',
+        description: 'Single endpoint for all product status changes. Vendors can set INACTIVE or resubmit (PENDING_APPROVAL). Admins/Managers can set ACTIVE or REJECTED.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -1379,19 +1379,19 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/orders/seller/{sellerId}': {
+    '/orders/Vendor/{VendorId}': {
       get: {
         tags: ['Orders'],
-        summary: "List a seller's orders (seller / admin / manager)",
+        summary: "List a Vendor's orders (Vendor / admin / manager)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'sellerId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated seller if omitted' },
+          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
         ],
         responses: {
           200: {
-            description: 'Seller order list',
+            description: 'Vendor order list',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedOrders' } } },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -1466,7 +1466,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/orders/{id}/status': {
       patch: {
         tags: ['Orders'],
-        summary: 'Update order status (admin / manager / seller)',
+        summary: 'Update order status (admin / manager / Vendor)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -1533,7 +1533,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/orders/{id}/tracking': {
       patch: {
         tags: ['Orders'],
-        summary: 'Add tracking info to an order (admin / manager / seller)',
+        summary: 'Add tracking info to an order (admin / manager / Vendor)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -1955,7 +1955,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/payments/{id}/confirm-cod': {
       post: {
         tags: ['Payments'],
-        summary: 'Confirm Cash-on-Delivery collection (admin / manager / seller)',
+        summary: 'Confirm Cash-on-Delivery collection (admin / manager / Vendor)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -1983,11 +1983,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    // ─── SELLERS ─────────────────────────────────────────────────────────────
-    '/sellers': {
+    // ─── VendorS ─────────────────────────────────────────────────────────────
+    '/Vendors': {
       get: {
-        tags: ['Sellers'],
-        summary: 'List sellers',
+        tags: ['Vendors'],
+        summary: 'List Vendors',
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -1998,25 +1998,25 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         ],
         responses: {
           200: {
-            description: 'Sellers list',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedSellers' } } },
+            description: 'Vendors list',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedVendors' } } },
           },
         },
       },
       post: {
-        tags: ['Sellers'],
-        summary: 'Register as a seller',
+        tags: ['Vendors'],
+        summary: 'Register as a Vendor',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/CreateSellerRequest' } },
+            'application/json': { schema: { $ref: '#/components/schemas/createVendorRequest' } },
           },
         },
         responses: {
           201: {
-            description: 'Seller application submitted',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/SellerResponse' } } },
+            description: 'Vendor application submitted',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/VendorResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -2024,34 +2024,34 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/me': {
+    '/Vendors/me': {
       get: {
-        tags: ['Sellers'],
-        summary: 'Get current seller profile',
+        tags: ['Vendors'],
+        summary: 'Get current Vendor profile',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
-            description: 'Seller profile',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/SellerResponse' } } },
+            description: 'Vendor profile',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/VendorResponse' } } },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
         },
       },
       patch: {
-        tags: ['Sellers'],
-        summary: 'Update current seller profile',
+        tags: ['Vendors'],
+        summary: 'Update current Vendor profile',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/UpdateSellerRequest' } },
+            'application/json': { schema: { $ref: '#/components/schemas/updateVendorRequest' } },
           },
         },
         responses: {
           200: {
-            description: 'Seller profile updated',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/SellerResponse' } } },
+            description: 'Vendor profile updated',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/VendorResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -2059,21 +2059,21 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/me/stats': {
+    '/Vendors/me/stats': {
       get: {
-        tags: ['Sellers'],
-        summary: 'Get current seller stats (orders, revenue, ratings)',
+        tags: ['Vendors'],
+        summary: 'Get current Vendor stats (orders, revenue, ratings)',
         security: [{ bearerAuth: [] }],
         responses: {
-          200: { description: 'Seller statistics' },
+          200: { description: 'Vendor statistics' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
-    '/sellers/me/documents': {
+    '/Vendors/me/documents': {
       post: {
-        tags: ['Sellers'],
+        tags: ['Vendors'],
         summary: 'Upload a verification document',
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -2099,26 +2099,26 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/store/{slug}': {
+    '/Vendors/store/{slug}': {
       get: {
-        tags: ['Sellers'],
-        summary: 'Get seller store page by slug',
+        tags: ['Vendors'],
+        summary: 'Get Vendor store page by slug',
         parameters: [
           { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
         ],
         responses: {
           200: {
-            description: 'Seller store details',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/SellerResponse' } } },
+            description: 'Vendor store details',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/VendorResponse' } } },
           },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
-    '/sellers/finance/commissions': {
+    '/Vendors/finance/commissions': {
       get: {
-        tags: ['Sellers'],
-        summary: 'Get seller commission records',
+        tags: ['Vendors'],
+        summary: 'Get Vendor commission records',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'SETTLED', 'WITHDRAWN', 'CANCELLED'] } },
@@ -2132,10 +2132,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/finance/balance': {
+    '/Vendors/finance/balance': {
       get: {
-        tags: ['Sellers'],
-        summary: 'Get available seller balance',
+        tags: ['Vendors'],
+        summary: 'Get available Vendor balance',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
@@ -2164,10 +2164,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/finance/withdrawals': {
+    '/Vendors/finance/withdrawals': {
       get: {
-        tags: ['Sellers'],
-        summary: 'List seller withdrawal requests',
+        tags: ['Vendors'],
+        summary: 'List Vendor withdrawal requests',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED', 'FAILED'] } },
@@ -2181,7 +2181,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
       post: {
-        tags: ['Sellers'],
+        tags: ['Vendors'],
         summary: 'Request a withdrawal',
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -2208,13 +2208,13 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/finance/admin/withdrawals': {
+    '/Vendors/finance/admin/withdrawals': {
       get: {
-        tags: ['Sellers'],
+        tags: ['Vendors'],
         summary: 'List all withdrawal requests (admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'sellerId', in: 'query', schema: { type: 'string', format: 'uuid' } },
+          { name: 'VendorId', in: 'query', schema: { type: 'string', format: 'uuid' } },
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED', 'FAILED'] } },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -2226,9 +2226,9 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/finance/withdrawals/{id}': {
+    '/Vendors/finance/withdrawals/{id}': {
       get: {
-        tags: ['Sellers'],
+        tags: ['Vendors'],
         summary: 'Get a withdrawal request by ID',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -2242,9 +2242,9 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/finance/withdrawals/{id}/process': {
+    '/Vendors/finance/withdrawals/{id}/process': {
       patch: {
-        tags: ['Sellers'],
+        tags: ['Vendors'],
         summary: 'Process a withdrawal (admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -2275,9 +2275,9 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/finance/withdrawals/{id}/complete': {
+    '/Vendors/finance/withdrawals/{id}/complete': {
       patch: {
-        tags: ['Sellers'],
+        tags: ['Vendors'],
         summary: 'Complete a withdrawal (admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -2304,10 +2304,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/documents/{documentId}/verify': {
+    '/Vendors/documents/{documentId}/verify': {
       patch: {
-        tags: ['Sellers'],
-        summary: 'Verify a seller document (admin / manager)',
+        tags: ['Vendors'],
+        summary: 'Verify a Vendor document (admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'documentId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2336,27 +2336,27 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/{sellerId}/reviews': {
+    '/Vendors/{VendorId}/reviews': {
       get: {
-        tags: ['Sellers'],
-        summary: 'Get reviews for a seller',
+        tags: ['Vendors'],
+        summary: 'Get reviews for a Vendor',
         parameters: [
-          { name: 'sellerId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'rating', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 5 } },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
         ],
         responses: {
-          200: { description: 'Seller reviews' },
+          200: { description: 'Vendor reviews' },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
       post: {
-        tags: ['Sellers'],
-        summary: 'Write a review for a seller',
+        tags: ['Vendors'],
+        summary: 'Write a review for a Vendor',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'sellerId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         requestBody: {
           required: true,
@@ -2383,10 +2383,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/reviews/{reviewId}': {
+    '/Vendors/reviews/{reviewId}': {
       patch: {
-        tags: ['Sellers'],
-        summary: 'Update a seller review (owner)',
+        tags: ['Vendors'],
+        summary: 'Update a Vendor review (owner)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'reviewId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2414,8 +2414,8 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
       delete: {
-        tags: ['Sellers'],
-        summary: 'Delete a seller review (owner / admin)',
+        tags: ['Vendors'],
+        summary: 'Delete a Vendor review (owner / admin)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'reviewId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2428,10 +2428,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/reviews/{reviewId}/respond': {
+    '/Vendors/reviews/{reviewId}/respond': {
       post: {
-        tags: ['Sellers'],
-        summary: 'Respond to a review (seller owner)',
+        tags: ['Vendors'],
+        summary: 'Respond to a review (Vendor owner)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'reviewId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2457,24 +2457,24 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/{id}': {
+    '/Vendors/{id}': {
       get: {
-        tags: ['Sellers'],
-        summary: 'Get seller by ID',
+        tags: ['Vendors'],
+        summary: 'Get Vendor by ID',
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
           200: {
-            description: 'Seller details',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/SellerResponse' } } },
+            description: 'Vendor details',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/VendorResponse' } } },
           },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
       patch: {
-        tags: ['Sellers'],
-        summary: 'Update seller by ID (admin only)',
+        tags: ['Vendors'],
+        summary: 'Update Vendor by ID (admin only)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2482,13 +2482,13 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/UpdateSellerRequest' } },
+            'application/json': { schema: { $ref: '#/components/schemas/updateVendorRequest' } },
           },
         },
         responses: {
           200: {
-            description: 'Seller updated',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/SellerResponse' } } },
+            description: 'Vendor updated',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/VendorResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -2497,10 +2497,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/{id}/status': {
+    '/Vendors/{id}/status': {
       patch: {
-        tags: ['Sellers'],
-        summary: 'Update seller status (admin / manager)',
+        tags: ['Vendors'],
+        summary: 'Update Vendor status (admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2521,7 +2521,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
         },
         responses: {
-          200: { description: 'Seller status updated' },
+          200: { description: 'Vendor status updated' },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
@@ -2529,10 +2529,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/sellers/{id}/verify': {
+    '/Vendors/{id}/verify': {
       patch: {
-        tags: ['Sellers'],
-        summary: 'Approve or reject seller verification (admin / manager)',
+        tags: ['Vendors'],
+        summary: 'Approve or reject Vendor verification (admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2553,7 +2553,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
         },
         responses: {
-          200: { description: 'Seller verification updated' },
+          200: { description: 'Vendor verification updated' },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
@@ -2566,7 +2566,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/inventory/initialize': {
       post: {
         tags: ['Inventory'],
-        summary: 'Initialize inventory for a product (admin / seller)',
+        summary: 'Initialize inventory for a product (admin / Vendor)',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -2574,10 +2574,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['productId', 'sellerId'],
+                required: ['productId', 'VendorId'],
                 properties: {
                   productId: { type: 'string', format: 'uuid' },
-                  sellerId: { type: 'string', format: 'uuid' },
+                  VendorId: { type: 'string', format: 'uuid' },
                   initialStock: { type: 'integer', minimum: 0, default: 0 },
                   lowStockThreshold: { type: 'integer', minimum: 0, default: 10 },
                 },
@@ -2671,20 +2671,20 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/inventory/seller/{sellerId}': {
+    '/inventory/Vendor/{VendorId}': {
       get: {
         tags: ['Inventory'],
-        summary: "Get a seller's full inventory (seller / admin / manager)",
+        summary: "Get a Vendor's full inventory (Vendor / admin / manager)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'sellerId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated seller if omitted' },
+          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'lowStockOnly', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Return only low-stock or out-of-stock items' },
         ],
         responses: {
           200: {
-            description: 'Seller inventory list',
+            description: 'Vendor inventory list',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedInventory' } } },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -2695,7 +2695,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/inventory/{productId}/add': {
       post: {
         tags: ['Inventory'],
-        summary: 'Add stock to a product (seller / admin / manager)',
+        summary: 'Add stock to a product (Vendor / admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2730,7 +2730,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/inventory/{productId}/reduce': {
       post: {
         tags: ['Inventory'],
-        summary: 'Reduce stock for a product (seller / admin / manager)',
+        summary: 'Reduce stock for a product (Vendor / admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2765,7 +2765,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/inventory/{productId}/movements': {
       get: {
         tags: ['Inventory'],
-        summary: 'Get stock movement history (seller / admin / manager)',
+        summary: 'Get stock movement history (Vendor / admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2783,7 +2783,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/inventory/{productId}/threshold': {
       patch: {
         tags: ['Inventory'],
-        summary: 'Set low-stock threshold (seller / admin)',
+        summary: 'Set low-stock threshold (Vendor / admin)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2963,7 +2963,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   pushEnabled: { type: 'boolean' },
                   orderUpdates: { type: 'boolean' },
                   promotions: { type: 'boolean' },
-                  sellerUpdates: { type: 'boolean' },
+                  VendorUpdates: { type: 'boolean' },
                   accountUpdates: { type: 'boolean' },
                   priceAlerts: { type: 'boolean' },
                 },
@@ -3205,10 +3205,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/analytics/top-sellers': {
+    '/analytics/top-Vendors': {
       get: {
         tags: ['Analytics'],
-        summary: 'Top performing sellers (admin / manager)',
+        summary: 'Top performing Vendors (admin / manager)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
@@ -3216,7 +3216,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
         ],
         responses: {
-          200: { description: 'Top sellers' },
+          200: { description: 'Top Vendors' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
         },
@@ -3238,18 +3238,18 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
-    '/analytics/sellers/{sellerId}': {
+    '/analytics/Vendors/{VendorId}': {
       get: {
         tags: ['Analytics'],
-        summary: 'Get analytics report for a specific seller',
+        summary: 'Get analytics report for a specific Vendor',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'sellerId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Seller analytics report' },
+          200: { description: 'Vendor analytics report' },
           401: { $ref: '#/components/responses/Unauthorized' },
           404: { $ref: '#/components/responses/NotFound' },
         },
@@ -3359,7 +3359,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         type: 'http',
         scheme: 'bearer',
         bearerFormat: 'JWT',
-        description: 'JWT access token obtained from /auth/firebase (customers/sellers) or /auth/admin/login (ADMIN/MANAGER).',
+        description: 'JWT access token obtained from /auth/firebase (customers/Vendors) or /auth/admin/login (ADMIN/MANAGER).',
       },
     },
     schemas: {
@@ -3640,7 +3640,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           }
         },
       },
-      CreateSellerRequest: {
+      createVendorRequest: {
         type: 'object',
         required: ['storeName', 'contactEmail'],
         properties: {
@@ -3648,13 +3648,13 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           description: { type: 'string' },
           logo: { type: 'string', format: 'uri' },
           banner: { type: 'string', format: 'uri' },
-          contactEmail: { type: 'string', format: 'email', example: 'seller@example.com' },
+          contactEmail: { type: 'string', format: 'email', example: 'Vendor@example.com' },
           contactPhone: { type: 'string', example: '+8801700000000' },
-          businessAddress: { $ref: '#/components/schemas/SellerAddress' },
+          businessAddress: { $ref: '#/components/schemas/VendorAddress' },
           bankDetails: { $ref: '#/components/schemas/BankDetails' },
         },
       },
-      UpdateSellerRequest: {
+      updateVendorRequest: {
         type: 'object',
         properties: {
           storeName: { type: 'string' },
@@ -3663,7 +3663,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           banner: { type: 'string', format: 'uri' },
           contactEmail: { type: 'string', format: 'email' },
           contactPhone: { type: 'string' },
-          businessAddress: { $ref: '#/components/schemas/SellerAddress' },
+          businessAddress: { $ref: '#/components/schemas/VendorAddress' },
           shippingZones: { type: 'array', items: { type: 'string' } },
           returnPolicy: { type: 'string' },
           shippingPolicy: { type: 'string' },
@@ -3715,7 +3715,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           lastName: { type: 'string' },
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
-          role: { type: 'string', enum: ['CUSTOMER', 'SELLER', 'MANAGER', 'ADMIN'] },
+          role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] },
           status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
           isEmailVerified: { type: 'boolean' },
           createdAt: { type: 'string', format: 'date-time' },
@@ -3736,7 +3736,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               firstName: { type: 'string', example: 'John' },
               lastName: { type: 'string', example: 'Doe' },
               avatar: { type: 'string', format: 'uri', nullable: true },
-              role: { type: 'string', enum: ['CUSTOMER', 'SELLER', 'MANAGER', 'ADMIN'], example: 'CUSTOMER' },
+              role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'], example: 'CUSTOMER' },
               status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], example: 'ACTIVE' },
               oauthProvider: { type: 'string', example: 'LOCAL' },
               emailVerified: { type: 'boolean', example: false },
@@ -3754,7 +3754,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
-          sellerId: { type: 'string', format: 'uuid' },
+          VendorId: { type: 'string', format: 'uuid' },
           name: { type: 'string' },
           slug: { type: 'string' },
           description: { type: 'string' },
@@ -3881,7 +3881,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           id: { type: 'string', format: 'uuid' },
           orderId: { type: 'string', format: 'uuid' },
           productId: { type: 'string', format: 'uuid' },
-          sellerId: { type: 'string', format: 'uuid' },
+          VendorId: { type: 'string', format: 'uuid' },
           productName: { type: 'string' },
           productImage: { type: 'string', format: 'uri' },
           sku: { type: 'string' },
@@ -4023,7 +4023,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
         },
       },
-      Seller: {
+      Vendor: {
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
@@ -4035,7 +4035,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           banner: { type: 'string', format: 'uri' },
           email: { type: 'string', format: 'email' },
           phone: { type: 'string' },
-          address: { $ref: '#/components/schemas/SellerAddress' },
+          address: { $ref: '#/components/schemas/VendorAddress' },
           status: { type: 'string', enum: ['PENDING', 'APPROVED', 'SUSPENDED', 'REJECTED'] },
           isVerified: { type: 'boolean' },
           commissionRate: { type: 'number' },
@@ -4050,21 +4050,21 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           updatedAt: { type: 'string', format: 'date-time' },
         },
       },
-      SellerResponse: {
+      VendorResponse: {
         type: 'object',
         properties: {
           success: { type: 'boolean' },
-          data: { $ref: '#/components/schemas/Seller' },
+          data: { $ref: '#/components/schemas/Vendor' },
         },
       },
-      PaginatedSellers: {
+      PaginatedVendors: {
         type: 'object',
         properties: {
           success: { type: 'boolean' },
           data: {
             type: 'object',
             properties: {
-              items: { type: 'array', items: { $ref: '#/components/schemas/Seller' } },
+              items: { type: 'array', items: { $ref: '#/components/schemas/Vendor' } },
               total: { type: 'integer' },
               page: { type: 'integer' },
               limit: { type: 'integer' },
@@ -4078,7 +4078,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         properties: {
           id: { type: 'string', format: 'uuid' },
           productId: { type: 'string', format: 'uuid' },
-          sellerId: { type: 'string', format: 'uuid' },
+          VendorId: { type: 'string', format: 'uuid' },
           sku: { type: 'string' },
           totalStock: { type: 'integer' },
           availableStock: { type: 'integer' },
@@ -4180,7 +4180,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           lastName: { type: 'string' },
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
-          role: { type: 'string', enum: ['CUSTOMER', 'SELLER', 'MANAGER', 'ADMIN'] },
+          role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] },
           status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
           oauthProvider: { type: 'string', enum: ['LOCAL', 'GOOGLE', 'FACEBOOK', 'APPLE', 'ANONYMOUS'] },
           emailVerified: { type: 'boolean' },
@@ -4208,7 +4208,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           country: { type: 'string', example: 'BD' },
         },
       },
-      SellerAddress: {
+      VendorAddress: {
         type: 'object',
         required: ['addressLine1', 'city', 'state', 'postalCode', 'country'],
         properties: {
@@ -4301,3 +4301,4 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
 };
 
 export default swaggerDocument;
+
