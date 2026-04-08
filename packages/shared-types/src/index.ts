@@ -11,3 +11,5 @@ export * from './auth.types';
 export * from './notification.types';
 export * from './inventory.types';
 export * from './common.types';
+export * from './rbac.types';
+

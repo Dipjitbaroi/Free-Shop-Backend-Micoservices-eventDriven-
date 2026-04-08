@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { commissionController } from '../controllers/commission.controller';
-import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 
 const router: Router = Router();
 
@@ -52,7 +53,7 @@ router.get(
 router.get(
   '/admin/withdrawals',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('VendorId').optional().isUUID(),
     query('status').optional().isIn(['PENDING', 'PROCESSING', 'COMPLETED', 'REJECTED', 'FAILED']),
@@ -75,7 +76,7 @@ router.get(
 router.patch(
   '/withdrawals/:id/process',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     param('id').isUUID(),
     body('approved').isBoolean(),
@@ -89,7 +90,7 @@ router.patch(
 router.patch(
   '/withdrawals/:id/complete',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     param('id').isUUID(),
     body('transactionId').notEmpty().withMessage('Transaction ID is required'),

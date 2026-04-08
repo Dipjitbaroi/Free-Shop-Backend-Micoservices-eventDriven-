@@ -21,6 +21,7 @@ const swaggerDocument = {
   ],
   tags: [
     { name: 'Auth', description: 'Authentication & token management' },
+    { name: 'RBAC', description: 'Role-based access control (admin only)' },
     { name: 'Users', description: 'User profile & account management' },
     { name: 'Products', description: 'Product catalog endpoints' },
     { name: 'Categories', description: 'Product category management' },
@@ -385,6 +386,436 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     // Password reset, change and email verification are handled by Firebase
     // on the client — no backend endpoints are needed for these operations.
 
+    // ─── RBAC (ROLE-BASED ACCESS CONTROL) ────────────────────────────────────
+    '/auth/rbac/init': {
+      post: {
+        tags: ['RBAC'],
+        summary: 'Initialize default roles and permissions (superadmin only)',
+        description: 'Initializes the RBAC system with default roles like ADMIN, MANAGER, VENDOR, CUSTOMER and their corresponding permissions. Only callable once during system setup.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'RBAC system initialized successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    message: { type: 'string', example: 'RBAC system initialized successfully' },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/auth/rbac/permission-codes': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Get permission codes reference (public)',
+        description: 'Returns a reference of all available permission codes that can be used in the system. Helpful for frontend UI and documentation.',
+        responses: {
+          200: {
+            description: 'Permission codes reference',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        ROLE_CREATE: { type: 'number' },
+                        ROLE_READ: { type: 'number' },
+                        ROLE_DELETE: { type: 'number' },
+                        PERMISSION_CREATE: { type: 'number' },
+                        PERMISSION_READ: { type: 'number' },
+                        PERMISSION_DELETE: { type: 'number' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/auth/rbac/roles': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Get all roles (ROLE_READ permission required)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+        ],
+        responses: {
+          200: {
+            description: 'List of all roles',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          name: { type: 'string', example: 'ADMIN' },
+                          description: { type: 'string' },
+                          permissions: { type: 'array', items: { type: 'string' } },
+                          createdAt: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+      post: {
+        tags: ['RBAC'],
+        summary: 'Create a new role (ROLE_CREATE permission required)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'permissionIds'],
+                properties: {
+                  name: { type: 'string', example: 'CONTENT_MANAGER' },
+                  description: { type: 'string' },
+                  permissionIds: { type: 'array', items: { type: 'string', format: 'uuid' } },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Role created' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/auth/rbac/roles/{roleId}': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Get role by ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Role details' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/auth/rbac/roles/{roleId}/permissions': {
+      post: {
+        tags: ['RBAC'],
+        summary: 'Add permission to role (PERMISSION_CREATE required)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['permissionId'],
+                properties: {
+                  permissionId: { type: 'string', format: 'uuid' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Permission added to role' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/auth/rbac/roles/{roleId}/permissions/{permissionId}': {
+      delete: {
+        tags: ['RBAC'],
+        summary: 'Remove permission from role (PERMISSION_DELETE required)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'permissionId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Permission removed from role' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/auth/rbac/permissions': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Get all permissions (PERMISSION_READ required)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+        ],
+        responses: {
+          200: {
+            description: 'List of all permissions',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          code: { type: 'string', example: 'USER_READ' },
+                          description: { type: 'string' },
+                          createdAt: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/auth/rbac/permissions/{code}': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Get permission by code',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'code', in: 'path', required: true, schema: { type: 'string', example: 'USER_READ' } },
+        ],
+        responses: {
+          200: { description: 'Permission details' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/auth/rbac/users/{userId}/roles': {
+      get: {
+        tags: ['RBAC'],
+        summary: "Get user's roles and permissions",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: "User's roles and permissions",
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        userId: { type: 'string', format: 'uuid' },
+                        roles: { type: 'array', items: { type: 'string' } },
+                        permissions: { type: 'array', items: { type: 'string' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      post: {
+        tags: ['RBAC'],
+        summary: 'Assign role to user (ROLE_CREATE required)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['roleId'],
+                properties: {
+                  roleId: { type: 'string', format: 'uuid' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Role assigned to user' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/auth/rbac/users/{userId}/roles/{roleId}': {
+      delete: {
+        tags: ['RBAC'],
+        summary: 'Remove role from user (ROLE_DELETE required)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Role removed from user' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/auth/rbac/users/{userId}/permissions/{code}/check': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Check if user has permission',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'code', in: 'path', required: true, schema: { type: 'string', example: 'USER_READ' } },
+        ],
+        responses: {
+          200: {
+            description: 'Permission check result',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { type: 'object', properties: { hasPermission: { type: 'boolean' } } },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/auth/rbac/users/{userId}/roles/{roleName}/check': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Check if user has role',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'roleName', in: 'path', required: true, schema: { type: 'string', example: 'ADMIN' } },
+        ],
+        responses: {
+          200: {
+            description: 'Role check result',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { type: 'object', properties: { hasRole: { type: 'boolean' } } },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/auth/rbac/audit-logs': {
+      get: {
+        tags: ['RBAC'],
+        summary: 'Get permission audit logs (REPORT_READ required)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'userId', in: 'query', schema: { type: 'string', format: 'uuid' }, description: 'Filter by user ID' },
+          { name: 'action', in: 'query', schema: { type: 'string' }, description: 'Filter by action type' },
+          { name: 'roleId', in: 'query', schema: { type: 'string', format: 'uuid' }, description: 'Filter by role ID' },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Audit logs for RBAC operations',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          id: { type: 'string', format: 'uuid' },
+                          userId: { type: 'string', format: 'uuid' },
+                          action: { type: 'string' },
+                          roleId: { type: 'string', format: 'uuid' },
+                          permissionId: { type: 'string', format: 'uuid' },
+                          timestamp: { type: 'string', format: 'date-time' },
+                          details: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+
     // ─── USERS ───────────────────────────────────────────────────────────────
     '/users/profile': {
       get: {
@@ -676,6 +1107,255 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         },
       },
     },
+
+    // ─── SELLERS ──────────────────────────────────────────────────────────────
+    '/users/sellers': {
+      get: {
+        tags: ['Users'],
+        summary: 'List all sellers (public)',
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED'] }, description: 'Filter by seller status' },
+          { name: 'verified', in: 'query', schema: { type: 'boolean' }, description: 'Filter by verification status' },
+        ],
+        responses: {
+          200: {
+            description: 'Paginated list of sellers',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          userId: { type: 'string', format: 'uuid' },
+                          shopName: { type: 'string' },
+                          shopSlug: { type: 'string' },
+                          shopDescription: { type: 'string' },
+                          status: { type: 'string', enum: ['PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED'] },
+                          verified: { type: 'boolean' },
+                          rating: { type: 'number' },
+                          totalOrders: { type: 'integer' },
+                        },
+                      },
+                    },
+                    pagination: {
+                      type: 'object',
+                      properties: {
+                        page: { type: 'integer' },
+                        limit: { type: 'integer' },
+                        total: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      post: {
+        tags: ['Users'],
+        summary: 'Create seller profile (authenticated)',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['shopName', 'shopSlug'],
+                properties: {
+                  shopName: { type: 'string', example: 'Organic Farm Direct' },
+                  shopSlug: { type: 'string', example: 'organic-farm-direct' },
+                  shopDescription: { type: 'string' },
+                  phone: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                  address: { type: 'string' },
+                  city: { type: 'string' },
+                  postalCode: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Seller profile created' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          409: { $ref: '#/components/responses/Conflict' },
+        },
+      },
+    },
+    '/users/sellers/me': {
+      get: {
+        tags: ['Users'],
+        summary: "Get current user's seller profile",
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Current seller profile',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        userId: { type: 'string', format: 'uuid' },
+                        shopName: { type: 'string' },
+                        shopSlug: { type: 'string' },
+                        shopDescription: { type: 'string' },
+                        phone: { type: 'string' },
+                        email: { type: 'string' },
+                        status: { type: 'string' },
+                        verified: { type: 'boolean' },
+                        rating: { type: 'number' },
+                        totalOrders: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/users/sellers/shop/{shopSlug}': {
+      get: {
+        tags: ['Users'],
+        summary: 'Get seller profile by shop slug (public)',
+        parameters: [
+          { name: 'shopSlug', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          200: { description: 'Seller profile' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/users/sellers/{userId}': {
+      get: {
+        tags: ['Users'],
+        summary: 'Get seller profile by user ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Seller profile' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      put: {
+        tags: ['Users'],
+        summary: 'Update seller profile',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  shopName: { type: 'string' },
+                  shopSlug: { type: 'string' },
+                  shopDescription: { type: 'string' },
+                  phone: { type: 'string' },
+                  email: { type: 'string', format: 'email' },
+                  address: { type: 'string' },
+                  city: { type: 'string' },
+                  postalCode: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Seller profile updated' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/users/sellers/{userId}/verify': {
+      put: {
+        tags: ['Users'],
+        summary: 'Verify seller (admin only)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['verified'],
+                properties: {
+                  verified: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Seller verification status updated' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/users/sellers/{userId}/suspend': {
+      put: {
+        tags: ['Users'],
+        summary: 'Suspend seller (admin only)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Seller suspended' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/users/sellers/{userId}/activate': {
+      put: {
+        tags: ['Users'],
+        summary: 'Activate seller (admin only)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Seller activated' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
     '/settings/delivery': {
       get: {
         tags: ['Settings'],
@@ -1559,6 +2239,347 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
+    // ─── DELIVERIES ──────────────────────────────────────────────────────────
+    '/orders/{orderId}/delivery': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Create delivery for an order (Unified endpoint)',
+        description: 'Create delivery with automatic routing - supports both INHOUSE and THIRD_PARTY delivery types',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                oneOf: [
+                  {
+                    type: 'object',
+                    description: 'INHOUSE delivery with delivery man assignment',
+                    required: ['type', 'deliveryManId'],
+                    properties: {
+                      type: { type: 'string', enum: ['INHOUSE'], description: 'Delivery type' },
+                      deliveryManId: { type: 'string', format: 'uuid', description: 'ID of delivery man to assign' },
+                      weight: { type: 'number', minimum: 0, description: 'Package weight in kg' },
+                      fragile: { type: 'boolean', description: 'Whether package is fragile' },
+                      estimatedDeliveryDate: { type: 'string', format: 'date-time', description: 'Estimated delivery date' },
+                    },
+                  },
+                  {
+                    type: 'object',
+                    description: 'THIRD_PARTY delivery with provider assignment',
+                    required: ['type', 'provider'],
+                    properties: {
+                      type: { type: 'string', enum: ['THIRD_PARTY'], description: 'Delivery type' },
+                      provider: { type: 'string', enum: ['STEADFAST', 'PATHAO', 'REDX', 'SUNDARBAN', 'OTHER'], description: 'Third-party delivery provider' },
+                      trackingId: { type: 'string', description: 'Provider tracking ID' },
+                      apiRef: { type: 'string', description: 'Provider API reference' },
+                      weight: { type: 'number', minimum: 0, description: 'Package weight in kg' },
+                      fragile: { type: 'boolean', description: 'Whether package is fragile' },
+                      estimatedDeliveryDate: { type: 'string', format: 'date-time', description: 'Estimated delivery date' },
+                    },
+                  },
+                ],
+              },
+              examples: {
+                inhouse: {
+                  summary: 'INHOUSE delivery example',
+                  value: {
+                    type: 'INHOUSE',
+                    deliveryManId: '550e8400-e29b-41d4-a716-446655440000',
+                    weight: 2.5,
+                    fragile: false,
+                  },
+                },
+                thirdParty: {
+                  summary: 'THIRD_PARTY delivery example',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'STEADFAST',
+                    trackingId: 'ST123456',
+                    apiRef: 'ref-123',
+                    weight: 1.8,
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Delivery created and configured successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', format: 'uuid', description: 'Delivery ID' },
+                        orderId: { type: 'string', format: 'uuid' },
+                        provider: { type: 'string', enum: ['INHOUSE', 'STEADFAST', 'PATHAO', 'REDX', 'SUNDARBAN', 'OTHER'] },
+                        status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'] },
+                        deliveryManId: { type: 'string', format: 'uuid', nullable: true },
+                        externalProvider: { type: 'string', nullable: true },
+                        externalTrackingId: { type: 'string', nullable: true },
+                        estimatedDeliveryDate: { type: 'string', format: 'date-time' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      get: {
+        tags: ['Orders'],
+        summary: 'Get delivery by order',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'Delivery details for the order',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        deliveryId: { type: 'string', format: 'uuid' },
+                        orderId: { type: 'string', format: 'uuid' },
+                        provider: { type: 'string' },
+                        status: { type: 'string' },
+                        trackingNumber: { type: 'string' },
+                        estimatedDeliveryDate: { type: 'string', format: 'date-time' },
+                        actualDeliveryDate: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
+
+    '/deliveries/{deliveryId}': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get delivery details by ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Delivery details' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/deliveries/{deliveryId}/status': {
+      put: {
+        tags: ['Orders'],
+        summary: 'Update delivery status',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['status'],
+                properties: {
+                  status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'] },
+                  notes: { type: 'string', description: 'Optional notes about the status update' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Delivery status updated' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/deliveries/{deliveryId}/failed-attempt': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Record a failed delivery attempt',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['reason'],
+                properties: {
+                  reason: { type: 'string', description: 'Reason for delivery failure (e.g., customer not home, invalid address)' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Failed attempt recorded' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/deliveries/delivery-man/{deliveryManId}': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get deliveries assigned to a delivery man',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status' },
+        ],
+        responses: {
+          200: {
+            description: 'Paginated list of deliveries for the delivery man',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          deliveryId: { type: 'string', format: 'uuid' },
+                          orderId: { type: 'string', format: 'uuid' },
+                          status: { type: 'string' },
+                          customerName: { type: 'string' },
+                          address: { type: 'string' },
+                          estimatedDeliveryDate: { type: 'string', format: 'date-time' },
+                        },
+                      },
+                    },
+                    pagination: {
+                      type: 'object',
+                      properties: {
+                        page: { type: 'integer' },
+                        limit: { type: 'integer' },
+                        total: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/deliveries/provider/{provider}': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get deliveries by provider',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'provider', in: 'path', required: true, schema: { type: 'string', enum: ['INHOUSE', 'STEADFAST', 'PATHAO', 'REDX', 'SUNDARBAN', 'OTHER'] } },
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status' },
+        ],
+        responses: {
+          200: {
+            description: 'Paginated list of deliveries from the provider',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { type: 'array', items: { type: 'object' } },
+                    pagination: {
+                      type: 'object',
+                      properties: {
+                        page: { type: 'integer' },
+                        limit: { type: 'integer' },
+                        total: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/deliveries/stats': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get delivery statistics (admin only)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Delivery statistics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        totalDeliveries: { type: 'integer' },
+                        successfulDeliveries: { type: 'integer' },
+                        failedDeliveries: { type: 'integer' },
+                        averageDeliveryTime: { type: 'number', description: 'In hours' },
+                        deliveriesByProvider: { type: 'object', additionalProperties: { type: 'integer' } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
         },
       },
     },

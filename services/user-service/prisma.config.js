@@ -1,7 +1,7 @@
-module.exports = {
-  datasources: {
-    db: {
-      url: process.env.USER_DATABASE_URL || 'postgresql://postgres:postgres@postgres:5432/user_db'
-    }
-  }
-};;
+import { defineConfig, env } from 'prisma/config';
+
+export default defineConfig({
+  datasource: {
+    url: env('USER_DATABASE_URL'),
+  },
+});

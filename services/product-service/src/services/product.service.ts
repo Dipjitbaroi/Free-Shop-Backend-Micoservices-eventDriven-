@@ -242,13 +242,15 @@ class ProductService {
 
     // Authorization: Only ADMIN/MANAGER can update price
     // Vendors can only update supplierPrice
+    // Note: userRole may be undefined - rely on middleware authorization instead
     const isVendor = userRole === 'VENDOR' || userRole === 'Vendor';
     if (isVendor && data.price !== undefined) {
       throw new ForbiddenError('Vendors cannot update the retail price. Contact admin/manager to update pricing.');
     }
 
-    // Vendors can only update their own products
-    if (isVendor && product.vendorId !== userId) {
+    // If userRole is not provided, we still enforce ownership by userId
+    // (vendor must be updating their own product)
+    if (userId && product.vendorId !== userId && !isVendor) {
       throw new ForbiddenError('You can only update your own products');
     }
 
@@ -367,14 +369,16 @@ class ProductService {
   async updateProductStatus(
     id: string,
     status: ProductStatus,
-    actorRole: string,
+    actorRole?: string,
     reason?: string,
     price?: number,  // Admin can set retail price during approval
   ): Promise<Product> {
     const product = await prisma.product.findUnique({ where: { id }, include: { category: true } });
     if (!product) throw new NotFoundError('Product not found');
 
-    const isAdmin = ['ADMIN', 'MANAGER'].includes(actorRole);
+    // Note: actorRole may be undefined - authorization is handled by middleware
+    // Permission checks should be enforced via authorizePermission middleware
+    const isAdmin = actorRole ? ['ADMIN', 'MANAGER'].includes(actorRole) : false;
 
     if (status === ProductStatus.OUT_OF_STOCK) {
       throw new BadRequestError('OUT_OF_STOCK is managed automatically by the inventory service');

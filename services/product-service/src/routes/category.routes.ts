@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { categoryController } from '../controllers/category.controller';
-import { authenticate, authorize } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 
 const router: Router = Router();
@@ -51,7 +51,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_CREATE),
   createCategoryValidation,
   validate,
   categoryController.createCategory
@@ -60,7 +60,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_UPDATE),
   updateCategoryValidation,
   validate,
   categoryController.updateCategory
@@ -69,7 +69,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_DELETE),
   param('id').isUUID().withMessage('Valid category ID is required'),
   validate,
   categoryController.deleteCategory
@@ -78,7 +78,7 @@ router.delete(
 router.patch(
   '/:id/status',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_UPDATE),
   param('id').isUUID().withMessage('Valid category ID is required'),
   body('isActive').isBoolean().withMessage('isActive must be a boolean'),
   validate,

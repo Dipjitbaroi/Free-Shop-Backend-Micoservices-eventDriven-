@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { validate, authenticate, authorize } from '@freeshop/shared-middleware';
+import { validate, authenticate, authorizePermission } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import * as authController from '../controllers/auth.controller';
 import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation } from '../validators/auth.validators';
 import { query } from 'express-validator';
@@ -29,7 +30,7 @@ router.get('/me', authenticate, authController.me);
 router.get(
   '/users',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),

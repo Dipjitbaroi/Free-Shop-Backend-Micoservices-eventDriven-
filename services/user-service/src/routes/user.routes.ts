@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { userController } from '../controllers/user.controller';
-import { authenticate, authorize } from '@freeshop/shared-middleware';
+import { authenticate } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param } from 'express-validator';
 

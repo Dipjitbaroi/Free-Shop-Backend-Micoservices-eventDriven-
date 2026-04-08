@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller';
-import { authenticate, authorize, guestOrAuth } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, guestOrAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 
 const router: Router = Router();
@@ -54,7 +54,7 @@ router.get(
 router.get(
   '/',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PAYMENT_READ),
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
@@ -73,7 +73,7 @@ router.get(
 router.post(
   '/:id/refund',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PAYMENT_REFUND),
   param('id').isUUID(),
   body('amount').isFloat({ min: 0.01 }),
   body('reason').isString().notEmpty(),
@@ -85,7 +85,7 @@ router.post(
 router.post(
   '/:id/confirm-cod',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.VENDOR]),
+  authorizePermission(PERMISSION_CODES.PAYMENT_UPDATE),
   param('id').isUUID(),
   body('collectedAmount').isFloat({ min: 0 }),
   validate,

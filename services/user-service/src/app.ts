@@ -9,6 +9,7 @@ import {
 } from '@freeshop/shared-middleware';
 
 import userRoutes from './routes/user.routes';
+import sellerRoutes from './routes/seller.routes';
 import wishlistRoutes from './routes/wishlist.routes';
 import healthRoutes from './routes/health.routes';
 
@@ -24,6 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/', healthRoutes);
 app.use('/', userRoutes);
+app.use('/sellers', sellerRoutes);
 app.use('/wishlist', wishlistRoutes);
 
 // Error handling

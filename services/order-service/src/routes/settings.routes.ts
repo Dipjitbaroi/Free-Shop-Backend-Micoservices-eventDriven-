@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { settingsController } from '../controllers/settings.controller';
-import { authenticate, authorize } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
+import { authenticate, authorizePermission } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body } from 'express-validator';
 import { validate } from '@freeshop/shared-middleware';
 
@@ -11,7 +11,7 @@ const router: Router = Router();
 router.get(
   '/delivery',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.SETTINGS_UPDATE),
   settingsController.getDeliverySettings
 );
 
@@ -23,7 +23,7 @@ router.get('/delivery/zones', settingsController.getDeliveryZones);
 router.put(
   '/delivery',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.SETTINGS_UPDATE),
   settingsController.updateDeliverySettings
 );
 

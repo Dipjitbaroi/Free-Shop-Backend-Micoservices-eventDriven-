@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { orderService } from '../services/order.service';
 import { cartService } from '../services/cart.service';
 import { successResponse } from '@freeshop/shared-utils';
-import { UserRole } from '@freeshop/shared-types';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client';
 import { fetchAddressById } from '../lib/user-client';
 import { settingsService } from '../services/settings.service';

@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { inventoryController } from '../controllers/inventory.controller';
-import { authenticate, authorize } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 
 const router: Router = Router();
@@ -16,7 +16,7 @@ const paginationValidation = [
 router.post(
   '/initialize',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.VENDOR]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_CREATE),
   body('productId').isUUID(),
   body('vendorId').isUUID(),
   body('initialStock').optional().isInt({ min: 0 }),
@@ -47,7 +47,7 @@ router.get(
 router.get(
   '/vendor/:vendorId?',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
   [
     ...paginationValidation,
     query('lowStockOnly').optional().isIn(['true', 'false']),
@@ -60,7 +60,7 @@ router.get(
 router.post(
   '/:productId/add',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('quantity').isInt({ min: 1 }),
   body('reason').optional().isString(),
@@ -72,7 +72,7 @@ router.post(
 router.post(
   '/:productId/reduce',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('quantity').isInt({ min: 1 }),
   body('reason').optional().isString(),
@@ -101,7 +101,7 @@ router.post(
 router.post(
   '/:productId/return',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('orderId').isUUID(),
   body('quantity').isInt({ min: 1 }),
@@ -113,7 +113,7 @@ router.post(
 router.get(
   '/:productId/movements',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
   param('productId').isUUID(),
   paginationValidation,
   validate,
@@ -124,7 +124,7 @@ router.get(
 router.patch(
   '/:productId/threshold',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('threshold').isInt({ min: 0 }),
   validate,

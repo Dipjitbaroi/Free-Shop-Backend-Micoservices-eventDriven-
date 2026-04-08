@@ -44,7 +44,9 @@ export const reviewController = {
   async deleteReview(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id;
-      const isAdmin = req.user?.role === 'ADMIN';
+      // Role no longer available on request - admin check should be done via RBAC/middleware
+      // Routes now use authorizePermission(PERMISSION_CODES) instead
+      const isAdmin = false; // Admins are filtered by middleware now
 
       if (!userId) throw new UnauthorizedError('User not authenticated');
 

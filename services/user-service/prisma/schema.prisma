@@ -87,3 +87,60 @@ enum AddressType {
   BILLING
   BOTH
 }
+
+enum SellerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+  ONBOARDING
+}
+
+model SellerProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique // References auth service user (with SELLER role)
+  
+  // Shop Info
+  shopName      String
+  shopSlug      String   @unique
+  shopDescription String?
+  shopLogo      String?
+  shopBanner    String?
+  
+  // Contact Info
+  phone         String?
+  email         String?
+  address       String?
+  city          String?
+  postalCode    String?
+  
+  // Business Info
+  businessLicense String?
+  nidNumber     String?
+  tin           String?
+  
+  // Status & Verification
+  status        SellerStatus @default(ONBOARDING)
+  isVerified    Boolean  @default(false)
+  documentVerified Boolean @default(false)
+  
+  // Performance Metrics
+  rating        Float?   @default(5)
+  ratingCount   Int      @default(0)
+  totalOrders   Int      @default(0)
+  totalRevenue  Decimal  @default(0)
+  completionRate Float?  @default(0)
+  returnRate    Float?   @default(0)
+  
+  // Store Settings
+  operatingHours Json?   // { monday: { open: "09:00", close: "21:00" }, ... }
+  bankDetails   Json?    // Sensitive - { accountNumber, accountHolderName, bankName }
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([isVerified])
+}

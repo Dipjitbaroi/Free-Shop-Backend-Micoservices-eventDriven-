@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { productController } from '../controllers/product.controller';
-import { authenticate, authorize, optionalAuth } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, optionalAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 import config from '../config';
 
@@ -69,7 +69,7 @@ router.get(
 router.get(
   '/vendor/:vendorId?',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_READ),
   [
     ...paginationValidation,
     query('status').optional().isIn(['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED']),
@@ -89,7 +89,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_CREATE),
   createProductValidation,
   validate,
   productController.createProduct
@@ -103,7 +103,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_UPDATE),
   updateProductValidation,
   validate,
   productController.updateProduct
@@ -112,7 +112,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_DELETE),
   param('id').isUUID().withMessage('Valid product ID is required'),
   validate,
   productController.deleteProduct
@@ -122,7 +122,7 @@ router.delete(
 router.patch(
   '/:id/status',
   authenticate,
-  authorize([UserRole.VENDOR, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.PRODUCT_UPDATE),
   [
     param('id').isUUID().withMessage('Valid product ID is required'),
     body('status')

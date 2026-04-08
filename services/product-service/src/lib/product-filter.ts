@@ -1,6 +1,3 @@
-import { UserRole } from '@freeshop/shared-types';
-import { Prisma } from '../../generated/prisma';
-
 /**
  * Filter product response based on user role
  * - Vendors should NOT see the `price` field (retail price set by admin)
@@ -11,7 +8,7 @@ export function filterProductForUser(product: any, userRole?: string): any {
   if (!product) return product;
   
   // If user is a vendor, exclude the price field
-  if (userRole === UserRole.VENDOR) {
+  if (userRole === 'VENDOR') {
     const { price, ...filteredProduct } = product;
     return filteredProduct;
   }

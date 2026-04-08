@@ -1,0 +1,19 @@
+# Order Service - Service-Specific Values
+serviceName: order-service
+
+services:
+  ports:
+    order-service: 3004
+  resources:
+    requests:
+      cpu: 100m       # Matches original K8s
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 2  # Protected for single-node
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 75

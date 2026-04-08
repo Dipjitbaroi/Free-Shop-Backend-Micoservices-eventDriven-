@@ -96,15 +96,13 @@ export const commissionController = {
       if (!withdrawal) throw new NotFoundError('Withdrawal not found');
 
       const userId = req.user?.id;
-      const userRole = req.user?.role;
       if (!userId) throw new UnauthorizedError('User not authenticated');
 
-      const isPrivileged = userRole === 'ADMIN' || userRole === 'MANAGER';
-      if (!isPrivileged) {
-        const vendor = await vendorService.getVendorByUserId(userId);
-        if (!vendor || vendor.id !== withdrawal.vendorId) {
-          throw new ForbiddenError('You do not have permission to access this withdrawal');
-        }
+      // Role no longer available on request - admin check should be done via RBAC/middleware
+      // For now, check ownership via vendor relationship
+      const vendor = await vendorService.getVendorByUserId(userId);
+      if (!vendor || vendor.id !== withdrawal.vendorId) {
+        throw new ForbiddenError('You do not have permission to access this withdrawal');
       }
 
       res.json(successResponse(withdrawal, 'Withdrawal retrieved'));

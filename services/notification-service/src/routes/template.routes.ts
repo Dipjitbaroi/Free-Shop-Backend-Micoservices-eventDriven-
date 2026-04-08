@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { templateController } from '../controllers/template.controller';
-import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 
 const router: Router = Router();
 
@@ -18,7 +19,7 @@ const channelTypes = ['EMAIL', 'SMS', 'PUSH', 'IN_APP'];
 router.post(
   '/',
   authenticate,
-  authorize('ADMIN'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     body('name').notEmpty().withMessage('Template name is required'),
     body('type').isIn(notificationTypes).withMessage('Valid notification type is required'),
@@ -35,7 +36,7 @@ router.post(
 router.get(
   '/',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('type').optional().isIn(notificationTypes),
     query('channel').optional().isIn(channelTypes),
@@ -48,7 +49,7 @@ router.get(
 router.get(
   '/:id',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   param('id').notEmpty(),
   validate,
   templateController.getTemplate
@@ -57,7 +58,7 @@ router.get(
 router.patch(
   '/:id',
   authenticate,
-  authorize('ADMIN'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     param('id').isUUID(),
     body('name').optional().notEmpty(),

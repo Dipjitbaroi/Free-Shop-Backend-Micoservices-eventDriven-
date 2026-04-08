@@ -1,10 +1,7 @@
-// User Roles
-export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  VENDOR = 'VENDOR',
-  MANAGER = 'MANAGER',
-  ADMIN = 'ADMIN'
-}
+// User Roles - REMOVED
+// All roles are now created dynamically in the RBAC system
+// Use PERMISSION_CODES from rbac.types.ts for authorization
+// See PERMISSION_BASED_RBAC_GUIDE.md for implementation details
 
 // User Status
 export enum UserStatus {

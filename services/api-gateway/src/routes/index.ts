@@ -26,7 +26,7 @@ const getProxyOptions = (serviceName: string, serviceUrl: string): Options => ({
       // Forward user info if authenticated
       if (expressReq.user) {
         proxyReq.setHeader('X-User-ID', expressReq.user.userId);
-        proxyReq.setHeader('X-User-Role', expressReq.user.role);
+        // Note: role no longer available - roles are queried from RBAC system separately
         proxyReq.setHeader('X-User-Email', expressReq.user.email);
       }
       // Log request

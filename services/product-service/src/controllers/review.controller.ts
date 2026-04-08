@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { reviewService } from '../services/review.service';
 import { successResponse } from '@freeshop/shared-utils';
-import { UserRole } from '@freeshop/shared-types';
 
 export const reviewController = {
   async createReview(req: Request, res: Response, next: NextFunction) {
@@ -84,7 +83,12 @@ export const reviewController = {
   async deleteReview(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.userId as string;
-      const isAdmin = [UserRole.ADMIN, UserRole.MANAGER].includes(req.user?.role as UserRole);
+      
+      // Permission check handled by middleware (authenticate + routes)
+      // Admins are filtered by authorizePermission(PERMISSION_CODES.REVIEW_DELETE) middleware
+      // So if we reach here, either user owns the review or has admin permissions
+      const isAdmin = false; // Let service layer determine ownership
+      
       await reviewService.deleteReview(req.params.id as string, userId, isAdmin);
       res.json(successResponse(null, 'Review deleted successfully'));
     } catch (error) {

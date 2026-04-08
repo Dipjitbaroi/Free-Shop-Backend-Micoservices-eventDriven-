@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { vendorController } from '../controllers/vendor.controller';
-import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 
 const router: Router = Router();
 
@@ -89,7 +90,7 @@ router.get(
 router.patch(
   '/:id/status',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     param('id').isUUID(),
     body('status').isIn(['PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED', 'CLOSED']),
@@ -102,7 +103,7 @@ router.patch(
 router.patch(
   '/:id/verify',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     param('id').isUUID(),
     body('approved').isBoolean(),
@@ -115,7 +116,7 @@ router.patch(
 router.patch(
   '/documents/:documentId/verify',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     param('documentId').isUUID(),
     body('approved').isBoolean(),

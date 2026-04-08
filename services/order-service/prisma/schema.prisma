@@ -44,9 +44,15 @@ model CartItem {
 model Order {
   id              String        @id @default(uuid())
   orderNumber     String        @unique
-  userId          String?       // Can be null for guest orders
+  
+  // User who placed the order
+  userId          String?       // Can be null for guest orders or seller-created orders
   guestEmail      String?       // For guest checkout
   guestPhone      String?
+  
+  // Seller who created the order (if created by seller for customer)
+  sellerId        String?       // Reference to seller's user ID
+  sellerNote      String?
   
   items           OrderItem[]
   
@@ -81,18 +87,74 @@ model Order {
   adminNote       String?
   cancellationReason String?
   
-  // Tracking
-  trackingNumber  String?
-  carrier         String?
+  // Delivery Information
+  deliveryInfo    DeliveryInfo?
   
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([userId])
+  @@index([sellerId])
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])
   @@index([orderNumber])
+}
+
+model DeliveryInfo {
+  id                String       @id @default(uuid())
+  orderId           String       @unique
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Delivery provider (inhouse or 3rd party)
+  provider          DeliveryProvider
+  
+  // Inhouse delivery
+  deliveryManId     String?      // Reference to delivery_men table in auth-service
+  
+  // 3rd party delivery
+  externalTrackingId String?
+  externalProvider  String?      // Name of the 3rd party service
+  externalApiRef    String?
+  
+  // Shipping address (can be different from order)
+  shippingAddress   Json?
+  
+  // Delivery status
+  status            DeliveryStatus @default(PENDING)
+  
+  // Tracking
+  trackingNumber    String?
+  carrier           String?
+  estimatedDeliveryDate DateTime?
+  actualDeliveryDate DateTime?
+  
+  // Logistics details
+  weight            Float?       // in kg
+  dimensions        Json?        // { length, width, height }
+  fragile           Boolean     @default(false)
+  
+  // Cost tracking
+  deliveryCharge    Float?
+  discountApplied   Float?      @default(0)
+  
+  // Status tracking
+  pickedUpAt        DateTime?
+  inTransitAt       DateTime?
+  outForDeliveryAt  DateTime?
+  failedAttempts    Int         @default(0)
+  lastFailureReason String?
+  
+  notes             String?
+  
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([orderId])
+  @@index([deliveryManId])
+  @@index([provider])
+  @@index([status])
+  @@index([externalTrackingId])
 }
 
 model OrderItem {
@@ -225,4 +287,24 @@ enum CouponType {
   PERCENTAGE
   FIXED
   FREE_SHIPPING
+}
+
+enum DeliveryProvider {
+  INHOUSE
+  STEADFAST
+  PATHAO
+  REDX
+  SUNDARBAN
+  OTHER
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
 }

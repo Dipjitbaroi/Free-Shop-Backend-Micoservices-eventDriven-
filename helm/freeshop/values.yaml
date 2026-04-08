@@ -1,0 +1,125 @@
+# Freeshop Helm Values - Base Configuration
+# ============================================
+# Shared configuration for all services
+# Override per-service in values-<service>.yaml or via --set flags
+
+# Global configuration applied to all services
+global:
+  namespace: freeshop
+  imagePullSecrets:
+    - name: ghcr-pull-secret
+  environment: development
+
+# Docker registry configuration
+image:
+  registry: ghcr.io
+  owner: dipjitbaroi
+  pullPolicy: IfNotPresent
+  # tag is set at deploy time via --set image.tag=$SHA
+
+# Default service configuration (overridable per-service in values-<service>.yaml)
+services:
+  # Port configuration
+  ports:
+    api-gateway: 8000
+    auth-service: 3001
+    user-service: 3002
+    product-service: 3003
+    order-service: 3004
+    payment-service: 3005
+    inventory-service: 3006
+    vendor-service: 3007
+    notification-service: 3008
+    analytics-service: 3009
+
+  # Default resource limits (per service, should be overridden in service-specific values)
+  # Most services use: 100m CPU / 256Mi RAM (requests) and 500m / 512Mi (limits)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Health check defaults
+  healthCheck:
+    liveness:
+      initialDelaySeconds: 30
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 2
+    startup:
+      initialDelaySeconds: 0
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 30
+
+  # Default HPA configuration (PROTECTED - maxReplicas: 2 for single-node)
+  # Override per-service in service-specific values files
+  # API Gateway should have minReplicas: 2 (entry point redundancy)
+  autoscaling:
+    enabled: true
+    minReplicas: 1        # Default: 1 (override in api-gateway to 2)
+    maxReplicas: 2        # PROTECTED: Single-node VPS limitation
+    targetCPUUtilizationPercentage: 65
+    targetMemoryUtilizationPercentage: 75
+
+  # Pod Disruption Budget (prevents accidental deletion of all pods)
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+# Database configuration (from ConfigMap)
+database:
+  postgres:
+    host: postgres
+    port: 5432
+    user: postgres
+    # password comes from secrets
+    sslMode: disable
+
+# Cache configuration
+cache:
+  redis:
+    host: redis
+    port: 6379
+    # password comes from secrets
+    db: 0
+
+# Message queue configuration
+messageQueue:
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    # user and password come from secrets
+
+# Logging configuration
+logging:
+  level: info
+  format: json
+
+# Node selector (for pinning to specific nodes if needed)
+nodeSelector: {}
+
+# Tolerations (for node taints)
+tolerations: []
+
+# Affinity rules (node affinity, pod affinity, pod anti-affinity)
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - "{{ .Chart.Name }}"
+          topologyKey: kubernetes.io/hostname
