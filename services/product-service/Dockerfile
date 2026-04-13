@@ -47,7 +47,7 @@ COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/product-service/package*.json ./services/product-service/
 
 # Install production dependencies
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 COPY --from=builder /app/services/product-service/dist ./services/product-service/dist
 COPY --from=builder /app/services/product-service/prisma.config.ts ./services/product-service/

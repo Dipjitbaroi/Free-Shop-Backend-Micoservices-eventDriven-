@@ -43,7 +43,7 @@ COPY --from=builder /app/.pnpmrc ./
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/notification-service/package*.json ./services/notification-service/
 
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 COPY --from=builder /app/services/notification-service/dist ./services/notification-service/dist
 COPY --from=builder /app/services/notification-service/prisma.config.ts ./services/notification-service/

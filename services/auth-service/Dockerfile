@@ -43,7 +43,7 @@ COPY --from=builder /app/.pnpmrc ./
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/auth-service/package*.json ./services/auth-service/
 
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 COPY --from=builder /app/services/auth-service/dist ./services/auth-service/dist
 COPY --from=builder /app/services/auth-service/prisma.config.ts ./services/auth-service/

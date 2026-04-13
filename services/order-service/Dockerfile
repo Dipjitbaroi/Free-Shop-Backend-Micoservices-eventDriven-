@@ -43,7 +43,7 @@ COPY --from=builder /app/.pnpmrc ./
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/order-service/package*.json ./services/order-service/
 
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 COPY --from=builder /app/services/order-service/dist ./services/order-service/dist
 COPY --from=builder /app/services/order-service/prisma.config.ts ./services/order-service/

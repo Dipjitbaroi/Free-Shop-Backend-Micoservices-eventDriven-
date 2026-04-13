@@ -43,7 +43,7 @@ COPY --from=builder /app/.pnpmrc ./
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/analytics-service/package*.json ./services/analytics-service/
 
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 COPY --from=builder /app/services/analytics-service/dist ./services/analytics-service/dist
 COPY --from=builder /app/services/analytics-service/prisma.config.ts ./services/analytics-service/

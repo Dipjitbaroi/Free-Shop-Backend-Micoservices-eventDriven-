@@ -51,7 +51,7 @@ COPY --from=builder /app/services/api-gateway/dist ./services/api-gateway/dist
 COPY --from=builder /app/services/api-gateway/package.json ./services/api-gateway/
 
 # Install production dependencies with pnpm and BuildKit cache
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 EXPOSE 3000
 
