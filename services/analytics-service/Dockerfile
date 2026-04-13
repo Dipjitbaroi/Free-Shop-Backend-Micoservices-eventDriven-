@@ -40,11 +40,12 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/services/analytics-service/package*.json ./services/analytics-service/
+
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
 
-COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/analytics-service/dist ./services/analytics-service/dist
-COPY --from=builder /app/services/analytics-service/package*.json ./services/analytics-service/
 COPY --from=builder /app/services/analytics-service/prisma.config.ts ./services/analytics-service/
 COPY --from=builder /app/services/analytics-service/prisma ./services/analytics-service/prisma
 COPY --from=builder /app/services/analytics-service/generated ./services/analytics-service/generated

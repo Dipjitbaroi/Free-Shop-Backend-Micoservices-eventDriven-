@@ -40,11 +40,12 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/services/notification-service/package*.json ./services/notification-service/
+
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
 
-COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/notification-service/dist ./services/notification-service/dist
-COPY --from=builder /app/services/notification-service/package*.json ./services/notification-service/
 COPY --from=builder /app/services/notification-service/prisma.config.ts ./services/notification-service/
 COPY --from=builder /app/services/notification-service/prisma ./services/notification-service/prisma
 COPY --from=builder /app/services/notification-service/generated ./services/notification-service/generated

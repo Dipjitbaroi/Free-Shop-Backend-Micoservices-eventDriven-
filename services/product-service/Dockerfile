@@ -43,12 +43,13 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/services/product-service/package*.json ./services/product-service/
+
 # Install production dependencies
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
 
-COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/product-service/dist ./services/product-service/dist
-COPY --from=builder /app/services/product-service/package*.json ./services/product-service/
 COPY --from=builder /app/services/product-service/prisma.config.ts ./services/product-service/
 COPY --from=builder /app/services/product-service/prisma ./services/product-service/prisma
 COPY --from=builder /app/services/product-service/generated ./services/product-service/generated

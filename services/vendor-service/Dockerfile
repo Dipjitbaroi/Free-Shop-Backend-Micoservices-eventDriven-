@@ -40,11 +40,12 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/services/vendor-service/package*.json ./services/vendor-service/
+
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
 
-COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/vendor-service/dist ./services/vendor-service/dist
-COPY --from=builder /app/services/vendor-service/package*.json ./services/vendor-service/
 COPY --from=builder /app/services/vendor-service/prisma.config.ts ./services/vendor-service/
 COPY --from=builder /app/services/vendor-service/prisma ./services/vendor-service/prisma
 COPY --from=builder /app/services/vendor-service/generated ./services/vendor-service/generated

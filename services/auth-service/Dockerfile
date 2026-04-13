@@ -40,11 +40,12 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/services/auth-service/package*.json ./services/auth-service/
+
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --prod --no-frozen-lockfile
 
-COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/auth-service/dist ./services/auth-service/dist
-COPY --from=builder /app/services/auth-service/package*.json ./services/auth-service/
 COPY --from=builder /app/services/auth-service/prisma.config.ts ./services/auth-service/
 COPY --from=builder /app/services/auth-service/prisma ./services/auth-service/prisma
 COPY --from=builder /app/services/auth-service/generated ./services/auth-service/generated
