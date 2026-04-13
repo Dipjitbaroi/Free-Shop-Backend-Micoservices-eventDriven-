@@ -23,7 +23,9 @@
     "@freeshop/shared-events": "workspace:*",
     "@prisma/adapter-pg": "^7.6.0",
     "@prisma/client": "^7.6.0",
+    "@prisma/client-runtime-utils": "^7.6.0",
     "express": "^5.2.1",
+    "prisma": "^7.6.0",
     "ioredis": "^5.9.3",
     "dotenv": "^16.6.1",
     "express-validator": "^7.3.1"

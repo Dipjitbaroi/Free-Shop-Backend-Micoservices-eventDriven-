@@ -1,6 +1,6 @@
 FROM node:24-alpine AS builder
 
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -22,6 +22,9 @@ COPY services/api-gateway ./services/api-gateway
 # Install dependencies with pnpm and BuildKit cache, optimized for slow networks
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
+# Generate Prisma client during build
+RUN pnpm --filter ./services/api-gateway exec prisma generate || true
+
 # Build all packages in one command (reduces network calls and layer count)
 RUN pnpm run build
 
@@ -29,7 +32,7 @@ RUN pnpm run build
 FROM node:24-alpine
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -49,6 +52,7 @@ COPY --from=builder /app/packages/shared-middleware/dist ./packages/shared-middl
 COPY --from=builder /app/packages/shared-middleware/package.json ./packages/shared-middleware/
 COPY --from=builder /app/services/api-gateway/dist ./services/api-gateway/dist
 COPY --from=builder /app/services/api-gateway/package.json ./services/api-gateway/
+# api-gateway has no Prisma client; skip copying prisma/generated files
 
 # Install production dependencies with pnpm and BuildKit cache
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile

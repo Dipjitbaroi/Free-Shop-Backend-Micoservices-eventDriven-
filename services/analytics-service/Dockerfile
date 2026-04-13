@@ -1,7 +1,7 @@
 FROM node:24-alpine AS builder
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -27,12 +27,14 @@ COPY services/analytics-service/ ./services/analytics-service/
 
 # Build all packages in one command (reduces network calls and layer count)
 WORKDIR /app
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/analytics-service install --no-frozen-lockfile
+RUN pnpm --filter ./services/analytics-service exec prisma generate || true
 RUN pnpm run build
 
 FROM node:24-alpine AS production
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -42,6 +44,7 @@ COPY --from=builder /app/.pnpmrc ./
 
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/analytics-service/package*.json ./services/analytics-service/
+COPY --from=builder /app/services/analytics-service/generated ./services/analytics-service/generated
 
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 

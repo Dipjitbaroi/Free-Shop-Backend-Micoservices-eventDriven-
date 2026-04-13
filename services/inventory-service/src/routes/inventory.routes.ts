@@ -45,7 +45,19 @@ router.get(
 
 // Get vendor inventory
 router.get(
-  '/vendor/:vendorId?',
+  '/vendor',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
+  [
+    ...paginationValidation,
+    query('lowStockOnly').optional().isIn(['true', 'false']),
+  ],
+  validate,
+  inventoryController.getVendorInventory
+);
+
+router.get(
+  '/vendor/:vendorId',
   authenticate,
   authorizePermission(PERMISSION_CODES.INVENTORY_READ),
   [

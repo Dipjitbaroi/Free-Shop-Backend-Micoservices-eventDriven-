@@ -65,9 +65,22 @@ router.get(
   productController.getProductBySlug
 );
 
-// Vendor routes
+// Vendor routes - get all vendor products (no specific vendorId)
 router.get(
-  '/vendor/:vendorId?',
+  '/vendor',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.PRODUCT_READ),
+  [
+    ...paginationValidation,
+    query('status').optional().isIn(['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED']),
+  ],
+  validate,
+  productController.getVendorProducts
+);
+
+// Vendor routes - get products for a specific vendor
+router.get(
+  '/vendor/:vendorId',
   authenticate,
   authorizePermission(PERMISSION_CODES.PRODUCT_READ),
   [

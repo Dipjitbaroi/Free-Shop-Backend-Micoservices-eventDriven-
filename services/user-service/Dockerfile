@@ -1,7 +1,7 @@
 FROM node:24-alpine AS builder
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -27,12 +27,14 @@ COPY services/user-service/ ./services/user-service/
 
 # Build all packages in one command (reduces network calls and layer count)
 WORKDIR /app
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/user-service install --no-frozen-lockfile
+RUN pnpm --filter ./services/user-service exec prisma generate || true
 RUN pnpm run build
 
 FROM node:24-alpine AS production
 
 RUN apk add --no-cache openssl
-RUN npm install -g pnpm@9
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
@@ -42,6 +44,7 @@ COPY --from=builder /app/.pnpmrc ./
 
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/user-service/package*.json ./services/user-service/
+COPY --from=builder /app/services/user-service/generated ./services/user-service/generated
 
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 

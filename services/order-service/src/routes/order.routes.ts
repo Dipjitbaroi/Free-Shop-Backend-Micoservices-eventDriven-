@@ -85,7 +85,16 @@ router.get(
 
 // Seller/Admin routes - manage orders
 router.get(
-  '/vendor/:vendorId?',
+  '/vendor',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ORDER_READ),
+  paginationValidation,
+  validate,
+  orderController.getVendorOrders
+);
+
+router.get(
+  '/vendor/:vendorId',
   authenticate,
   authorizePermission(PERMISSION_CODES.ORDER_READ),
   paginationValidation,
