@@ -30,7 +30,6 @@ COPY services/product-service/ ./services/product-service/
 # Build all packages in one command (reduces network calls and layer count)
 WORKDIR /app
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/product-service install --frozen-lockfile
-RUN pnpm --filter ./services/product-service exec prisma generate
 RUN pnpm run build
 
 # Production stage
