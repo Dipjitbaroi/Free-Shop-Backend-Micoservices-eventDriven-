@@ -223,23 +223,23 @@ spec:
             
             # Service-to-Service URLs (Kubernetes DNS)
             - name: AUTH_SERVICE_URL
-              value: http://auth-service:{{ .Values.services.ports.auth-service }}
+              value: http://auth-service:{{ .Values.services.ports["auth-service"] }}
             - name: USER_SERVICE_URL
-              value: http://user-service:{{ .Values.services.ports.user-service }}
+              value: http://user-service:{{ .Values.services.ports["user-service"] }}
             - name: PRODUCT_SERVICE_URL
-              value: http://product-service:{{ .Values.services.ports.product-service }}
+              value: http://product-service:{{ .Values.services.ports["product-service"] }}
             - name: ORDER_SERVICE_URL
-              value: http://order-service:{{ .Values.services.ports.order-service }}
+              value: http://order-service:{{ .Values.services.ports["order-service"] }}
             - name: PAYMENT_SERVICE_URL
-              value: http://payment-service:{{ .Values.services.ports.payment-service }}
+              value: http://payment-service:{{ .Values.services.ports["payment-service"] }}
             - name: INVENTORY_SERVICE_URL
-              value: http://inventory-service:{{ .Values.services.ports.inventory-service }}
+              value: http://inventory-service:{{ .Values.services.ports["inventory-service"] }}
             - name: VENDOR_SERVICE_URL
-              value: http://vendor-service:{{ .Values.services.ports.vendor-service }}
+              value: http://vendor-service:{{ .Values.services.ports["vendor-service"] }}
             - name: NOTIFICATION_SERVICE_URL
-              value: http://notification-service:{{ .Values.services.ports.notification-service }}
+              value: http://notification-service:{{ .Values.services.ports["notification-service"] }}
             - name: ANALYTICS_SERVICE_URL
-              value: http://analytics-service:{{ .Values.services.ports.analytics-service }}
+              value: http://analytics-service:{{ .Values.services.ports["analytics-service"] }}
             
             # Email Configuration (SMTP / Notification Service)
             - name: SMTP_HOST
