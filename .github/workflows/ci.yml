@@ -39,7 +39,7 @@ jobs:
           for SERVICE in services/*/; do
             if [ -f "$SERVICE/prisma/schema.prisma" ]; then
               echo "Generating Prisma client for $SERVICE"
-              pnpm exec prisma generate --schema="$SERVICE/prisma/schema.prisma"
+              pnpm -C "$SERVICE" exec prisma generate
             fi
           done
 
@@ -55,7 +55,7 @@ jobs:
           EXIT=0
           for SERVICE_DIR in services/*/; do
             echo "--- Checking $SERVICE_DIR ---"
-            (cd "$SERVICE_DIR" && pnpm exec tsc --noEmit) || EXIT=1
+            (pnpm -C "$SERVICE_DIR" exec tsc --noEmit) || EXIT=1
           done
           exit $EXIT
 
