@@ -39,6 +39,7 @@ WORKDIR /app
 
 # Copy workspace config and root package files
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
