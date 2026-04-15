@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { analyticsController } from '../controllers/analytics.controller';
-import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 
-const router = Router();
+const router: Router = Router();
 
 router.get(
   '/dashboard',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),
@@ -20,7 +21,7 @@ router.get(
 router.get(
   '/sales',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),
@@ -30,15 +31,15 @@ router.get(
 );
 
 router.get(
-  '/sellers/:sellerId',
+  '/vendors/:vendorId',
   authenticate,
   [
-    param('sellerId').isUUID(),
+    param('vendorId').isUUID(),
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),
   ],
   validate,
-  analyticsController.getSellerReport
+  analyticsController.getVendorReport
 );
 
 router.get(
@@ -56,7 +57,7 @@ router.get(
 router.get(
   '/top-products',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),
@@ -67,22 +68,22 @@ router.get(
 );
 
 router.get(
-  '/top-sellers',
+  '/top-vendors',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),
     query('limit').optional().isInt({ min: 1, max: 100 }),
   ],
   validate,
-  analyticsController.getTopSellers
+  analyticsController.getTopVendors
 );
 
 router.get(
   '/users',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('startDate').optional().isISO8601(),
     query('endDate').optional().isISO8601(),

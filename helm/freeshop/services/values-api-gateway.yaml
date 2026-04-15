@@ -1,0 +1,26 @@
+# API Gateway - Service-Specific Values
+# ====================================
+# The main entry point - highest traffic volume
+serviceName: api-gateway
+
+services:
+  ports:
+    api-gateway: 8000
+  
+  # API Gateway gets more resources due to routing/load balancing
+  resources:
+    requests:
+      cpu: 150m       # Matches original K8s manifest
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # API Gateway ENTRY POINT - must always have 2 for redundancy
+  # Protected for single-node: maxReplicas stays at 2 (instead of original 5)
+  autoscaling:
+    enabled: true
+    minReplicas: 2  # Entry point requires 2 minimum
+    maxReplicas: 2  # Protected for single-node (original was 5)
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 75

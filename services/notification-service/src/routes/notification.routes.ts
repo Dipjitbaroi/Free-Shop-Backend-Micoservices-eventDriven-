@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { notificationController } from '../controllers/notification.controller';
-import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 
-const router = Router();
+const router: Router = Router();
 
 const notificationTypes = [
   'ORDER_CREATED', 'ORDER_CONFIRMED', 'ORDER_SHIPPED', 'ORDER_DELIVERED', 'ORDER_CANCELLED',
   'PAYMENT_RECEIVED', 'PAYMENT_FAILED', 'PAYMENT_REFUNDED',
-  'SELLER_VERIFIED', 'SELLER_SUSPENDED', 'WITHDRAWAL_COMPLETED', 'WITHDRAWAL_REJECTED',
+  'Vendor_VERIFIED', 'Vendor_SUSPENDED', 'WITHDRAWAL_COMPLETED', 'WITHDRAWAL_REJECTED',
   'LOW_STOCK_ALERT', 'PRICE_DROP', 'BACK_IN_STOCK',
   'WELCOME', 'PASSWORD_RESET', 'EMAIL_VERIFICATION', 'PROMOTION', 'CUSTOM'
 ];
@@ -19,7 +20,7 @@ const statusTypes = ['PENDING', 'QUEUED', 'SENT', 'DELIVERED', 'FAILED', 'CANCEL
 router.post(
   '/',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     body('type').isIn(notificationTypes).withMessage('Valid notification type is required'),
     body('channel').isIn(channelTypes).withMessage('Valid channel is required'),
@@ -38,7 +39,7 @@ router.post(
 router.post(
   '/bulk',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     body('userIds').isArray({ min: 1 }).withMessage('At least one user ID is required'),
     body('userIds.*').isUUID(),
@@ -54,7 +55,7 @@ router.post(
 router.get(
   '/',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('userId').optional().isUUID(),
     query('type').optional().isIn(notificationTypes),
@@ -96,7 +97,7 @@ router.patch(
     body('pushEnabled').optional().isBoolean(),
     body('orderUpdates').optional().isBoolean(),
     body('promotions').optional().isBoolean(),
-    body('sellerUpdates').optional().isBoolean(),
+    body('VendorUpdates').optional().isBoolean(),
     body('accountUpdates').optional().isBoolean(),
     body('priceAlerts').optional().isBoolean(),
   ],
@@ -135,10 +136,11 @@ router.get(
 router.patch(
   '/:id/cancel',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   param('id').isUUID(),
   validate,
   notificationController.cancelNotification
 );
 
 export default router;
+

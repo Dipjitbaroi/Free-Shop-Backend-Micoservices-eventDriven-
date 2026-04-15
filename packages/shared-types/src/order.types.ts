@@ -36,7 +36,7 @@ export interface IOrderItem {
   id: string;
   orderId: string;
   productId: string;
-  sellerId: string;
+  vendorId: string;
   productName: string;
   productImage?: string;
   sku: string;
@@ -93,7 +93,7 @@ export interface IOrderUpdate {
 
 export interface IOrderFilter {
   customerId?: string;
-  sellerId?: string;
+  vendorId?: string;
   status?: OrderStatus;
   paymentMethod?: PaymentMethod;
   startDate?: Date;
@@ -119,7 +119,7 @@ export interface ICart {
 
 export interface ICartItem {
   productId: string;
-  sellerId: string;
+  vendorId: string;
   quantity: number;
   unitPrice: number;
   discountPrice?: number;

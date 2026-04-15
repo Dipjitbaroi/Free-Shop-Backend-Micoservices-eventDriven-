@@ -60,9 +60,9 @@ const config: IConfig = {
       healthCheck: '/health',
       timeout: 10000,
     },
-    seller: {
-      name: 'Seller Service',
-      url: process.env.SELLER_SERVICE_URL || 'http://localhost:3007',
+    vendor: {
+      name: 'Vendor Service',
+      url: process.env.VENDOR_SERVICE_URL || 'http://localhost:3007',
       healthCheck: '/health',
       timeout: 10000,
     },

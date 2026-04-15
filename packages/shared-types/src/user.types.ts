@@ -1,4 +1,4 @@
-import { UserRole, UserStatus, OAuthProvider } from './enums';
+import { UserStatus, OAuthProvider } from './enums';
 
 export interface IUser {
   id: string;
@@ -7,7 +7,8 @@ export interface IUser {
   firstName: string;
   lastName: string;
   avatar?: string;
-  role: UserRole;
+  // role: Removed - roles are now assigned dynamically via RBAC system
+  // Access req.user.roles from token or query auth service instead
   status: UserStatus;
   oauthProvider: OAuthProvider;
   oauthId?: string;
@@ -24,7 +25,7 @@ export interface IUserCreate {
   phone?: string;
   firstName: string;
   lastName: string;
-  role?: UserRole;
+  // role: Removed - roles are assigned via RBAC system after user creation
   oauthProvider?: OAuthProvider;
   oauthId?: string;
 }

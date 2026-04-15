@@ -22,21 +22,46 @@ spec:
           ports:
             - containerPort: 3000
           env:
+            # Environment & Port Configuration (from ConfigMap)
             - name: NODE_ENV
-              value: "production"
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: NODE_ENV
             - name: PORT
               value: "3000"
             - name: API_GATEWAY_PORT
-              value: "3000"
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: API_GATEWAY_PORT
+            # Redis Configuration
             - name: REDIS_HOST
-              value: "redis"
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: REDIS_HOST
             - name: REDIS_PORT
-              value: "6379"
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: REDIS_PORT
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: REDIS_PASSWORD
+            # RabbitMQ Configuration
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: RABBITMQ_PORT
             - name: RABBITMQ_USER
               valueFrom:
                 secretKeyRef:
@@ -48,7 +73,7 @@ spec:
                   name: freeshop-secrets
                   key: RABBITMQ_PASS
             - name: RABBITMQ_URL
-              value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASS)@rabbitmq:5672"
+              value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASS)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)"
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
@@ -66,8 +91,8 @@ spec:
               value: "http://payment-service:3005"
             - name: INVENTORY_SERVICE_URL
               value: "http://inventory-service:3006"
-            - name: SELLER_SERVICE_URL
-              value: "http://seller-service:3007"
+            - name: VENDOR_SERVICE_URL
+              value: "http://vendor-service:3007"
             - name: NOTIFICATION_SERVICE_URL
               value: "http://notification-service:3008"
             - name: ANALYTICS_SERVICE_URL

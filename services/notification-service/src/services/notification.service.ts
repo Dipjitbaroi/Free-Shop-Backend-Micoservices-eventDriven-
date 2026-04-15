@@ -406,7 +406,7 @@ class NotificationService {
     pushEnabled: boolean;
     orderUpdates: boolean;
     promotions: boolean;
-    sellerUpdates: boolean;
+    VendorUpdates: boolean;
     accountUpdates: boolean;
     priceAlerts: boolean;
   }>) {
@@ -457,7 +457,7 @@ class NotificationService {
       pushEnabled: boolean;
       orderUpdates: boolean;
       promotions: boolean;
-      sellerUpdates: boolean;
+      vendorUpdates: boolean;
       accountUpdates: boolean;
       priceAlerts: boolean;
     },
@@ -476,11 +476,11 @@ class NotificationService {
 
     if (type === 'PROMOTION' && !preference.promotions) return false;
 
-    const sellerTypes: NotificationType[] = [
-      'SELLER_VERIFIED', 'SELLER_SUSPENDED', 
+    const vendorTypes: NotificationType[] = [
+      'VENDOR_VERIFIED', 'VENDOR_SUSPENDED', 
       'WITHDRAWAL_COMPLETED', 'WITHDRAWAL_REJECTED'
     ];
-    if (sellerTypes.includes(type) && !preference.sellerUpdates) return false;
+    if (vendorTypes.includes(type) && !preference.vendorUpdates) return false;
 
     const accountTypes: NotificationType[] = [
       'WELCOME', 'PASSWORD_RESET', 'EMAIL_VERIFICATION'
@@ -497,3 +497,4 @@ class NotificationService {
 }
 
 export const notificationService = new NotificationService();
+

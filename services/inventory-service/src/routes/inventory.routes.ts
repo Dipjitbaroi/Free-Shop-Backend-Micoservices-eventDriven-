@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { inventoryController } from '../controllers/inventory.controller';
-import { authenticate, authorize } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 const paginationValidation = [
   query('page').optional().isInt({ min: 1 }),
@@ -16,9 +16,9 @@ const paginationValidation = [
 router.post(
   '/initialize',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.SELLER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_CREATE),
   body('productId').isUUID(),
-  body('sellerId').isUUID(),
+  body('vendorId').isUUID(),
   body('initialStock').optional().isInt({ min: 0 }),
   body('lowStockThreshold').optional().isInt({ min: 0 }),
   validate,
@@ -43,24 +43,36 @@ router.get(
   inventoryController.getInventory
 );
 
-// Get seller inventory
+// Get vendor inventory
 router.get(
-  '/seller/:sellerId?',
+  '/vendor',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
   [
     ...paginationValidation,
     query('lowStockOnly').optional().isIn(['true', 'false']),
   ],
   validate,
-  inventoryController.getSellerInventory
+  inventoryController.getVendorInventory
+);
+
+router.get(
+  '/vendor/:vendorId',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
+  [
+    ...paginationValidation,
+    query('lowStockOnly').optional().isIn(['true', 'false']),
+  ],
+  validate,
+  inventoryController.getVendorInventory
 );
 
 // Add stock
 router.post(
   '/:productId/add',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('quantity').isInt({ min: 1 }),
   body('reason').optional().isString(),
@@ -72,7 +84,7 @@ router.post(
 router.post(
   '/:productId/reduce',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('quantity').isInt({ min: 1 }),
   body('reason').optional().isString(),
@@ -101,7 +113,7 @@ router.post(
 router.post(
   '/:productId/return',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('orderId').isUUID(),
   body('quantity').isInt({ min: 1 }),
@@ -113,7 +125,7 @@ router.post(
 router.get(
   '/:productId/movements',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
   param('productId').isUUID(),
   paginationValidation,
   validate,
@@ -124,7 +136,7 @@ router.get(
 router.patch(
   '/:productId/threshold',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN]),
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
   param('productId').isUUID(),
   body('threshold').isInt({ min: 0 }),
   validate,

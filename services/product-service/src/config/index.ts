@@ -3,7 +3,7 @@ export default {
   environment: process.env.NODE_ENV || 'development',
   
   database: {
-    url: process.env.PRODUCT_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/freeshop_product',
+    url: process.env.PRODUCT_DATABASE_URL,
   },
   
   redis: {

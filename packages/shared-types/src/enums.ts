@@ -1,10 +1,7 @@
-// User Roles
-export enum UserRole {
-  CUSTOMER = 'CUSTOMER',
-  SELLER = 'SELLER',
-  MANAGER = 'MANAGER',
-  ADMIN = 'ADMIN'
-}
+// User Roles - REMOVED
+// All roles are now created dynamically in the RBAC system
+// Use PERMISSION_CODES from rbac.types.ts for authorization
+// See PERMISSION_BASED_RBAC_GUIDE.md for implementation details
 
 // User Status
 export enum UserStatus {
@@ -65,12 +62,13 @@ export enum ProductStatus {
   REJECTED = 'REJECTED'
 }
 
-// Seller Status
-export enum SellerStatus {
+// Vendor Status
+export enum VendorStatus {
   PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
+  ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED',
-  REJECTED = 'REJECTED'
+  BANNED = 'BANNED',
+  CLOSED = 'CLOSED'
 }
 
 // Notification Types

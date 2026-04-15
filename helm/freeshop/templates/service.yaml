@@ -1,0 +1,19 @@
+{{- $serviceName := .Values.serviceName }}
+{{- $servicePort := include "freeshop.servicePort" (dict "serviceName" $serviceName "Values" .Values) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $serviceName }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "freeshop.labels" . | nindent 4 }}
+    app: {{ $serviceName }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $servicePort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: {{ $serviceName }}

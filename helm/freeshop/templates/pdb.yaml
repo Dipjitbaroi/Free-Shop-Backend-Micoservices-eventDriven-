@@ -1,0 +1,16 @@
+{{- if .Values.services.podDisruptionBudget.enabled }}
+{{- $serviceName := .Values.serviceName }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $serviceName }}-pdb
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "freeshop.labels" . | nindent 4 }}
+    app: {{ $serviceName }}
+spec:
+  minAvailable: {{ .Values.services.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ $serviceName }}
+{{- end }}

@@ -5,14 +5,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("AUTH_DATABASE_URL")
-}
-
-enum UserRole {
-  CUSTOMER
-  SELLER
-  MANAGER
-  ADMIN
 }
 
 enum UserStatus {
@@ -32,6 +24,29 @@ enum OAuthProvider {
   ANONYMOUS
 }
 
+enum PermissionAction {
+  CREATE
+  READ
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+}
+
+enum PermissionResource {
+  USER
+  ROLE
+  PERMISSION
+  ORDER
+  PRODUCT
+  DELIVERY
+  SELLER
+  PAYMENT
+  REPORT
+  SETTINGS
+  ADMIN_PANEL
+}
+
 model User {
   id                String        @id @default(uuid())
   email             String        @unique
@@ -40,7 +55,6 @@ model User {
   lastName          String
   passwordHash      String?
   avatar            String?
-  role              UserRole      @default(CUSTOMER)
   status            UserStatus    @default(PENDING_VERIFICATION)
   oauthProvider     OAuthProvider @default(LOCAL)
   oauthId           String?
@@ -54,6 +68,11 @@ model User {
   lockedUntil       DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+
+  // RBAC Relations
+  userRoles         UserRole[]
+  deliveryMan       DeliveryMan?
+  permissionLogs    PermissionAuditLog[]
 
   refreshTokens     RefreshToken[]
   sessions          Session[]
@@ -111,4 +130,166 @@ model GuestToken {
   @@index([guestId])
   @@index([token])
   @@map("guest_tokens")
+}
+
+// ──── RBAC SYSTEM MODELS ────
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // e.g., "SUPERADMIN", "SELLER", "DELIVERY_MAN"
+  description String?
+  
+  // Global sequential number for tracing
+  roleNumber  Int      @unique @default(autoincrement())
+  
+  // Relations
+  permissions RolePermission[]
+  users       UserRole[]
+  auditLogs   PermissionAuditLog[]
+  
+  createdBy   String   // UserId of superadmin who created it
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([createdBy])
+  @@index([name])
+  @@map("roles")
+}
+
+model Permission {
+  id        String   @id @default(uuid())
+  
+  // Numeric permission code for tracing (e.g., 1001, 1002, etc.)
+  // Format: {resource_code}{action_code}
+  // Resources: USER=1, ROLE=2, ORDER=3, DELIVERY=4, SELLER=5, etc.
+  // Actions: CREATE=01, READ=02, UPDATE=03, DELETE=04, APPROVE=05, REJECT=06
+  permissionCode Int    @unique // E.g., 10101 = USER.CREATE, 10102 = USER.READ
+  
+  action    PermissionAction
+  resource  PermissionResource
+  description String?
+  active    Boolean  @default(true)
+  
+  // Relations
+  roles     RolePermission[]
+  auditLogs PermissionAuditLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([action, resource])
+  @@index([permissionCode])
+  @@index([resource])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id         String   @id @default(uuid())
+  roleId     String
+  permissionId String
+  
+  // Tracing number for this specific assignment
+  assignmentNumber Int    @unique @default(autoincrement())
+  
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  grantedBy   String    // UserId who granted this permission
+  grantedAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  revokedBy   String?
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@index([assignmentNumber])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id      String  @id @default(uuid())
+  userId  String
+  roleId  String
+  
+  // Tracing number for this user-role assignment
+  assignmentNumber Int     @unique @default(autoincrement())
+  
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  
+  assignedBy  String    // UserId who assigned
+  assignedAt  DateTime  @default(now())
+  revokedAt   DateTime?
+  revokedBy   String?
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([assignmentNumber])
+  @@map("user_roles")
+}
+
+// Audit trail for all permission changes
+model PermissionAuditLog {
+  id          String   @id @default(uuid())
+  
+  // Sequential audit log number for precise tracing
+  auditNumber Int      @unique @default(autoincrement())
+  
+  userId      String   // User who performed the action
+  user        User     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  roleId      String?
+  role        Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  
+  permissionId String?
+  permission   Permission? @relation(fields: [permissionId], references: [id], onDelete: SetNull)
+  
+  action      String   // "ROLE_CREATED", "PERMISSION_GRANTED", "PERMISSION_REVOKED", etc.
+  targetUserId String?  // User affected by the action
+  details     Json?    // Additional context
+  
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@index([auditNumber])
+  @@index([action])
+  @@index([createdAt])
+  @@map("permission_audit_logs")
+}
+
+// Delivery Man Profile
+model DeliveryMan {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Personal Info
+  licenseNumber String?  @unique
+  vehicleType   String?   // Bike, Car, Van, etc.
+  vehicleId     String?
+  phone         String?
+  address       String?
+  city          String?
+  
+  // Status & Performance
+  status        UserStatus @default(ACTIVE)
+  isAvailable   Boolean  @default(true)
+  currentOrders Int      @default(0)
+  totalDeliveries Int    @default(0)
+  rating        Float?   @default(5)
+  ratingCount   Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([isAvailable])
+  @@map("delivery_men")
 }

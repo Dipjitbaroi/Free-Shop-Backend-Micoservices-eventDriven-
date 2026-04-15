@@ -79,7 +79,7 @@ Your Local Machine
 │  ┌─────┴────── Microservices ──────┐ │
 │  │ auth    user    product         │ │
 │  │ order   payment inventory       │ │
-│  │ seller  notification analytics  │ │
+│  │ vendor  notification analytics  │ │
 │  │ (each: 1–3 replicas, HPA)       │ │
 │  └─────────────────────────────────┘ │
 │        │         │         │         │
@@ -475,7 +475,7 @@ Should list these 9 databases:
 - `freeshop_order`
 - `freeshop_payment`
 - `freeshop_inventory`
-- `freeshop_seller`
+- `freeshop_vendor`
 - `freeshop_notification`
 - `freeshop_analytics`
 
@@ -530,14 +530,20 @@ Go to your **GitHub repository → Settings → Secrets and variables → Action
 
 ### Step 8.2 — Generate an SSH Key (if you don't have one)
 
-```bash
-# On your LOCAL machine
-ssh-keygen -t ed25519 -C "freeshop-deploy" -f ~/.ssh/freeshop_deploy
-
-# Copy the public key to your VPS
-ssh-copy-id -i ~/.ssh/freeshop_deploy.pub root@YOUR_VPS_IP
+```powershell
+# On your LOCAL machine (Windows PowerShell)
+ssh-keygen -t ed25519 -C "freeshop-deploy" -f "$env:USERPROFILE\.ssh\freeshop_deploy" -P ""
+scp $env:USERPROFILE\.ssh\freeshop_deploy.pub root@YOUR_VPS_IP:/tmp/freeshop_deploy.pub
+ssh root@YOUR_VPS_IP "mkdir -p ~/.ssh && cat /tmp/freeshop_deploy.pub >> ~/.ssh/authorized_keys && rm /tmp/freeshop_deploy.pub && chmod 700 ~/.ssh && chmod 600 ~/.ssh/authorized_keys"
 
 # The PRIVATE key content goes into VPS_SSH_KEY secret
+Get-Content $env:USERPROFILE\.ssh\freeshop_deploy -Raw
+```
+
+```bash
+# On your LOCAL machine (macOS / Linux)
+ssh-keygen -t ed25519 -C "freeshop-deploy" -f ~/.ssh/freeshop_deploy -N ""
+ssh-copy-id -i ~/.ssh/freeshop_deploy.pub root@YOUR_VPS_IP
 cat ~/.ssh/freeshop_deploy
 ```
 
@@ -854,7 +860,7 @@ k8s/
 │   ├── order-service/
 │   ├── payment-service/
 │   ├── inventory-service/
-│   ├── seller-service/
+│   ├── vendor-service/
 │   ├── notification-service/
 │   └── analytics-service/
 ├── ingress/

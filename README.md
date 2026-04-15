@@ -43,7 +43,7 @@ This project follows an **Event-Driven Microservices Architecture** with the fol
         │                           │                           │
         ▼                           ▼                           ▼
 ┌───────────────┐         ┌───────────────┐         ┌───────────────┐
-│ Seller Service│         │Notification   │         │Analytics Svc  │
+│ Vendor Service│         │Notification   │         │Analytics Svc  │
 │  (Vendors)    │         │Service (SMS)  │         │  (Reports)    │
 └───────────────┘         └───────────────┘         └───────────────┘
 ```
@@ -59,7 +59,7 @@ This project follows an **Event-Driven Microservices Architecture** with the fol
 | Order Service | 3004 | Order processing, tracking |
 | Payment Service | 3005 | Payment integrations |
 | Inventory Service | 3006 | Stock management |
-| Seller Service | 3007 | Vendor management |
+| Vendor Service | 3007 | Vendor management |
 | Notification Service | 3008 | Email, SMS notifications |
 | Analytics Service | 3009 | Reports, metrics |
 
@@ -138,7 +138,7 @@ free-shop-backend/
 │   ├── order-service/         # Order processing
 │   ├── payment-service/       # Payment processing
 │   ├── inventory-service/     # Stock management
-│   ├── seller-service/        # Vendor management
+│   ├── vendor-service/        # Vendor management
 │   ├── notification-service/  # Notifications
 │   └── analytics-service/     # Analytics & reports
 ├── docker-compose.yml         # Production compose
@@ -151,7 +151,7 @@ free-shop-backend/
 | Role | Access Level | Description |
 |------|--------------|-------------|
 | Customer | Read + Buy | Browse, purchase, track orders |
-| Seller | Product + Order Management | Manage products, process orders |
+| Vendor | Product + Order Management | Manage products, process orders |
 | Manager | Moderation + Control | Approve products, manage categories |
 | Admin | Full Access | Complete system control |
 

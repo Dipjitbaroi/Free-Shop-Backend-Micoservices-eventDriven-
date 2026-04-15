@@ -1,6 +1,5 @@
 import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
 import {
-  UserRole,
   UserStatus,
   OAuthProvider,
   ITokenPayload,
@@ -24,11 +23,10 @@ import config from '../config';
 const logger = createServiceLogger('auth-service');
 
 class AuthService {
-  private generateTokens(user: { id: string; email: string; role: string }): IAuthTokens {
+  private generateTokens(user: { id: string; email: string; role?: string }): IAuthTokens {
     const payload: Omit<ITokenPayload, 'iat' | 'exp'> = {
       userId: user.id,
       email: user.email,
-      role: user.role as UserRole,
       type: 'access',
     };
 
@@ -170,9 +168,9 @@ class AuthService {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          role: user.role,
           phone: user.phone ?? undefined,
           avatar: user.avatar ?? undefined,
+          role: 'CUSTOMER', // Default role - actual roles assigned via RBAC system
         }).catch((err) =>
           logger.error('Failed to publish user.created event', { error: err?.message }),
         );
@@ -226,7 +224,6 @@ class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         avatar: user.avatar || undefined,
-        role: user.role as UserRole,
         status: user.status as UserStatus,
         oauthProvider: user.oauthProvider as OAuthProvider,
         emailVerified: user.emailVerified,
@@ -329,7 +326,6 @@ class AuthService {
     const payload: Omit<ITokenPayload, 'iat' | 'exp'> = {
       userId: guestId,
       email: '',
-      role: UserRole.CUSTOMER,
       type: 'guest',
       guestId,
     };
@@ -381,12 +377,10 @@ class AuthService {
 
     const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
 
-    // Only ADMIN and MANAGER are allowed through this path.
-    // Use the same error message for missing user and wrong password to
-    // prevent email enumeration.
-    const ALLOWED_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.MANAGER];
-
-    if (!user || !ALLOWED_ROLES.includes(user.role as UserRole) || !user.passwordHash) {
+    // Only users with password hash (ADMIN/MANAGER) are allowed through this path.
+    // Use the same error message for missing user and missing password hash to
+    // prevent user enumeration.
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedError('Invalid credentials');
     }
 
@@ -432,7 +426,7 @@ class AuthService {
       },
     });
 
-    logger.info('loginWithCredentials → success', { userId: updatedUser.id, role: updatedUser.role });
+    logger.info('loginWithCredentials → success', { userId: updatedUser.id });
 
     return {
       user: {
@@ -442,7 +436,6 @@ class AuthService {
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         avatar: updatedUser.avatar || undefined,
-        role: updatedUser.role as UserRole,
         status: updatedUser.status as UserStatus,
         oauthProvider: updatedUser.oauthProvider as OAuthProvider,
         emailVerified: updatedUser.emailVerified,
@@ -467,7 +460,6 @@ class AuthService {
       password: string;
       firstName: string;
       lastName: string;
-      role?: UserRole;
     },
   ): Promise<IAuthResponse> {
     logger.debug('createAdminAccount → enter', { email: data.email });
@@ -486,7 +478,6 @@ class AuthService {
     }
 
     const passwordHash = await hashPassword(data.password);
-    const role = data.role ?? UserRole.ADMIN;
 
     const user = await prisma.user.create({
       data: {
@@ -494,14 +485,13 @@ class AuthService {
         firstName: data.firstName,
         lastName: data.lastName,
         passwordHash,
-        role,
         status: UserStatus.ACTIVE,
         emailVerified: true,
         oauthProvider: OAuthProvider.LOCAL,
       },
     });
 
-    logger.info('createAdminAccount → created', { userId: user.id, role: user.role });
+    logger.info('createAdminAccount → created', { userId: user.id });
 
     const tokens = this.generateTokens(user);
 
@@ -521,7 +511,6 @@ class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         avatar: user.avatar || undefined,
-        role: user.role as UserRole,
         status: user.status as UserStatus,
         oauthProvider: user.oauthProvider as OAuthProvider,
         emailVerified: user.emailVerified,
@@ -563,7 +552,7 @@ class AuthService {
   }
 
   async getUsers(filters: {
-    role?: UserRole;
+    role?: any;
     status?: UserStatus;
     search?: string;
     page?: number;

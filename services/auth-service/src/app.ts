@@ -9,6 +9,7 @@ import {
 } from '@freeshop/shared-middleware';
 
 import authRoutes from './routes/auth.routes';
+import rbacRoutes from './routes/rbac.routes';
 import healthRoutes from './routes/health.routes';
 
 const app: Application = express();
@@ -25,6 +26,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use('/', healthRoutes);
 app.use('/', authRoutes);
+app.use('/rbac', rbacRoutes);
 
 // Error handling
 app.use(notFoundHandler);

@@ -133,7 +133,7 @@ export const getUsers = asyncHandler(async (req: Request, res: Response) => {
  * is rejected with 403 before any DB work is done.
  */
 export const createAdminAccount = asyncHandler(async (req: Request, res: Response) => {
-  const { secretKey, email, password, firstName, lastName, role } = req.body;
+  const { secretKey, email, password, firstName, lastName } = req.body;
   logger.debug('createAdminAccount → enter', { requestId: req.requestId });
 
   const result = await authService.createAdminAccount(secretKey, {
@@ -141,7 +141,6 @@ export const createAdminAccount = asyncHandler(async (req: Request, res: Respons
     password,
     firstName,
     lastName,
-    role,
   });
 
   res.cookie('refreshToken', result.tokens.refreshToken, {
@@ -154,7 +153,6 @@ export const createAdminAccount = asyncHandler(async (req: Request, res: Respons
   logger.info('createAdminAccount → success', {
     requestId: req.requestId,
     userId: result.user.id,
-    role: result.user.role,
   });
   res.status(201).json(createApiResponse(result, 'Admin account created successfully', req.requestId));
 });
@@ -186,7 +184,6 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
   logger.info('adminLogin → success', {
     requestId: req.requestId,
     userId: result.user.id,
-    role: result.user.role,
   });
   res.json(createApiResponse(result, 'Login successful', req.requestId));
 });

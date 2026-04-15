@@ -60,7 +60,7 @@ class ReviewService {
       productId: review.productId,
       userId: review.userId,
       rating: review.rating,
-      sellerId: product.sellerId,
+      vendorId: product.vendorId,
     });
 
     return review;
