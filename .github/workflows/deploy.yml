@@ -391,7 +391,7 @@ jobs:
             for SERVICE in $SERVICES; do
               kubectl delete service "$SERVICE" --namespace="$NAMESPACE" 2>/dev/null || true
               kubectl delete deployment "$SERVICE" --namespace="$NAMESPACE" 2>/dev/null || true
-              kubectl delete hpa "$SERVICE" --namespace="$NAMESPACE" 2>/dev/null || true
+              kubectl delete hpa "$SERVICE-hpa" --namespace="$NAMESPACE" 2>/dev/null || true
               kubectl delete pdb "$SERVICE" --namespace="$NAMESPACE" 2>/dev/null || true
             done
             echo "Cleanup complete"
