@@ -379,10 +379,9 @@ jobs:
               exit 1
             fi
             
-            # Clean up old ConfigMap to avoid Helm ownership conflicts
-            # (The ConfigMap from a previous manual deployment may exist without Helm metadata)
-            echo "Cleaning up old ConfigMap if it exists..."
-            kubectl delete configmap freeshop-config --namespace="$NAMESPACE" 2>/dev/null || true
+            # ConfigMaps are now per-service (freeshop-config-{service-name})
+            # Helm manages ownership per release, no conflicts
+
             
             # Clean up old Services and Deployments to avoid Helm ownership conflicts
             # These may exist from previous manual deployments without Helm metadata

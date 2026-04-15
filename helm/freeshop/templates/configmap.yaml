@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: freeshop-config
+  name: freeshop-config-{{ .Values.serviceName }}
   namespace: {{ .Values.global.namespace }}
   labels:
     {{- include "freeshop.labels" . | nindent 4 }}

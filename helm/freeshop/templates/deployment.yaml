@@ -1,6 +1,7 @@
 {{- $serviceName := .Values.serviceName }}
 {{- $servicePort := include "freeshop.servicePort" (dict "serviceName" $serviceName "Values" .Values) }}
 {{- $hasDatabase := include "freeshop.hasDatabase" (dict "serviceName" $serviceName) }}
+{{- $configMapName := printf "freeshop-config-%s" $serviceName }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -53,22 +54,22 @@ spec:
             - name: NODE_ENV
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: NODE_ENV
             - name: POSTGRES_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: POSTGRES_HOST
             - name: POSTGRES_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: POSTGRES_PORT
             - name: POSTGRES_USER
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
@@ -99,7 +100,7 @@ spec:
             - name: NODE_ENV
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: NODE_ENV
             - name: PORT
               value: {{ $servicePort | quote }}
@@ -108,17 +109,17 @@ spec:
             - name: POSTGRES_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: POSTGRES_HOST
             - name: POSTGRES_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: POSTGRES_PORT
             - name: POSTGRES_USER
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
@@ -133,12 +134,12 @@ spec:
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: REDIS_HOST
             - name: REDIS_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: REDIS_PORT
             - name: REDIS_PASSWORD
               valueFrom:
@@ -150,12 +151,12 @@ spec:
             - name: RABBITMQ_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: RABBITMQ_HOST
             - name: RABBITMQ_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: RABBITMQ_PORT
             - name: RABBITMQ_USER
               valueFrom:
@@ -287,12 +288,12 @@ spec:
             - name: SMS_PROVIDER
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: SMS_PROVIDER
             - name: FRONTEND_URL
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: {{ $configMapName }}
                   key: FRONTEND_URL
             
             # Payment Gateway Configuration (bKash)
