@@ -417,8 +417,11 @@ jobs:
               echo "  → Deploying $SERVICE..."
               
               # Deploy each service as a separate Helm release (single-line for SSH compatibility)
-              if ! helm upgrade "$SERVICE" "$HELM_CHART" --namespace="$NAMESPACE" --install --create-namespace --values "$HELM_CHART/values.yaml" --values "$HELM_CHART/values-prod.yaml" --values "$VALUES_FILE" --set "image.tag=$SHORT_SHA" --set "serviceName=$SERVICE" --wait --timeout 10m --atomic 2>&1 | head -20; then
+              if ! helm upgrade "$SERVICE" "$HELM_CHART" --namespace="$NAMESPACE" --install --create-namespace --values "$HELM_CHART/values.yaml" --values "$HELM_CHART/values-prod.yaml" --values "$VALUES_FILE" --set "image.tag=$SHORT_SHA" --set "serviceName=$SERVICE" --wait --timeout 3m --atomic 2>&1 | head -20; then
                 echo "    ! Helm deployment for $SERVICE FAILED"
+                echo "    Pod status:"
+                kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null || echo "      No pods found"
+                kubectl describe pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null | tail -20 || true
                 HELM_FAILED="$HELM_FAILED $SERVICE"
               else
                 echo "    ✓ $SERVICE deployed"
