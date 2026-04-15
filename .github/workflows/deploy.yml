@@ -418,18 +418,20 @@ jobs:
               
               # Deploy each service as a separate Helm release (single-line for SSH compatibility)
               # Note: no --wait flag - Helm deploys immediately, rollout check handles pod readiness
-              if helm upgrade "$SERVICE" "$HELM_CHART" \
+              HELM_OUTPUT=$(helm upgrade "$SERVICE" "$HELM_CHART" \
                 --namespace="$NAMESPACE" --install --create-namespace \
                 --values "$HELM_CHART/values.yaml" \
                 --values "$HELM_CHART/values-prod.yaml" \
                 --values "$VALUES_FILE" \
                 --set "image.tag=$SHORT_SHA" \
-                --set "serviceName=$SERVICE" \
-                > /tmp/helm-$SERVICE.log 2>&1; then
+                --set "serviceName=$SERVICE" 2>&1)
+              HELM_EXIT=$?
+              
+              if [ $HELM_EXIT -eq 0 ]; then
                 echo "    ✓ $SERVICE Helm release created"
               else
-                echo "    ! Helm deployment for $SERVICE FAILED"
-                tail -5 /tmp/helm-$SERVICE.log
+                echo "    ✗ Helm deployment for $SERVICE FAILED (exit code: $HELM_EXIT)"
+                echo "$HELM_OUTPUT" | tail -20
                 HELM_FAILED="$HELM_FAILED $SERVICE"
               fi
             done
