@@ -17,7 +17,7 @@ COPY packages/shared-middleware/package*.json ./packages/shared-middleware/
 COPY services/product-service/package*.json ./services/product-service/
 
 # Install with pnpm and BuildKit cache, optimized for slow networks
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
 
 # Copy source code
 COPY packages/shared-types/ ./packages/shared-types/
@@ -28,8 +28,8 @@ COPY services/product-service/ ./services/product-service/
 
 # Build all packages in one command (reduces network calls and layer count)
 WORKDIR /app
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/product-service install --no-frozen-lockfile
-RUN pnpm --filter ./services/product-service exec prisma generate || true
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/product-service install --frozen-lockfile
+RUN pnpm --filter ./services/product-service exec prisma generate
 RUN pnpm run build
 
 # Production stage
@@ -61,4 +61,5 @@ WORKDIR /app/services/product-service
 
 EXPOSE 3003
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Run app directly; migrations should be executed by CI/k8s Job before rollout
+CMD ["node", "dist/index.js"]

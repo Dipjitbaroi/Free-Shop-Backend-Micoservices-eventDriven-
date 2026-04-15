@@ -55,7 +55,7 @@ COPY --from=builder /app/services/api-gateway/package.json ./services/api-gatewa
 # api-gateway has no Prisma client; skip copying prisma/generated files
 
 # Install production dependencies with pnpm and BuildKit cache
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
 
 EXPOSE 3000
 
