@@ -393,21 +393,11 @@ jobs:
             echo ""
             echo "--- Deploying services via Helm (per-service configuration) ---"
             
-            SERVICES=(
-              "api-gateway"
-              "auth-service"
-              "user-service"
-              "product-service"
-              "order-service"
-              "payment-service"
-              "inventory-service"
-              "vendor-service"
-              "notification-service"
-              "analytics-service"
-            )
+            # Define services as space-separated list (not multiline array for SSH compatibility)
+            SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
             
             HELM_FAILED=""
-            for SERVICE in "${SERVICES[@]}"; do
+            for SERVICE in $SERVICES; do
               VALUES_FILE="$HELM_CHART/services/values-$SERVICE.yaml"
               
               if [ ! -f "$VALUES_FILE" ]; then
@@ -417,21 +407,8 @@ jobs:
               
               echo "  → Deploying $SERVICE..."
               
-              # Deploy each service as a separate Helm release
-              # Merges: values.yaml + values-prod.yaml + values-service.yaml
-              if ! helm upgrade "$SERVICE" "$HELM_CHART" \
-                --namespace="$NAMESPACE" \
-                --install \
-                --create-namespace \
-                --values "$HELM_CHART/values.yaml" \
-                --values "$HELM_CHART/values-prod.yaml" \
-                --values "$VALUES_FILE" \
-                --set "image.tag=$SHORT_SHA" \
-                --set "serviceName=$SERVICE" \
-                --wait \
-                --timeout 10m \
-                --atomic 2>&1 | head -20; then
-                
+              # Deploy each service as a separate Helm release (single-line for SSH compatibility)
+              if ! helm upgrade "$SERVICE" "$HELM_CHART" --namespace="$NAMESPACE" --install --create-namespace --values "$HELM_CHART/values.yaml" --values "$HELM_CHART/values-prod.yaml" --values "$VALUES_FILE" --set "image.tag=$SHORT_SHA" --set "serviceName=$SERVICE" --wait --timeout 10m --atomic 2>&1 | head -20; then
                 echo "    ! Helm deployment for $SERVICE FAILED"
                 HELM_FAILED="$HELM_FAILED $SERVICE"
               else
@@ -454,8 +431,7 @@ jobs:
             
             FAILED=""
             for SERVICE in $SERVICES; do
-              if ! kubectl rollout status "deployment/$SERVICE" \
-                --namespace="$NAMESPACE" --timeout=300s 2>/dev/null; then
+              if ! kubectl rollout status "deployment/$SERVICE" --namespace="$NAMESPACE" --timeout=300s 2>/dev/null; then
                 FAILED="$FAILED $SERVICE"
               fi
             done
