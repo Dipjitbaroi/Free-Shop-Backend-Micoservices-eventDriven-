@@ -120,19 +120,91 @@ jobs:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         env:
-          # Passing values via 'envs' is the correct way — avoids shell injection
-          # and works for secrets. The SSH action exports these on the remote side.
+          # ── GitHub Actions variables ─────────────────────────────────
           SHORT_SHA:  ${{ steps.tag.outputs.sha }}
           GHCR_USER:  ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}  # PAT with read:packages — see README
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
           REPO_OWNER: ${{ github.repository_owner }}
           NAMESPACE:  freeshop
+          
+          # ── Database & Cache ────────────────────────────────────────
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          
+          # ── Message Queue ───────────────────────────────────────────
+          RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
+          RABBITMQ_PASS: ${{ secrets.RABBITMQ_PASS }}
+          RABBITMQ_URL: ${{ secrets.RABBITMQ_URL }}
+          
+          # ── JWT Authentication ──────────────────────────────────────
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
+          JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
+          JWT_REFRESH_EXPIRES_IN: ${{ secrets.JWT_REFRESH_EXPIRES_IN }}
+          
+          # ── Admin & Encryption ──────────────────────────────────────
+          ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          
+          # ── OAuth / Social Login ────────────────────────────────────
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_CALLBACK_URL: ${{ secrets.GOOGLE_CALLBACK_URL }}
+          FACEBOOK_CLIENT_ID: ${{ secrets.FACEBOOK_CLIENT_ID }}
+          FACEBOOK_CLIENT_SECRET: ${{ secrets.FACEBOOK_CLIENT_SECRET }}
+          FACEBOOK_CALLBACK_URL: ${{ secrets.FACEBOOK_CALLBACK_URL }}
+          
+          # ── File Storage (AWS S3) ───────────────────────────────────
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          
+          # ── Cloudinary (Alternative to S3) ──────────────────────────
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          
+          # ── Payment Gateways ────────────────────────────────────────
+          BKASH_APP_KEY: ${{ secrets.BKASH_APP_KEY }}
+          BKASH_APP_SECRET: ${{ secrets.BKASH_APP_SECRET }}
+          BKASH_USERNAME: ${{ secrets.BKASH_USERNAME }}
+          BKASH_PASSWORD: ${{ secrets.BKASH_PASSWORD }}
+          BKASH_BASE_URL: ${{ secrets.BKASH_BASE_URL }}
+          CALLBACK_BASE_URL: ${{ secrets.CALLBACK_BASE_URL }}
+          EPS_MERCHANT_ID: ${{ secrets.EPS_MERCHANT_ID }}
+          EPS_API_KEY: ${{ secrets.EPS_API_KEY }}
+          EPS_SECRET_KEY: ${{ secrets.EPS_SECRET_KEY }}
+          EPS_BASE_URL: ${{ secrets.EPS_BASE_URL }}
+          
+          # ── Email (SMTP) ────────────────────────────────────────────
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          
+          # ── SMS Gateway ──────────────────────────────────────────────
+          SMS_API_KEY: ${{ secrets.SMS_API_KEY }}
+          SMS_API_SECRET: ${{ secrets.SMS_API_SECRET }}
+          SMS_SENDER_ID: ${{ secrets.SMS_SENDER_ID }}
+          
+          # ── Twilio (SMS) ─────────────────────────────────────────────
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_FROM_NUMBER: ${{ secrets.TWILIO_FROM_NUMBER }}
+          
+          # ── Firebase (Push Notifications) ────────────────────────────
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
         with:
           host:     ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key:      ${{ secrets.VPS_SSH_KEY }}
           debug:    true
-          envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE
+          envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE,POSTGRES_PASSWORD,REDIS_PASSWORD,MONGODB_URI,RABBITMQ_USER,RABBITMQ_PASS,RABBITMQ_URL,JWT_SECRET,JWT_REFRESH_SECRET,JWT_EXPIRES_IN,JWT_REFRESH_EXPIRES_IN,ADMIN_SECRET_KEY,ENCRYPTION_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_CALLBACK_URL,FACEBOOK_CLIENT_ID,FACEBOOK_CLIENT_SECRET,FACEBOOK_CALLBACK_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_REGION,AWS_S3_BUCKET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,BKASH_APP_KEY,BKASH_APP_SECRET,BKASH_USERNAME,BKASH_PASSWORD,BKASH_BASE_URL,CALLBACK_BASE_URL,EPS_MERCHANT_ID,EPS_API_KEY,EPS_SECRET_KEY,EPS_BASE_URL,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASSWORD,EMAIL_FROM,SMS_API_KEY,SMS_API_SECRET,SMS_SENDER_ID,TWILIO_ACCOUNT_SID,TWILIO_AUTH_TOKEN,TWILIO_FROM_NUMBER,FIREBASE_PROJECT_ID,FIREBASE_CLIENT_EMAIL,FIREBASE_PRIVATE_KEY
           script_stop: true
           script: |
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
@@ -234,9 +306,80 @@ jobs:
               kubectl delete pod "$MIGRATION_POD" --namespace="$NAMESPACE" 2>/dev/null || true
             done
 
-            # ── Step 5: Deploy/upgrade via Helm ──────────────────────────────
+            # ── Step 5: Apply Kubernetes Secrets & ConfigMaps ─────────────────
+            echo ""
+            echo "--- Creating Kubernetes Secrets from GitHub Secrets ---"
+            
+            # Create Kubernetes Secret dynamically from GitHub Secrets (never stored in repo)
+            # This uses kubectl create secret generic with --from-literal for each secret
+            kubectl create secret generic freeshop-secrets \
+              --namespace="$NAMESPACE" \
+              --from-literal=POSTGRES_PASSWORD="$POSTGRES_PASSWORD" \
+              --from-literal=REDIS_PASSWORD="$REDIS_PASSWORD" \
+              --from-literal=MONGODB_URI="$MONGODB_URI" \
+              --from-literal=RABBITMQ_USER="$RABBITMQ_USER" \
+              --from-literal=RABBITMQ_PASS="$RABBITMQ_PASS" \
+              --from-literal=RABBITMQ_URL="$RABBITMQ_URL" \
+              --from-literal=JWT_SECRET="$JWT_SECRET" \
+              --from-literal=JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET" \
+              --from-literal=JWT_EXPIRES_IN="$JWT_EXPIRES_IN" \
+              --from-literal=JWT_REFRESH_EXPIRES_IN="$JWT_REFRESH_EXPIRES_IN" \
+              --from-literal=ADMIN_SECRET_KEY="$ADMIN_SECRET_KEY" \
+              --from-literal=ENCRYPTION_KEY="$ENCRYPTION_KEY" \
+              --from-literal=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
+              --from-literal=GOOGLE_CLIENT_SECRET="$GOOGLE_CLIENT_SECRET" \
+              --from-literal=GOOGLE_CALLBACK_URL="$GOOGLE_CALLBACK_URL" \
+              --from-literal=FACEBOOK_CLIENT_ID="$FACEBOOK_CLIENT_ID" \
+              --from-literal=FACEBOOK_CLIENT_SECRET="$FACEBOOK_CLIENT_SECRET" \
+              --from-literal=FACEBOOK_CALLBACK_URL="$FACEBOOK_CALLBACK_URL" \
+              --from-literal=AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID" \
+              --from-literal=AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY" \
+              --from-literal=AWS_REGION="$AWS_REGION" \
+              --from-literal=AWS_S3_BUCKET="$AWS_S3_BUCKET" \
+              --from-literal=CLOUDINARY_CLOUD_NAME="$CLOUDINARY_CLOUD_NAME" \
+              --from-literal=CLOUDINARY_API_KEY="$CLOUDINARY_API_KEY" \
+              --from-literal=CLOUDINARY_API_SECRET="$CLOUDINARY_API_SECRET" \
+              --from-literal=BKASH_APP_KEY="$BKASH_APP_KEY" \
+              --from-literal=BKASH_APP_SECRET="$BKASH_APP_SECRET" \
+              --from-literal=BKASH_USERNAME="$BKASH_USERNAME" \
+              --from-literal=BKASH_PASSWORD="$BKASH_PASSWORD" \
+              --from-literal=BKASH_BASE_URL="$BKASH_BASE_URL" \
+              --from-literal=CALLBACK_BASE_URL="$CALLBACK_BASE_URL" \
+              --from-literal=EPS_MERCHANT_ID="$EPS_MERCHANT_ID" \
+              --from-literal=EPS_API_KEY="$EPS_API_KEY" \
+              --from-literal=EPS_SECRET_KEY="$EPS_SECRET_KEY" \
+              --from-literal=EPS_BASE_URL="$EPS_BASE_URL" \
+              --from-literal=SMTP_HOST="$SMTP_HOST" \
+              --from-literal=SMTP_PORT="$SMTP_PORT" \
+              --from-literal=SMTP_USER="$SMTP_USER" \
+              --from-literal=SMTP_PASSWORD="$SMTP_PASSWORD" \
+              --from-literal=EMAIL_FROM="$EMAIL_FROM" \
+              --from-literal=SMS_API_KEY="$SMS_API_KEY" \
+              --from-literal=SMS_API_SECRET="$SMS_API_SECRET" \
+              --from-literal=SMS_SENDER_ID="$SMS_SENDER_ID" \
+              --from-literal=TWILIO_ACCOUNT_SID="$TWILIO_ACCOUNT_SID" \
+              --from-literal=TWILIO_AUTH_TOKEN="$TWILIO_AUTH_TOKEN" \
+              --from-literal=TWILIO_FROM_NUMBER="$TWILIO_FROM_NUMBER" \
+              --from-literal=FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
+              --from-literal=FIREBASE_CLIENT_EMAIL="$FIREBASE_CLIENT_EMAIL" \
+              --from-literal=FIREBASE_PRIVATE_KEY="$FIREBASE_PRIVATE_KEY" \
+              --dry-run=client -o yaml | kubectl apply -f -
+            echo "  ✓ Secrets created dynamically"
+            
+            # Apply ConfigMap for non-sensitive config
+            if [ -f "$REPO_PATH/k8s/config/freeshop-config.yaml" ]; then
+              kubectl apply -f "$REPO_PATH/k8s/config/freeshop-config.yaml"
+              echo "  ✓ ConfigMap applied"
+            else
+              echo "  ! freeshop-config.yaml not found at $REPO_PATH/k8s/config/freeshop-config.yaml"
+            fi
+
+            # ── Step 6: Deploy/upgrade via Helm ──────────────────────────────
             echo ""
             echo "--- Deploying via Helm ---"
+            
+            # Set Helm chart path
+            HELM_CHART="$REPO_PATH/helm/freeshop"
             
             # Check if helm is installed
             if ! command -v helm &> /dev/null; then
@@ -244,7 +387,7 @@ jobs:
               exit 1
             fi
             
-            # ── Step 5a: Deploy each service separately with its config ──────────
+            # ── Step 6a: Deploy each service separately with its config ──────────
             # Each service gets its own Helm release with service-specific values
             # This allows API Gateway to have minReplicas: 2, others minReplicas: 1
             echo ""
@@ -304,7 +447,7 @@ jobs:
             
             echo "✓ Helm deployment successful"
 
-            # ── Step 6: Wait for rollouts and verify ────────────────────────
+            # ── Step 7: Wait for rollouts and verify ────────────────────────
             echo ""
             echo "--- Waiting for rollouts (300s timeout each) ---"
             SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
@@ -317,7 +460,7 @@ jobs:
               fi
             done
 
-            # ── Step 7: Print summary ────────────────────────────────────────
+            # ── Step 8: Print summary ────────────────────────────────────────
             echo ""
             echo "--- Pod Status ---"
             kubectl get pods --namespace="$NAMESPACE" --sort-by='.metadata.name'
