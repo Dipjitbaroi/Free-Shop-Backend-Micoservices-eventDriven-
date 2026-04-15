@@ -29,7 +29,6 @@ COPY services/auth-service/ ./services/auth-service/
 # Build all packages in one command (reduces network calls and layer count)
 WORKDIR /app
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/auth-service install --frozen-lockfile
-RUN pnpm --filter ./services/auth-service exec prisma generate
 RUN pnpm run build
 
 FROM node:24-alpine AS production

@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Cart {
+  id      String     @id @default(uuid())
+  userId  String? // Can be null for guest carts
+  guestId String? // For guest checkout
+  items   CartItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  expiresAt DateTime? // For guest carts
+
+  @@unique([userId])
+  @@unique([guestId])
+  @@index([userId])
+  @@index([guestId])
+  @@index([expiresAt])
+}
+
+model CartItem {
+  id     String @id @default(uuid())
+  cartId String
+  cart   Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  productId String
+  quantity  Int    @default(1)
+  price     Float // Price at time of adding (for reference)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
+}
+
+model Order {
+  id          String @id @default(uuid())
+  orderNumber String @unique
+
+  // User who placed the order
+  userId     String? // Can be null for guest orders or seller-created orders
+  guestEmail String? // For guest checkout
+  guestPhone String?
+
+  // Seller who created the order (if created by seller for customer)
+  sellerId   String? // Reference to seller's user ID
+  sellerNote String?
+
+  items OrderItem[]
+
+  // Shipping info (snapshot)
+  shippingAddress Json
+  // billingAddress  Json?  // disabled - not currently used
+
+  // Order totals
+  subtotal    Float
+  shippingFee Float @default(0)
+  discount    Float @default(0)
+  tax         Float @default(0)
+  total       Float
+
+  // Coupon
+  couponCode     String?
+  couponDiscount Float   @default(0)
+
+  // Status tracking
+  status        OrderStatus   @default(PENDING)
+  paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod
+
+  // Timestamps
+  paidAt      DateTime?
+  shippedAt   DateTime?
+  deliveredAt DateTime?
+  cancelledAt DateTime?
+
+  // Notes
+  customerNote       String?
+  adminNote          String?
+  cancellationReason String?
+
+  // Delivery Information
+  deliveryInfo DeliveryInfo?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([orderNumber])
+}
+
+model DeliveryInfo {
+  id      String @id @default(uuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Delivery provider (inhouse or 3rd party)
+  provider DeliveryProvider
+
+  // Inhouse delivery
+  deliveryManId String? // Reference to delivery_men table in auth-service
+
+  // 3rd party delivery
+  externalTrackingId String?
+  externalProvider   String? // Name of the 3rd party service
+  externalApiRef     String?
+
+  // Shipping address (can be different from order)
+  shippingAddress Json?
+
+  // Delivery status
+  status DeliveryStatus @default(PENDING)
+
+  // Tracking
+  trackingNumber        String?
+  carrier               String?
+  estimatedDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+
+  // Logistics details
+  weight     Float? // in kg
+  dimensions Json? // { length, width, height }
+  fragile    Boolean @default(false)
+
+  // Cost tracking
+  deliveryCharge  Float?
+  discountApplied Float? @default(0)
+
+  // Status tracking
+  pickedUpAt        DateTime?
+  inTransitAt       DateTime?
+  outForDeliveryAt  DateTime?
+  failedAttempts    Int       @default(0)
+  lastFailureReason String?
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([deliveryManId])
+  @@index([provider])
+  @@index([status])
+  @@index([externalTrackingId])
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  vendorId  String
+
+  // Product snapshot
+  productName  String
+  productSlug  String
+  productImage String?
+  unit         String?
+
+  quantity   Int
+  price      Float // Price at time of order
+  discount   Float   @default(0)
+  total      Float
+  freeItemId String?
+
+  // Item status (for partial fulfillment)
+  status OrderItemStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([vendorId])
+}
+
+model Coupon {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  description String?
+
+  type  CouponType @default(PERCENTAGE)
+  value Float // Percentage or fixed amount
+
+  minOrderAmount Float?
+  maxDiscount    Float? // Cap for percentage discounts
+
+  usageLimit   Int? // Total usage limit
+  usageCount   Int  @default(0)
+  perUserLimit Int  @default(1)
+
+  // Restrictions
+  applicableProducts   Json? // Product IDs (null = all products)
+  applicableCategories Json? // Category IDs
+  applicableVendors    Json? // Vendor IDs
+
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@index([startDate, endDate])
+}
+
+model CouponUsage {
+  id       String   @id @default(uuid())
+  couponId String
+  userId   String
+  orderId  String
+  discount Float
+  usedAt   DateTime @default(now())
+
+  @@unique([couponId, orderId])
+  @@index([couponId])
+  @@index([userId])
+}
+
+// Platform-wide settings stored as key/value pairs. `value` is JSON to allow
+// structured settings (e.g. deliveryCharges object).
+model Setting {
+  key       String    @id
+  value     Json
+  updatedBy String?
+  updatedAt DateTime?
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  RETURNED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  BKASH
+  NAGAD
+  ROCKET
+  EPS
+  CARD
+  BANK_TRANSFER
+}
+
+enum OrderItemStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED
+  FREE_SHIPPING
+}
+
+enum DeliveryProvider {
+  INHOUSE
+  STEADFAST
+  PATHAO
+  REDX
+  SUNDARBAN
+  OTHER
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+}
