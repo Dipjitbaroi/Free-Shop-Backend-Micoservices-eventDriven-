@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Notification {
+  id     String  @id @default(uuid())
+  userId String?
+  email  String?
+  phone  String?
+
+  type    NotificationType
+  channel NotificationChannel
+
+  subject      String?
+  content      String  @db.Text
+  templateId   String?
+  templateData Json?
+
+  status       NotificationStatus @default(PENDING)
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  failedAt     DateTime?
+  errorMessage String?
+
+  retryCount Int @default(0)
+  maxRetries Int @default(3)
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([email])
+  @@index([status])
+  @@index([type])
+  @@index([channel])
+  @@index([createdAt])
+}
+
+model NotificationTemplate {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+
+  type    NotificationType
+  channel NotificationChannel
+
+  subject String?
+  body    String  @db.Text
+
+  variables String[] @default([])
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([channel])
+  @@index([isActive])
+}
+
+model NotificationPreference {
+  id     String @id @default(uuid())
+  userId String @unique
+
+  emailEnabled Boolean @default(true)
+  smsEnabled   Boolean @default(true)
+  pushEnabled  Boolean @default(true)
+
+  orderUpdates   Boolean @default(true)
+  promotions     Boolean @default(true)
+  vendorUpdates  Boolean @default(true)
+  accountUpdates Boolean @default(true)
+  priceAlerts    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model DeviceToken {
+  id     String @id @default(uuid())
+  userId String
+
+  token      String         @unique
+  platform   DevicePlatform
+  deviceInfo Json?
+
+  isActive   Boolean  @default(true)
+  lastUsedAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([isActive])
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  PAYMENT_REFUNDED
+  VENDOR_VERIFIED
+  VENDOR_SUSPENDED
+  WITHDRAWAL_COMPLETED
+  WITHDRAWAL_REJECTED
+  LOW_STOCK_ALERT
+  PRICE_DROP
+  BACK_IN_STOCK
+  WELCOME
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+  PROMOTION
+  CUSTOM
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+  WEB
+}
