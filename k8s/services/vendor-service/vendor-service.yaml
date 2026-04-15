@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: vendor-service
-          image: YOUR_REGISTRY/freeshop-vendor-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-vendor-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3007

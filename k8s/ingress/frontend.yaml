@@ -1,6 +1,6 @@
 # ============================================================
 # Frontend Deployment Placeholder
-# Replace YOUR_REGISTRY/freeshop-frontend with your actual image.
+# Replace ghcr.io/dipjitbaroi/freeshop-frontend with your actual image.
 # ============================================================
 apiVersion: apps/v1
 kind: Deployment
@@ -21,13 +21,13 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: YOUR_REGISTRY/freeshop-frontend:latest
+          image: ghcr.io/dipjitbaroi/freeshop-frontend:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 80
           env:
             - name: NEXT_PUBLIC_API_URL
-              value: "https://api.YOUR_DOMAIN.com"   # <-- Change this
+              value: "https://api.freeshopbd.com"   # <-- Change this
           resources:
             requests:
               cpu: "100m"

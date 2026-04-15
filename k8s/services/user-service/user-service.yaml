@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: YOUR_REGISTRY/freeshop-user-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-user-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3002

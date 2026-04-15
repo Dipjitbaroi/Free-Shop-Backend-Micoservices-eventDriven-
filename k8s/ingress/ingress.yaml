@@ -1,6 +1,6 @@
 # ============================================================
 # Ingress Rules
-# Replace YOUR_DOMAIN.com with your actual domain.
+# Replace freeshopbd.com with your actual domain.
 # Backend traffic → api-gateway (port 3000)
 # Frontend is deployed on Vercel (not on this cluster).
 # ============================================================

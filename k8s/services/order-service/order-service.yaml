@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: order-service
-          image: YOUR_REGISTRY/freeshop-order-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-order-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3004
