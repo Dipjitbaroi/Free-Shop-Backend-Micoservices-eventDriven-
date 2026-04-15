@@ -111,15 +111,6 @@ nodeSelector: {}
 tolerations: []
 
 # Affinity rules (node affinity, pod affinity, pod anti-affinity)
-affinity:
-  podAntiAffinity:
-    preferredDuringSchedulingIgnoredDuringExecution:
-      - weight: 100
-        podAffinityTerm:
-          labelSelector:
-            matchExpressions:
-              - key: app
-                operator: In
-                values:
-                  - "{{ .Chart.Name }}"
-          topologyKey: kubernetes.io/hostname
+# Note: Template syntax ({{ }}) is NOT processed in values.yaml
+# Pod anti-affinity can be added per-service in service-specific values files if needed
+affinity: {}
