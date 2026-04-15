@@ -417,11 +417,20 @@ jobs:
               echo "  → Deploying $SERVICE..."
               
               # Deploy each service as a separate Helm release (single-line for SSH compatibility)
-              if ! helm upgrade "$SERVICE" "$HELM_CHART" --namespace="$NAMESPACE" --install --create-namespace --values "$HELM_CHART/values.yaml" --values "$HELM_CHART/values-prod.yaml" --values "$VALUES_FILE" --set "image.tag=$SHORT_SHA" --set "serviceName=$SERVICE" 2>&1 | tail -10; then
-                echo "    ! Helm deployment for $SERVICE FAILED"
-                HELM_FAILED="$HELM_FAILED $SERVICE"
+              # Note: no --wait flag - Helm deploys immediately, rollout check handles pod readiness
+              if helm upgrade "$SERVICE" "$HELM_CHART" \
+                --namespace="$NAMESPACE" --install --create-namespace \
+                --values "$HELM_CHART/values.yaml" \
+                --values "$HELM_CHART/values-prod.yaml" \
+                --values "$VALUES_FILE" \
+                --set "image.tag=$SHORT_SHA" \
+                --set "serviceName=$SERVICE" \
+                > /tmp/helm-$SERVICE.log 2>&1; then
+                echo "    ✓ $SERVICE Helm release created"
               else
-                echo "    ✓ $SERVICE Helm release created (waiting for pod to be ready...)"
+                echo "    ! Helm deployment for $SERVICE FAILED"
+                tail -5 /tmp/helm-$SERVICE.log
+                HELM_FAILED="$HELM_FAILED $SERVICE"
               fi
             done
             
