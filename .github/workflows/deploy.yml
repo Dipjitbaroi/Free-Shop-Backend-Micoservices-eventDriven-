@@ -379,6 +379,11 @@ jobs:
               exit 1
             fi
             
+            # Clean up old ConfigMap to avoid Helm ownership conflicts
+            # (The ConfigMap from a previous manual deployment may exist without Helm metadata)
+            echo "Cleaning up old ConfigMap if it exists..."
+            kubectl delete configmap freeshop-config --namespace="$NAMESPACE" 2>/dev/null || true
+            
             # ── Step 6a: Deploy each service separately with its config ──────────
             # Each service gets its own Helm release with service-specific values
             # This allows API Gateway to have minReplicas: 2, others minReplicas: 1
