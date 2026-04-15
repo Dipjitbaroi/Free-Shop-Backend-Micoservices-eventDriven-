@@ -417,14 +417,11 @@ jobs:
               echo "  → Deploying $SERVICE..."
               
               # Deploy each service as a separate Helm release (single-line for SSH compatibility)
-              if ! helm upgrade "$SERVICE" "$HELM_CHART" --namespace="$NAMESPACE" --install --create-namespace --values "$HELM_CHART/values.yaml" --values "$HELM_CHART/values-prod.yaml" --values "$VALUES_FILE" --set "image.tag=$SHORT_SHA" --set "serviceName=$SERVICE" --wait --timeout 3m --atomic 2>&1 | head -20; then
+              if ! helm upgrade "$SERVICE" "$HELM_CHART" --namespace="$NAMESPACE" --install --create-namespace --values "$HELM_CHART/values.yaml" --values "$HELM_CHART/values-prod.yaml" --values "$VALUES_FILE" --set "image.tag=$SHORT_SHA" --set "serviceName=$SERVICE" 2>&1 | tail -10; then
                 echo "    ! Helm deployment for $SERVICE FAILED"
-                echo "    Pod status:"
-                kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null || echo "      No pods found"
-                kubectl describe pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null | tail -20 || true
                 HELM_FAILED="$HELM_FAILED $SERVICE"
               else
-                echo "    ✓ $SERVICE deployed"
+                echo "    ✓ $SERVICE Helm release created (waiting for pod to be ready...)"
               fi
             done
             
@@ -438,13 +435,18 @@ jobs:
 
             # ── Step 7: Wait for rollouts and verify ────────────────────────
             echo ""
-            echo "--- Waiting for rollouts (300s timeout each) ---"
+            echo "--- Waiting for pod rollouts (5m timeout) ---"
             SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
             
             FAILED=""
             for SERVICE in $SERVICES; do
+              echo "  Waiting for $SERVICE..."
               if ! kubectl rollout status "deployment/$SERVICE" --namespace="$NAMESPACE" --timeout=300s 2>/dev/null; then
+                echo "    ✗ $SERVICE rollout timeout - checking status..."
+                kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null || true
                 FAILED="$FAILED $SERVICE"
+              else
+                echo "    ✓ $SERVICE ready"
               fi
             done
 
