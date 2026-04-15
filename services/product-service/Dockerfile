@@ -30,6 +30,12 @@ COPY services/product-service/ ./services/product-service/
 # Build all packages in one command (reduces network calls and layer count)
 WORKDIR /app
 RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/product-service install --frozen-lockfile
+# Build shared packages first (in dependency order)
+RUN pnpm --filter @freeshop/shared-types run build
+RUN pnpm --filter @freeshop/shared-utils run build
+RUN pnpm --filter @freeshop/shared-events run build
+RUN pnpm --filter @freeshop/shared-middleware run build
+# Then build the service
 RUN pnpm run build
 
 # Production stage
