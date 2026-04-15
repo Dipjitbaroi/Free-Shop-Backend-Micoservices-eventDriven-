@@ -6,6 +6,7 @@ RUN npm install -g pnpm@10
 WORKDIR /app
 
 COPY package*.json ./
+COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
 COPY .pnpmrc ./
 COPY tsconfig.base.json ./

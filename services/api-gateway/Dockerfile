@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Copy root package files and pnpm config
 COPY package*.json ./
+COPY pnpm-lock.yaml ./
 COPY pnpm-workspace.yaml ./
 COPY .pnpmrc ./
 COPY tsconfig.base.json ./
