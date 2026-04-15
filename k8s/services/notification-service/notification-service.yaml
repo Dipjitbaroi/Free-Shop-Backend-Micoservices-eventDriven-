@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: notification-service
-          image: YOUR_REGISTRY/freeshop-notification-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-notification-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3008

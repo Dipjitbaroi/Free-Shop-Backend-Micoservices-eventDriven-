@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: product-service
-          image: YOUR_REGISTRY/freeshop-product-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-product-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3003

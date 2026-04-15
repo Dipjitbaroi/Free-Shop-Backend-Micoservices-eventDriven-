@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: inventory-service
-          image: YOUR_REGISTRY/freeshop-inventory-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-inventory-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3006

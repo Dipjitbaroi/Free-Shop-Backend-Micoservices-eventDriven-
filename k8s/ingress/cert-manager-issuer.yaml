@@ -12,7 +12,7 @@ metadata:
 spec:
   acme:
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: YOUR_EMAIL@example.com     # <-- Change this
+    email: dipjitbaroiofficial@gmail.com     # <-- Change this
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:
@@ -27,7 +27,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: YOUR_EMAIL@example.com     # <-- Change this
+    email: dipjitbaroiofficial@gmail.com     # <-- Change this
     privateKeySecretRef:
       name: letsencrypt-staging
     solvers:

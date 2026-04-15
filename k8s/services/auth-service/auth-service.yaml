@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: auth-service
-          image: YOUR_REGISTRY/freeshop-auth-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-auth-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3001

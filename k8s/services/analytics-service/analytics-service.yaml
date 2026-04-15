@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: analytics-service
-          image: YOUR_REGISTRY/freeshop-analytics-service:latest
+          image: ghcr.io/dipjitbaroi/freeshop-analytics-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3009

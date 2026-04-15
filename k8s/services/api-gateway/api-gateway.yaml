@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: YOUR_REGISTRY/freeshop-api-gateway:latest
+          image: ghcr.io/dipjitbaroi/freeshop-api-gateway:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
