@@ -23,16 +23,16 @@ data:
   RABBITMQ_PORT: {{ .Values.messageQueue.rabbitmq.port | quote }}
   
   # Service Ports
-  AUTH_SERVICE_PORT: {{ .Values.services.ports.auth-service | quote }}
-  USER_SERVICE_PORT: {{ .Values.services.ports.user-service | quote }}
-  PRODUCT_SERVICE_PORT: {{ .Values.services.ports.product-service | quote }}
-  ORDER_SERVICE_PORT: {{ .Values.services.ports.order-service | quote }}
-  PAYMENT_SERVICE_PORT: {{ .Values.services.ports.payment-service | quote }}
-  INVENTORY_SERVICE_PORT: {{ .Values.services.ports.inventory-service | quote }}
-  VENDOR_SERVICE_PORT: {{ .Values.services.ports.vendor-service | quote }}
-  NOTIFICATION_SERVICE_PORT: {{ .Values.services.ports.notification-service | quote }}
-  ANALYTICS_SERVICE_PORT: {{ .Values.services.ports.analytics-service | quote }}
-  API_GATEWAY_PORT: {{ .Values.services.ports.api-gateway | quote }}
+  AUTH_SERVICE_PORT: {{ index .Values.services.ports "auth-service" | quote }}
+  USER_SERVICE_PORT: {{ index .Values.services.ports "user-service" | quote }}
+  PRODUCT_SERVICE_PORT: {{ index .Values.services.ports "product-service" | quote }}
+  ORDER_SERVICE_PORT: {{ index .Values.services.ports "order-service" | quote }}
+  PAYMENT_SERVICE_PORT: {{ index .Values.services.ports "payment-service" | quote }}
+  INVENTORY_SERVICE_PORT: {{ index .Values.services.ports "inventory-service" | quote }}
+  VENDOR_SERVICE_PORT: {{ index .Values.services.ports "vendor-service" | quote }}
+  NOTIFICATION_SERVICE_PORT: {{ index .Values.services.ports "notification-service" | quote }}
+  ANALYTICS_SERVICE_PORT: {{ index .Values.services.ports "analytics-service" | quote }}
+  API_GATEWAY_PORT: {{ index .Values.services.ports "api-gateway" | quote }}
   
   # Frontend URL (for notifications, redirects)
   FRONTEND_URL: http://frontend:3000
