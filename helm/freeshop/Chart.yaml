@@ -1,0 +1,17 @@
+apiVersion: v2
+name: freeshop
+description: Free-Shop microservices platform - Helm chart for Kubernetes deployment
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ecommerce
+  - microservices
+  - kubernetes
+maintainers:
+  - name: DevOps Team
+    email: devops@freeshop.local
+home: https://github.com/Dipjitbaroi/Free-Shop-Backend-Micoservices-eventDriven-
+sources:
+  - https://github.com/Dipjitbaroi/Free-Shop-Backend-Micoservices-eventDriven-
+dependencies: []

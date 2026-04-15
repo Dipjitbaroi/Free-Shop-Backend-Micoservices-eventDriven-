@@ -5,10 +5,10 @@ import { successResponse } from '@freeshop/shared-utils';
 export const inventoryController = {
   async initializeInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId, sellerId, initialStock, lowStockThreshold } = req.body;
+      const { productId, vendorId, initialStock, lowStockThreshold } = req.body;
       const inventory = await inventoryService.initializeInventory(
         productId,
-        sellerId,
+        vendorId,
         initialStock,
         lowStockThreshold
       );
@@ -20,26 +20,26 @@ export const inventoryController = {
 
   async getInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const inventory = await inventoryService.getInventory(req.params.productId);
+      const inventory = await inventoryService.getInventory(req.params.productId as string);
       res.json(successResponse(inventory, 'Inventory retrieved'));
     } catch (error) {
       next(error);
     }
   },
 
-  async getSellerInventory(req: Request, res: Response, next: NextFunction) {
+  async getVendorInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const sellerId = req.params.sellerId || req.user?.id as string;
+      const vendorId = req.params.vendorId as string || req.user?.id as string;
       const { page, limit, lowStockOnly } = req.query;
       
-      const inventory = await inventoryService.getSellerInventory(
-        sellerId,
+      const inventory = await inventoryService.getVendorInventory(
+        vendorId,
         page ? parseInt(page as string) : 1,
         limit ? parseInt(limit as string) : 20,
         lowStockOnly === 'true'
       );
       
-      res.json(successResponse(inventory, 'Seller inventory retrieved'));
+      res.json(successResponse(inventory, 'Vendor inventory retrieved'));
     } catch (error) {
       next(error);
     }
@@ -52,7 +52,7 @@ export const inventoryController = {
       const performedBy = req.user?.id;
       
       const inventory = await inventoryService.addStock(
-        productId,
+        productId as string,
         quantity,
         reason,
         performedBy
@@ -71,7 +71,7 @@ export const inventoryController = {
       const performedBy = req.user?.id;
       
       const inventory = await inventoryService.reduceStock(
-        productId,
+        productId as string,
         quantity,
         reason,
         performedBy
@@ -88,7 +88,7 @@ export const inventoryController = {
       const { productId } = req.params;
       const { orderId, quantity } = req.body;
       
-      const reservation = await inventoryService.reserveStock(productId, orderId, quantity);
+      const reservation = await inventoryService.reserveStock(productId as string, orderId, quantity);
       
       res.json(successResponse(reservation, 'Stock reserved'));
     } catch (error) {
@@ -99,7 +99,7 @@ export const inventoryController = {
   async releaseReservation(req: Request, res: Response, next: NextFunction) {
     try {
       const { orderId } = req.params;
-      await inventoryService.releaseReservation(orderId);
+      await inventoryService.releaseReservation(orderId as string);
       res.json(successResponse(null, 'Reservation released'));
     } catch (error) {
       next(error);
@@ -113,7 +113,7 @@ export const inventoryController = {
       const performedBy = req.user?.id;
       
       const inventory = await inventoryService.processReturn(
-        productId,
+        productId as string,
         orderId,
         quantity,
         performedBy
@@ -131,7 +131,7 @@ export const inventoryController = {
       const { page, limit } = req.query;
       
       const movements = await inventoryService.getMovements(
-        productId,
+        productId as string,
         page ? parseInt(page as string) : 1,
         limit ? parseInt(limit as string) : 50
       );
@@ -147,7 +147,7 @@ export const inventoryController = {
       const { productId } = req.params;
       const { threshold } = req.body;
       
-      const inventory = await inventoryService.setLowStockThreshold(productId, threshold);
+      const inventory = await inventoryService.setLowStockThreshold(productId as string, threshold);
       
       res.json(successResponse(inventory, 'Threshold updated'));
     } catch (error) {
@@ -165,3 +165,4 @@ export const inventoryController = {
     }
   },
 };
+

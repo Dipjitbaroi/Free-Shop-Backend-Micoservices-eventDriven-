@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { orderController } from '../controllers/order.controller';
-import { authenticate, authorize, guestOrAuth } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, guestOrAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 // Validation schemas
 const createOrderValidation = [
@@ -39,7 +39,7 @@ const createOrderValidation = [
   body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
   body('items.*.productId').isUUID().withMessage('Valid product ID is required'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-  // sellerId, productName, price are resolved server-side from product-service
+  // vendorId, productName, price are resolved server-side from product-service
 ];
 
 const paginationValidation = [
@@ -83,14 +83,23 @@ router.get(
   orderController.getOrderByNumber
 );
 
-// Seller routes
+// Seller/Admin routes - manage orders
 router.get(
-  '/seller/:sellerId?',
+  '/vendor',
   authenticate,
-  authorize([UserRole.SELLER, UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.ORDER_READ),
   paginationValidation,
   validate,
-  orderController.getSellerOrders
+  orderController.getVendorOrders
+);
+
+router.get(
+  '/vendor/:vendorId',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ORDER_READ),
+  paginationValidation,
+  validate,
+  orderController.getVendorOrders
 );
 
 // Cancel own order
@@ -116,7 +125,7 @@ router.get(
 router.get(
   '/',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.ORDER_READ),
   [
     ...paginationValidation,
     query('status').optional().isIn(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RETURNED', 'REFUNDED']),
@@ -131,7 +140,7 @@ router.get(
 router.patch(
   '/:id/status',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.SELLER]),
+  authorizePermission(PERMISSION_CODES.ORDER_UPDATE),
   param('id').isUUID(),
   body('status').isIn([
     'PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 
@@ -145,7 +154,7 @@ router.patch(
 router.patch(
   '/:id/payment',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER]),
+  authorizePermission(PERMISSION_CODES.ORDER_UPDATE),
   param('id').isUUID(),
   body('paymentStatus').isIn(['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED']),
   body('transactionId').optional().isString(),
@@ -156,7 +165,7 @@ router.patch(
 router.patch(
   '/:id/tracking',
   authenticate,
-  authorize([UserRole.ADMIN, UserRole.MANAGER, UserRole.SELLER]),
+  authorizePermission(PERMISSION_CODES.ORDER_UPDATE),
   param('id').isUUID(),
   body('trackingNumber').isString().notEmpty(),
   body('carrier').optional().isString(),

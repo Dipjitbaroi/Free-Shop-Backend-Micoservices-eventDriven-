@@ -1,0 +1,125 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Inventory {
+  id        String @id @default(uuid())
+  productId String @unique
+  vendorId  String
+
+  // Stock levels
+  totalStock     Int @default(0)
+  reservedStock  Int @default(0)
+  availableStock Int @default(0) // totalStock - reservedStock
+
+  // Alerts
+  lowStockThreshold Int     @default(10)
+  isLowStock        Boolean @default(false)
+  isOutOfStock      Boolean @default(false)
+
+  // Tracking
+  lastRestockAt DateTime?
+  lastSoldAt    DateTime?
+
+  reservations StockReservation[]
+  movements    StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([vendorId])
+  @@index([isLowStock])
+  @@index([isOutOfStock])
+}
+
+model StockReservation {
+  id          String    @id @default(uuid())
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  orderId  String
+  quantity Int
+  status   ReservationStatus @default(PENDING)
+
+  expiresAt   DateTime? // Auto-release after expiry
+  releasedAt  DateTime?
+  fulfilledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([inventoryId, orderId])
+  @@index([orderId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model StockMovement {
+  id          String    @id @default(uuid())
+  inventoryId String
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  type      MovementType
+  quantity  Int // Positive for in, negative for out
+  reason    String?
+  reference String? // Order ID, adjustment ID, etc.
+
+  previousStock Int
+  newStock      Int
+
+  performedBy String?
+
+  createdAt DateTime @default(now())
+
+  @@index([inventoryId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model InventoryAlert {
+  id          String @id @default(uuid())
+  inventoryId String
+  productId   String
+  vendorId    String
+
+  type    AlertType
+  message String
+  isRead  Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([vendorId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  FULFILLED
+  RELEASED
+  EXPIRED
+}
+
+enum MovementType {
+  RESTOCK
+  SALE
+  RETURN
+  ADJUSTMENT
+  RESERVATION
+  RELEASE
+  INITIAL
+}
+
+enum AlertType {
+  LOW_STOCK
+  OUT_OF_STOCK
+  BACK_IN_STOCK
+  RESERVATION_EXPIRED
+}

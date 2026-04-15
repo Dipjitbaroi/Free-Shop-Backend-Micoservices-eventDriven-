@@ -1,0 +1,377 @@
+{{- $serviceName := .Values.serviceName }}
+{{- $servicePort := include "freeshop.servicePort" (dict "serviceName" $serviceName "Values" .Values) }}
+{{- $hasDatabase := include "freeshop.hasDatabase" (dict "serviceName" $serviceName) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $serviceName }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "freeshop.labels" . | nindent 4 }}
+    app: {{ $serviceName }}
+spec:
+  {{- if .Values.services.replicaCount }}
+  replicas: {{ .Values.services.replicaCount }}
+  {{- else }}
+  replicas: 1
+  {{- end }}
+  selector:
+    matchLabels:
+      app: {{ $serviceName }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: {{ $serviceName }}
+        release: {{ .Release.Name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $servicePort }}"
+        prometheus.io/path: "/metrics"
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if $hasDatabase }}
+      initContainers:
+        - name: migrate-database
+          image: {{ include "freeshop.image" (dict "serviceName" $serviceName "Values" .Values) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Running database migrations for {{ $serviceName }}..."
+              npx prisma migrate deploy || true
+              echo "Database migration complete (or fallback skipped)"
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: NODE_ENV
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: POSTGRES_PORT
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: POSTGRES_PASSWORD
+            {{- $dbName := printf "freeshop_%s" (replace "-service" "" $serviceName) }}
+            - name: {{ printf "%s_DATABASE_URL" (upper (replace "-" "_" (replace "-service" "" $serviceName))) }}
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/{{ $dbName }}"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      {{- end }}
+      containers:
+        - name: {{ $serviceName }}
+          image: {{ include "freeshop.image" (dict "serviceName" $serviceName "Values" .Values) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $servicePort }}
+              protocol: TCP
+          env:
+            # Environment & Port Configuration
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: NODE_ENV
+            - name: PORT
+              value: {{ $servicePort | quote }}
+            
+            # Database Configuration
+            - name: POSTGRES_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: POSTGRES_HOST
+            - name: POSTGRES_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: POSTGRES_PORT
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: POSTGRES_PASSWORD
+            {{- $dbName := printf "freeshop_%s" (replace "-service" "" $serviceName) }}
+            - name: {{ printf "%s_DATABASE_URL" (upper (replace "-" "_" (replace "-service" "" $serviceName))) }}
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/{{ $dbName }}"
+            
+            # Redis Configuration
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: REDIS_PORT
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: REDIS_PASSWORD
+            
+            # RabbitMQ Configuration
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: RABBITMQ_USER
+            - name: RABBITMQ_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: RABBITMQ_PASS
+            - name: RABBITMQ_URL
+              value: "amqp://$(RABBITMQ_USER):$(RABBITMQ_PASS)@$(RABBITMQ_HOST):$(RABBITMQ_PORT)"
+            
+            # JWT Secrets
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: JWT_SECRET
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: JWT_REFRESH_SECRET
+            - name: JWT_EXPIRES_IN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: JWT_EXPIRES_IN
+            - name: JWT_REFRESH_EXPIRES_IN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: JWT_REFRESH_EXPIRES_IN
+            
+            # Admin Secret
+            - name: ADMIN_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: ADMIN_SECRET_KEY
+            
+            # Firebase Configuration
+            - name: FIREBASE_PROJECT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: FIREBASE_PROJECT_ID
+            - name: FIREBASE_CLIENT_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: FIREBASE_CLIENT_EMAIL
+            - name: FIREBASE_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: FIREBASE_PRIVATE_KEY
+            - name: FIREBASE_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: FIREBASE_CREDENTIALS
+            
+            # Service-to-Service URLs (Kubernetes DNS)
+            - name: AUTH_SERVICE_URL
+              value: http://auth-service:{{ .Values.services.ports.auth-service }}
+            - name: USER_SERVICE_URL
+              value: http://user-service:{{ .Values.services.ports.user-service }}
+            - name: PRODUCT_SERVICE_URL
+              value: http://product-service:{{ .Values.services.ports.product-service }}
+            - name: ORDER_SERVICE_URL
+              value: http://order-service:{{ .Values.services.ports.order-service }}
+            - name: PAYMENT_SERVICE_URL
+              value: http://payment-service:{{ .Values.services.ports.payment-service }}
+            - name: INVENTORY_SERVICE_URL
+              value: http://inventory-service:{{ .Values.services.ports.inventory-service }}
+            - name: VENDOR_SERVICE_URL
+              value: http://vendor-service:{{ .Values.services.ports.vendor-service }}
+            - name: NOTIFICATION_SERVICE_URL
+              value: http://notification-service:{{ .Values.services.ports.notification-service }}
+            - name: ANALYTICS_SERVICE_URL
+              value: http://analytics-service:{{ .Values.services.ports.analytics-service }}
+            
+            # Email Configuration (SMTP / Notification Service)
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SMTP_HOST
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SMTP_PORT
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SMTP_USER
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SMTP_PASS
+            - name: EMAIL_FROM
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: EMAIL_FROM
+            
+            # SMS Configuration (Twilio)
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: TWILIO_ACCOUNT_SID
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: TWILIO_AUTH_TOKEN
+            - name: TWILIO_FROM_NUMBER
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: TWILIO_FROM_NUMBER
+            - name: SMS_PROVIDER
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: SMS_PROVIDER
+            - name: FRONTEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config
+                  key: FRONTEND_URL
+            
+            # Payment Gateway Configuration (bKash)
+            - name: BKASH_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_APP_KEY
+            - name: BKASH_APP_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_APP_SECRET
+            - name: BKASH_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_USERNAME
+            - name: BKASH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_PASSWORD
+            - name: BKASH_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: BKASH_BASE_URL
+            
+            # Cloudinary Configuration (Image Upload)
+            - name: CLOUDINARY_CLOUD_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: CLOUDINARY_CLOUD_NAME
+            - name: CLOUDINARY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: CLOUDINARY_API_KEY
+            - name: CLOUDINARY_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: CLOUDINARY_API_SECRET
+          
+          {{- with .Values.services.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          
+          # Health checks with configurable delays
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.services.healthCheck.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.services.healthCheck.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.services.healthCheck.liveness.timeoutSeconds }}
+            failureThreshold: {{ .Values.services.healthCheck.liveness.failureThreshold }}
+          
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.services.healthCheck.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.services.healthCheck.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.services.healthCheck.readiness.timeoutSeconds }}
+            failureThreshold: {{ .Values.services.healthCheck.readiness.failureThreshold }}
+      
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

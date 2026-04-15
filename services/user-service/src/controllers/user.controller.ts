@@ -49,7 +49,7 @@ export const userController = {
     try {
       const userId = req.user?.id as string;
       const { addressId } = req.params;
-      const address = await userService.updateAddress(userId, addressId, req.body);
+      const address = await userService.updateAddress(userId, addressId as string, req.body);
       res.json(successResponse(address, 'Address updated successfully'));
     } catch (error) {
       next(error);
@@ -60,7 +60,7 @@ export const userController = {
     try {
       const userId = req.user?.id as string;
       const { addressId } = req.params;
-      await userService.deleteAddress(userId, addressId);
+      await userService.deleteAddress(userId, addressId as string);
       res.json(successResponse(null, 'Address deleted successfully'));
     } catch (error) {
       next(error);
@@ -71,7 +71,7 @@ export const userController = {
     try {
       const userId = req.user?.id as string;
       const { addressId } = req.params;
-      const address = await userService.getAddressById(userId, addressId);
+      const address = await userService.getAddressById(userId, addressId as string);
       res.json(successResponse(address, 'Address retrieved successfully'));
     } catch (error) {
       next(error);
@@ -82,7 +82,7 @@ export const userController = {
     try {
       const userId = req.user?.id as string;
       const { addressId } = req.params;
-      const address = await userService.setDefaultAddress(userId, addressId);
+      const address = await userService.setDefaultAddress(userId, addressId as string);
       res.json(successResponse(address, 'Default address set successfully'));
     } catch (error) {
       next(error);

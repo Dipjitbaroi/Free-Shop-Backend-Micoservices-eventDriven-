@@ -54,6 +54,12 @@ const swaggerDoc = {
 };
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
 
+// Serve raw JSON spec for API clients
+app.get('/api-docs.json', (_req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerDoc);
+});
+
 // Health check routes (no auth required)
 app.use('/', healthRoutes);
 

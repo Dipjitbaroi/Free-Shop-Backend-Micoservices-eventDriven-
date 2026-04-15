@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: freeshop-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "freeshop.labels" . | nindent 4 }}
+data:
+  # Node Environment
+  NODE_ENV: {{ .Values.global.environment | quote }}
+  
+  # Database Configuration
+  POSTGRES_HOST: {{ .Values.database.postgres.host | quote }}
+  POSTGRES_PORT: {{ .Values.database.postgres.port | quote }}
+  POSTGRES_USER: {{ .Values.database.postgres.user | quote }}
+  
+  # Redis Configuration
+  REDIS_HOST: {{ .Values.cache.redis.host | quote }}
+  REDIS_PORT: {{ .Values.cache.redis.port | quote }}
+  
+  # RabbitMQ Configuration
+  RABBITMQ_HOST: {{ .Values.messageQueue.rabbitmq.host | quote }}
+  RABBITMQ_PORT: {{ .Values.messageQueue.rabbitmq.port | quote }}
+  
+  # Service Ports
+  AUTH_SERVICE_PORT: {{ .Values.services.ports.auth-service | quote }}
+  USER_SERVICE_PORT: {{ .Values.services.ports.user-service | quote }}
+  PRODUCT_SERVICE_PORT: {{ .Values.services.ports.product-service | quote }}
+  ORDER_SERVICE_PORT: {{ .Values.services.ports.order-service | quote }}
+  PAYMENT_SERVICE_PORT: {{ .Values.services.ports.payment-service | quote }}
+  INVENTORY_SERVICE_PORT: {{ .Values.services.ports.inventory-service | quote }}
+  VENDOR_SERVICE_PORT: {{ .Values.services.ports.vendor-service | quote }}
+  NOTIFICATION_SERVICE_PORT: {{ .Values.services.ports.notification-service | quote }}
+  ANALYTICS_SERVICE_PORT: {{ .Values.services.ports.analytics-service | quote }}
+  API_GATEWAY_PORT: {{ .Values.services.ports.api-gateway | quote }}
+  
+  # Frontend URL (for notifications, redirects)
+  FRONTEND_URL: http://frontend:3000
+  
+  # SMS Configuration
+  SMS_PROVIDER: twilio
+  
+  # Logging Configuration
+  LOG_LEVEL: {{ .Values.logging.level | quote }}
+  LOG_FORMAT: {{ .Values.logging.format | quote }}

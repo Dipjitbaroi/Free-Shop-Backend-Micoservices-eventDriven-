@@ -1,0 +1,9 @@
+registry=https://registry.npmjs.org/
+fetch-timeout=3600000
+fetch-retries=20
+auto-install-peers=true
+strict-peer-dependencies=false
+shamefully-hoist=true
+link-workspace-packages=true
+prefer-workspace-packages=true
+

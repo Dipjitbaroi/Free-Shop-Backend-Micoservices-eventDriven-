@@ -4,7 +4,7 @@ import { authenticate, guestOrAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param, query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 // Cart can be used by authenticated users or guests
 router.get('/', guestOrAuth, cartController.getCart);

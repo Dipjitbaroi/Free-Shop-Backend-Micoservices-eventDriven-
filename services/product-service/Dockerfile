@@ -1,24 +1,24 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 
 RUN apk add --no-cache openssl
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
-# Copy root package files
 COPY package*.json ./
+COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
+COPY .pnpmrc ./
 COPY tsconfig.base.json ./
 
-# Copy shared packages
 COPY packages/shared-types/package*.json ./packages/shared-types/
 COPY packages/shared-utils/package*.json ./packages/shared-utils/
 COPY packages/shared-events/package*.json ./packages/shared-events/
 COPY packages/shared-middleware/package*.json ./packages/shared-middleware/
-
-# Copy service package files
 COPY services/product-service/package*.json ./services/product-service/
 
-# Install dependencies
-RUN npm ci --foreground-scripts
+# Install with pnpm and BuildKit cache, optimized for slow networks
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
 
 # Copy source code
 COPY packages/shared-types/ ./packages/shared-types/
@@ -27,33 +27,34 @@ COPY packages/shared-events/ ./packages/shared-events/
 COPY packages/shared-middleware/ ./packages/shared-middleware/
 COPY services/product-service/ ./services/product-service/
 
-# Generate Prisma client (must run before tsc build)
-WORKDIR /app/services/product-service
-RUN npx prisma generate
+# Build all packages in dependency order
 WORKDIR /app
-
-# Build shared packages
-RUN npm run build --workspace=@freeshop/shared-types
-RUN npm run build --workspace=@freeshop/shared-utils
-RUN npm run build --workspace=@freeshop/shared-events
-RUN npm run build --workspace=@freeshop/shared-middleware
-
-# Build service
-RUN npm run build --workspace=services/product-service
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/product-service install --frozen-lockfile
+RUN pnpm run build
 
 # Production stage
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 
 RUN apk add --no-cache openssl
+RUN npm install -g pnpm@10
 
 WORKDIR /app
 
-# Copy built files
+# Copy workspace config and root packages
 COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/.pnpmrc ./
+
 COPY --from=builder /app/packages ./packages
-COPY --from=builder /app/services/product-service/dist ./services/product-service/dist
 COPY --from=builder /app/services/product-service/package*.json ./services/product-service/
+COPY --from=builder /app/services/product-service/generated ./services/product-service/generated
+
+# Install production dependencies
+RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
+
+COPY --from=builder /app/services/product-service/dist ./services/product-service/dist
+COPY --from=builder /app/services/product-service/prisma.config.ts ./services/product-service/
 COPY --from=builder /app/services/product-service/prisma ./services/product-service/prisma
 COPY --from=builder /app/services/product-service/generated ./services/product-service/generated
 
@@ -61,4 +62,5 @@ WORKDIR /app/services/product-service
 
 EXPOSE 3003
 
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
+# Run app directly; migrations should be executed by CI/k8s Job before rollout
+CMD ["node", "dist/index.js"]

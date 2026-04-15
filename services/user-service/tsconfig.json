@@ -3,7 +3,6 @@
   "compilerOptions": {
     "rootDir": "./src",
     "outDir": "./dist",
-    "baseUrl": ".",
     "paths": {
       "@prisma/client": ["./generated/prisma"],
       "@freeshop/shared-types": ["../../packages/shared-types/dist"],

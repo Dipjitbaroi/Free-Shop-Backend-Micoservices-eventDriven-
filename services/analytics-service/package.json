@@ -12,30 +12,33 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@freeshop/shared-events": "^1.0.0",
-    "@freeshop/shared-middleware": "^1.0.0",
-    "@freeshop/shared-types": "^1.0.0",
-    "@freeshop/shared-utils": "^1.0.0",
-    "@prisma/client": "^5.22.0",
+    "@freeshop/shared-events": "workspace:*",
+    "@freeshop/shared-middleware": "workspace:*",
+    "@freeshop/shared-types": "workspace:*",
+    "@freeshop/shared-utils": "workspace:*",
+    "@prisma/adapter-pg": "^7.6.0",
+    "@prisma/client": "^7.6.0",
+    "@prisma/client-runtime-utils": "^7.6.0",
     "amqplib": "^0.10.9",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
-    "express": "^4.22.1",
+    "express": "^5.2.1",
     "express-validator": "^7.3.1",
     "helmet": "^7.2.0",
     "ioredis": "^5.9.3",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "prisma": "^7.6.0"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.25",
-    "@types/node": "^22.19.11",
+    "@types/express": "^5.0.0",
+    "@types/node": "^25.5.2",
     "@types/uuid": "^9.0.8",
-    "prisma": "^5.22.0",
+    "prisma": "^7.6.0",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   }
 }

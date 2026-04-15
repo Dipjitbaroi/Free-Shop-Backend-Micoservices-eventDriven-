@@ -20,7 +20,7 @@ const unwrapEventData = <T>(payload: T | EventEnvelope<T>): T => {
 
 interface OrderItem {
   productId: string;
-  sellerId?: string;
+  vendorId?: string;
   quantity: number;
   price: number;
   subtotal: number;
@@ -94,8 +94,8 @@ export const setupEventSubscribers = async (): Promise<void> => {
             revenue: itemSubtotal,
           });
 
-          if (item.sellerId) {
-            await analyticsService.updateSellerReport(item.sellerId, new Date(), {
+          if (item.vendorId) {
+            await analyticsService.updateVendorReport(item.vendorId, new Date(), {
               totalOrders: 1,
               totalRevenue: itemSubtotal,
               totalItems: item.quantity,

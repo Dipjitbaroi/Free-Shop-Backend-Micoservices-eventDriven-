@@ -3,7 +3,6 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "baseUrl": ".",
     "paths": {
       "@freeshop/shared-types": ["../shared-types/dist"],
       "@freeshop/shared-utils": ["../shared-utils/dist"]

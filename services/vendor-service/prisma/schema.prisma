@@ -1,0 +1,208 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Vendor {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  storeName           String
+  storeSlug           String   @unique
+  description         String?  @db.Text
+  logo                String?
+  banner              String?
+  contactEmail        String
+  contactPhone        String?
+  
+  status              VendorStatus @default(PENDING)
+  verificationStatus  VerificationStatus @default(UNVERIFIED)
+  verifiedAt          DateTime?
+  rejectionReason     String?
+  
+  rating              Float    @default(0)
+  totalReviews        Int      @default(0)
+  totalProducts       Int      @default(0)
+  totalOrders         Int      @default(0)
+  totalRevenue        Decimal  @default(0) @db.Decimal(12, 2)
+  
+  commissionRate      Decimal  @default(10) @db.Decimal(5, 2)
+  minimumWithdrawal   Decimal  @default(500) @db.Decimal(10, 2)
+  
+  businessAddress     Json?
+  shippingZones       String[] @default([])
+  returnPolicy        String?  @db.Text
+  shippingPolicy      String?  @db.Text
+  
+  bankDetails         Json?
+  mobileWallet        Json?
+  
+  documents           VendorDocument[]
+  commissions         Commission[]
+  withdrawals         Withdrawal[]
+  reviews             VendorReview[]
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@index([status])
+  @@index([verificationStatus])
+  @@index([storeSlug])
+  @@index([userId])
+}
+
+model VendorDocument {
+  id           String   @id @default(uuid())
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  type         DocumentType
+  documentUrl  String
+  status       DocumentStatus @default(PENDING)
+  verifiedAt   DateTime?
+  rejectedAt   DateTime?
+  rejectionReason String?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([vendorId])
+  @@index([type])
+  @@index([status])
+}
+
+model Commission {
+  id           String   @id @default(uuid())
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  orderId      String
+  orderItemId  String?
+  productId    String
+  
+  orderAmount  Decimal  @db.Decimal(10, 2)
+  commissionRate Decimal @db.Decimal(5, 2)
+  commissionAmount Decimal @db.Decimal(10, 2)
+  netAmount    Decimal  @db.Decimal(10, 2)
+  
+  status       CommissionStatus @default(PENDING)
+  settledAt    DateTime?
+  withdrawalId String?
+  withdrawal   Withdrawal? @relation(fields: [withdrawalId], references: [id])
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([vendorId])
+  @@index([orderId])
+  @@index([status])
+  @@index([withdrawalId])
+}
+
+model Withdrawal {
+  id           String   @id @default(uuid())
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  amount       Decimal  @db.Decimal(10, 2)
+  fee          Decimal  @default(0) @db.Decimal(10, 2)
+  netAmount    Decimal  @db.Decimal(10, 2)
+  
+  method       WithdrawalMethod
+  accountDetails Json
+  
+  status       WithdrawalStatus @default(PENDING)
+  processedAt  DateTime?
+  processedBy  String?
+  transactionId String?
+  rejectionReason String?
+  
+  commissions  Commission[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([vendorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model VendorReview {
+  id           String   @id @default(uuid())
+  vendorId     String
+  vendor       Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  
+  userId       String
+  orderId      String
+  
+  rating       Int
+  title        String?
+  comment      String?  @db.Text
+  
+  isVerifiedPurchase Boolean @default(true)
+  
+  vendorResponse String?  @db.Text
+  respondedAt    DateTime?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@unique([userId, orderId])
+  @@index([vendorId])
+  @@index([rating])
+}
+
+enum VendorStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+  CLOSED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum DocumentType {
+  NID
+  TRADE_LICENSE
+  TIN_CERTIFICATE
+  BANK_STATEMENT
+  UTILITY_BILL
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CommissionStatus {
+  PENDING
+  SETTLED
+  WITHDRAWN
+  CANCELLED
+}
+
+enum WithdrawalMethod {
+  BANK_TRANSFER
+  BKASH
+  NAGAD
+  ROCKET
+}
+
+enum WithdrawalStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  REJECTED
+  FAILED
+}

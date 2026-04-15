@@ -28,7 +28,7 @@ class InventoryService {
   // Initialize inventory for a product
   async initializeInventory(
     productId: string,
-    sellerId: string,
+    vendorId: string,
     initialStock: number = 0,
     lowStockThreshold?: number
   ): Promise<Inventory> {
@@ -43,7 +43,7 @@ class InventoryService {
     const inventory = await prisma.inventory.create({
       data: {
         productId,
-        sellerId,
+        vendorId,
         totalStock: initialStock,
         availableStock: initialStock,
         lowStockThreshold: lowStockThreshold || config.inventory.defaultLowStockThreshold,
@@ -85,13 +85,13 @@ class InventoryService {
     return inventory;
   }
 
-  async getSellerInventory(
-    sellerId: string,
+  async getVendorInventory(
+    vendorId: string,
     page: number = 1,
     limit: number = 20,
     lowStockOnly: boolean = false
   ): Promise<IPaginatedResult<Inventory>> {
-    const where: Prisma.InventoryWhereInput = { sellerId };
+    const where: Prisma.InventoryWhereInput = { vendorId };
     
     if (lowStockOnly) {
       where.OR = [{ isLowStock: true }, { isOutOfStock: true }];
@@ -527,7 +527,7 @@ class InventoryService {
         data: {
           inventoryId: inventory.id,
           productId: inventory.productId,
-          sellerId: inventory.sellerId,
+          vendorId: inventory.vendorId,
           type: 'OUT_OF_STOCK',
           message: `Product ${inventory.productId} is out of stock`,
         },
@@ -535,7 +535,7 @@ class InventoryService {
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
         productId: inventory.productId,
-        sellerId: inventory.sellerId,
+        vendorId: inventory.vendorId,
         availableStock: 0,
         type: 'OUT_OF_STOCK',
       });
@@ -544,7 +544,7 @@ class InventoryService {
         data: {
           inventoryId: inventory.id,
           productId: inventory.productId,
-          sellerId: inventory.sellerId,
+          vendorId: inventory.vendorId,
           type: 'LOW_STOCK',
           message: `Product ${inventory.productId} is running low (${inventory.availableStock} remaining)`,
         },
@@ -552,7 +552,7 @@ class InventoryService {
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
         productId: inventory.productId,
-        sellerId: inventory.sellerId,
+        vendorId: inventory.vendorId,
         availableStock: inventory.availableStock,
         type: 'LOW_STOCK',
       });

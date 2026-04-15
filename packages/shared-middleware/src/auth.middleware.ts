@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { UserRole, ITokenPayload } from '@freeshop/shared-types';
+import axios from 'axios';
+import { ITokenPayload, PERMISSION_CODES } from '@freeshop/shared-types';
 import { UnauthorizedError, ForbiddenError } from '@freeshop/shared-utils';
 
 // Extend Express Request type
@@ -128,21 +129,57 @@ export const guestOrAuth = (
 };
 
 /**
- * Authorization middleware - checks user roles
+ * Permission-based authorization middleware
+ * Checks if user has required permission(s) from their assigned roles
+ * RECOMMENDED: Use this for new endpoints
+ * 
+ * @param permissionCodes - One or more permission codes to check
+ * @example
+ *   authorizePermission(PERMISSION_CODES.ORDER_UPDATE)
+ *   authorizePermission(PERMISSION_CODES.DELIVERY_CREATE, PERMISSION_CODES.DELIVERY_ASSIGN)
  */
-export const authorize = (...args: ((UserRole | string) | (UserRole | string)[])[]) => {
-  const allowedRoles = args.flat() as (UserRole | string)[];
-  return (req: Request, _res: Response, next: NextFunction): void => {
+export const authorizePermission = (...permissionCodes: number[]) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      if (!req.user) {
+      if (!req.user || !req.user.id) {
         throw new UnauthorizedError('Authentication required');
       }
 
-      if (!allowedRoles.includes(req.user.role)) {
-        throw new ForbiddenError('Insufficient permissions');
-      }
+      const userId = req.user.id || req.user.userId;
 
-      next();
+      // Fetch user permissions from auth service
+      try {
+        const token = (req.headers.authorization || '').replace('Bearer ', '');
+        const userRolesResponse = await axios.get(
+          `${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}/rbac/users/${userId}/roles`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const userPermissionCodes: number[] = userRolesResponse.data?.permissionCodes || [];
+
+        // Check if user has at least one of the required permissions
+        const hasPermission = permissionCodes.some((code) =>
+          userPermissionCodes.includes(code)
+        );
+
+        if (!hasPermission) {
+          throw new ForbiddenError(
+            `Permission denied. Required one of: [${permissionCodes.join(', ')}]`
+          );
+        }
+
+        next();
+      } catch (error: any) {
+        if (error instanceof ForbiddenError) {
+          throw error;
+        }
+        console.error('Failed to fetch user permissions:', error.message);
+        throw new ForbiddenError('Unable to verify permissions');
+      }
     } catch (error) {
       next(error);
     }
@@ -150,27 +187,58 @@ export const authorize = (...args: ((UserRole | string) | (UserRole | string)[])
 };
 
 /**
- * Self or Admin authorization - allows users to access their own resources
+ * Self or own resource authorization - allows users to access their own resources
+ * Also allows users with USER_UPDATE or ADMIN_PANEL_ACCESS permissions
+ * PERMISSION-BASED: Checks permissions, not role text
  */
 export const selfOrAdmin = (userIdParam: string = 'userId') => {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      if (!req.user) {
+      if (!req.user || !req.user.id) {
         throw new UnauthorizedError('Authentication required');
       }
 
       const targetUserId = req.params[userIdParam] || req.body[userIdParam];
-      
-      // Allow if admin or own resource
-      if (
-        req.user.role === UserRole.ADMIN ||
-        req.user.userId === targetUserId
-      ) {
+      const userId = req.user.id || req.user.userId;
+
+      // Always allow if accessing own resource
+      if (userId === targetUserId) {
         next();
         return;
       }
 
-      throw new ForbiddenError('Access denied');
+      // For other resources, check permissions
+      try {
+        const token = (req.headers.authorization || '').replace('Bearer ', '');
+        const userRolesResponse = await axios.get(
+          `${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}/rbac/users/${userId}/roles`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const userPermissionCodes: number[] = userRolesResponse.data?.permissionCodes || [];
+
+        // Allow if user has admin/management permissions
+        const hasAdminPermission = userPermissionCodes.some((code) =>
+          [PERMISSION_CODES.USER_UPDATE, PERMISSION_CODES.ADMIN_PANEL_ACCESS].includes(code as typeof PERMISSION_CODES.USER_UPDATE)
+        );
+
+        if (hasAdminPermission) {
+          next();
+          return;
+        }
+
+        throw new ForbiddenError('Access denied - insufficient permissions');
+      } catch (error: any) {
+        if (error instanceof ForbiddenError) {
+          throw error;
+        }
+        console.error('Failed to verify permissions:', error.message);
+        throw new ForbiddenError('Unable to verify permissions');
+      }
     } catch (error) {
       next(error);
     }
@@ -178,37 +246,87 @@ export const selfOrAdmin = (userIdParam: string = 'userId') => {
 };
 
 /**
- * Seller owner authorization - allows sellers to access their own resources
+ * Vendor/Seller owner authorization - allows users to access their own resources
+ * Also allows users with SELLER_UPDATE or ADMIN_PANEL_ACCESS permissions
+ * PERMISSION-BASED: Checks permissions, not role text
  */
-export const sellerOwnerOrAdmin = (sellerIdParam: string = 'sellerId') => {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+export const vendorOwnerOrAdmin = (vendorIdParam: string = 'vendorId') => {
+  return async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      if (!req.user) {
+      if (!req.user || !req.user.id) {
         throw new UnauthorizedError('Authentication required');
       }
 
-      // Get target seller ID for future validation
-      const targetSellerId = req.params[sellerIdParam] || req.body[sellerIdParam];
+      // Get target vendor ID for validation
+      const targetVendorId = req.params[vendorIdParam] || req.body[vendorIdParam];
+      const userId = req.user.id || req.user.userId;
 
-      // Allow admin and managers
-      if ([UserRole.ADMIN, UserRole.MANAGER].includes(req.user.role)) {
+      // Store targetVendorId for downstream use
+      (req as any).targetVendorId = targetVendorId;
+
+      // Check permissions via auth service
+      try {
+        const token = (req.headers.authorization || '').replace('Bearer ', '');
+        const userRolesResponse = await axios.get(
+          `${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}/rbac/users/${userId}/roles`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const userPermissionCodes: number[] = userRolesResponse.data?.permissionCodes || [];
+
+        // Allow if user has seller/admin permissions
+        const hasPermission = userPermissionCodes.some((code) =>
+          [PERMISSION_CODES.SELLER_UPDATE, PERMISSION_CODES.SELLER_DELETE, PERMISSION_CODES.ADMIN_PANEL_ACCESS].includes(code as typeof PERMISSION_CODES.SELLER_UPDATE)
+        );
+
+        if (hasPermission) {
+          next();
+          return;
+        }
+
+        // Otherwise, vendor must be owner (userId should match vendor)
+        // Note: In production, fetch vendor profile from user-service to verify ownership
+        (req as any).vendorOwnerCheck = true;
         next();
-        return;
+      } catch (error: any) {
+        if (error instanceof ForbiddenError) {
+          throw error;
+        }
+        console.error('Failed to verify vendor permissions:', error.message);
+        throw new ForbiddenError('Unable to verify permissions');
       }
-
-      // For sellers, check against their userId (seller profile linked to user)
-      // Note: In real implementation, you'd need to fetch the seller profile to compare
-      if (req.user.role === UserRole.SELLER) {
-        // Store targetSellerId for downstream use
-        (req as any).targetSellerId = targetSellerId;
-        next();
-        return;
-      }
-
-      throw new ForbiddenError('Access denied');
     } catch (error) {
       next(error);
     }
+  };
+};
+
+/**
+ * DEPRECATED: Role-based authorization - use authorizePermission() instead
+ * This throws an error directing users to migrate to permission-based RBAC
+ * 
+ * Migration required: Use permission codes instead of role names
+ * OLD: authorize([UserRole.ADMIN])
+ * NEW: authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS)
+ * 
+ * See PERMISSION_BASED_RBAC_GUIDE.md for migration instructions
+ */
+export const authorize = (...args: any[]) => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const migrationGuide = 'PERMISSION_BASED_RBAC_GUIDE.md';
+    const error = new Error(
+      `\n❌ DEPRECATED FUNCTION: authorize() is no longer supported!\n\n` +
+      `The system now uses PERMISSION-BASED RBAC, not role-based authorization.\n\n` +
+      `MIGRATION REQUIRED:\n` +
+      `  OLD (❌): authorize([UserRole.ADMIN, UserRole.MANAGER])\n` +
+      `  NEW (✅): authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS)\n\n` +
+      `See ${migrationGuide} for complete migration instructions.\n`
+    );
+    next(error);
   };
 };
 

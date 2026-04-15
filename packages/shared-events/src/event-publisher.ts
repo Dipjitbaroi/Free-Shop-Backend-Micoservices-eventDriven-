@@ -16,8 +16,8 @@ import {
   IProductCreatedPayload,
   IProductUpdatedPayload,
   IProductStatusChangedPayload,
-  ISellerCreatedPayload,
-  ISellerStatusChangedPayload,
+  IVendorCreatedPayload,
+  IVendorStatusChangedPayload,
   INotificationRequestedPayload,
   IEmailRequestedPayload,
   ISmsRequestedPayload,
@@ -95,13 +95,13 @@ export class EventPublisher {
     return this.broker.publish(Exchanges.INVENTORY, Events.INVENTORY_LOW_STOCK, data, options);
   }
 
-  // Seller Events
-  async sellerCreated(data: ISellerCreatedPayload, options?: IPublishOptions): Promise<boolean> {
-    return this.broker.publish(Exchanges.SELLER, Events.SELLER_CREATED, data, options);
+  // Vendor Events
+  async vendorCreated(data: IVendorCreatedPayload, options?: IPublishOptions): Promise<boolean> {
+    return this.broker.publish(Exchanges.VENDOR, Events.VENDOR_CREATED, data, options);
   }
 
-  async sellerStatusChanged(data: ISellerStatusChangedPayload, options?: IPublishOptions): Promise<boolean> {
-    return this.broker.publish(Exchanges.SELLER, Events.SELLER_APPROVED, data, options);
+  async vendorStatusChanged(data: IVendorStatusChangedPayload, options?: IPublishOptions): Promise<boolean> {
+    return this.broker.publish(Exchanges.VENDOR, Events.VENDOR_APPROVED, data, options);
   }
 
   // Notification Events
@@ -136,7 +136,7 @@ export class EventPublisher {
       order: Exchanges.ORDER,
       payment: Exchanges.PAYMENT,
       inventory: Exchanges.INVENTORY,
-      seller: Exchanges.SELLER,
+      vendor: Exchanges.VENDOR,
       notification: Exchanges.NOTIFICATION,
       analytics: Exchanges.ANALYTICS,
       review: Exchanges.PRODUCT,

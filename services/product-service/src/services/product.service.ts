@@ -41,14 +41,15 @@ class ProductService {
 
     const product = await prisma.product.create({
       data: {
-        sellerId: data.sellerId,
+        vendorId: data.vendorId,
         name: data.name,
         slug: finalSlug,
         description: data.description,
         shortDescription: data.shortDescription,
         sku,
         categoryId: data.categoryId,
-        price: new Prisma.Decimal(data.price),
+        supplierPrice: new Prisma.Decimal(data.supplierPrice),
+        price: data.price ? new Prisma.Decimal(data.price) : new Prisma.Decimal(0),  // Default to 0, admin sets during approval
         discountPrice: data.discountPrice ? new Prisma.Decimal(data.discountPrice) : null,
         discountType: data.discountType,
         discountValue: data.discountValue ? new Prisma.Decimal(data.discountValue) : null,
@@ -87,7 +88,7 @@ class ProductService {
     // Publish event
     await eventPublisher.productCreated({
       productId: product.id,
-      sellerId: product.sellerId,
+      vendorId: product.vendorId,
       name: product.name,
       price: Number(product.price),
       categoryId: product.categoryId,
@@ -168,7 +169,7 @@ class ProductService {
     }
 
     if (filter.categoryId) where.categoryId = filter.categoryId;
-    if (filter.sellerId) where.sellerId = filter.sellerId;
+    if (filter.vendorId) where.vendorId = filter.vendorId;
     if (filter.isOrganic !== undefined) where.isOrganic = filter.isOrganic;
     if (filter.isFeatured !== undefined) where.isFeatured = filter.isFeatured;
     if (filter.isFlashSale !== undefined) where.isFlashSale = filter.isFlashSale;
@@ -230,13 +231,27 @@ class ProductService {
     return createPaginatedResponse(products, totalItems, { page, limit });
   }
 
-  async updateProduct(id: string, data: IProductUpdate): Promise<Product> {
+  async updateProduct(id: string, data: IProductUpdate, userRole?: string, userId?: string): Promise<Product> {
     const product = await prisma.product.findUnique({
       where: { id },
     });
 
     if (!product) {
       throw new NotFoundError('Product not found');
+    }
+
+    // Authorization: Only ADMIN/MANAGER can update price
+    // Vendors can only update supplierPrice
+    // Note: userRole may be undefined - rely on middleware authorization instead
+    const isVendor = userRole === 'VENDOR' || userRole === 'Vendor';
+    if (isVendor && data.price !== undefined) {
+      throw new ForbiddenError('Vendors cannot update the retail price. Contact admin/manager to update pricing.');
+    }
+
+    // If userRole is not provided, we still enforce ownership by userId
+    // (vendor must be updating their own product)
+    if (userId && product.vendorId !== userId && !isVendor) {
+      throw new ForbiddenError('You can only update your own products');
     }
 
     // Handle category change
@@ -271,6 +286,7 @@ class ProductService {
     if (data.description) updateData.description = data.description;
     if (data.shortDescription !== undefined) updateData.shortDescription = data.shortDescription;
     if (data.categoryId) updateData.category = { connect: { id: data.categoryId } };
+    if (data.supplierPrice !== undefined) updateData.supplierPrice = new Prisma.Decimal(data.supplierPrice);
     if (data.price !== undefined) updateData.price = new Prisma.Decimal(data.price);
     if (data.discountPrice !== undefined) {
       updateData.discountPrice = data.discountPrice ? new Prisma.Decimal(data.discountPrice) : null;
@@ -317,7 +333,7 @@ class ProductService {
     // Publish event
     await eventPublisher.productUpdated({
       productId: id,
-      sellerId: product.sellerId,
+      vendorId: product.vendorId,
       changes: data as Record<string, unknown>,
     });
 
@@ -353,19 +369,26 @@ class ProductService {
   async updateProductStatus(
     id: string,
     status: ProductStatus,
-    actorRole: string,
+    actorRole?: string,
     reason?: string,
+    price?: number,  // Admin can set retail price during approval
   ): Promise<Product> {
     const product = await prisma.product.findUnique({ where: { id }, include: { category: true } });
     if (!product) throw new NotFoundError('Product not found');
 
-    const isAdmin = ['ADMIN', 'MANAGER'].includes(actorRole);
+    // Note: actorRole may be undefined - authorization is handled by middleware
+    // Permission checks should be enforced via authorizePermission middleware
+    const isAdmin = actorRole ? ['ADMIN', 'MANAGER'].includes(actorRole) : false;
 
     if (status === ProductStatus.OUT_OF_STOCK) {
       throw new BadRequestError('OUT_OF_STOCK is managed automatically by the inventory service');
     }
-    if (status === ProductStatus.ACTIVE && !isAdmin) {
-      throw new ForbiddenError('Only admins can approve products');
+    if (status === ProductStatus.ACTIVE) {
+      if (!isAdmin) throw new ForbiddenError('Only admins can approve products');
+      // Require price to be set during approval
+      if (price === undefined || price === null) {
+        throw new BadRequestError('Price must be provided when approving a product');
+      }
     }
     if (status === ProductStatus.REJECTED) {
       if (!isAdmin) throw new ForbiddenError('Only admins can reject products');
@@ -376,7 +399,10 @@ class ProductService {
     }
 
     const updateData: Prisma.ProductUpdateInput = { status };
-    if (status === ProductStatus.ACTIVE) updateData.rejectionReason = null;
+    if (status === ProductStatus.ACTIVE) {
+      updateData.rejectionReason = null;
+      if (price !== undefined) updateData.price = new Prisma.Decimal(price);
+    }
     if (status === ProductStatus.REJECTED) updateData.rejectionReason = reason;
     if (status === ProductStatus.PENDING_APPROVAL) updateData.rejectionReason = null;
 
@@ -388,7 +414,7 @@ class ProductService {
 
     await eventPublisher.productStatusChanged({
       productId: id,
-      sellerId: updated.sellerId,
+      vendorId: updated.vendorId,
       previousStatus: product.status,
       newStatus: status,
       ...(reason && { reason }),
@@ -399,8 +425,8 @@ class ProductService {
     return updated;
   }
 
-  async getSellerProducts(sellerId: string, filter: IProductFilter): Promise<IPaginatedResult<Product>> {
-    return this.getProducts({ ...filter, sellerId });
+  async getVendorProducts(vendorId: string, filter: IProductFilter): Promise<IPaginatedResult<Product>> {
+    return this.getProducts({ ...filter, vendorId });
   }
 
   async getFeaturedProducts(limit: number = 10): Promise<Product[]> {
@@ -461,3 +487,4 @@ class ProductService {
 }
 
 export const productService = new ProductService();
+

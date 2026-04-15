@@ -25,8 +25,8 @@ interface TopProduct {
   revenue: number;
 }
 
-interface TopSeller {
-  sellerId: string;
+interface TopVendor {
+  vendorId: string;
   storeName?: string;
   totalOrders: number;
   revenue: number;
@@ -139,10 +139,10 @@ class AnalyticsService {
     return { reports, summary };
   }
 
-  async getSellerReport(sellerId: string, dateRange: DateRange) {
-    const reports = await prisma.sellerReport.findMany({
+  async getVendorReport(vendorId: string, dateRange: DateRange) {
+    const reports = await prisma.vendorReport.findMany({
       where: {
-        sellerId,
+        vendorId: vendorId,
         date: {
           gte: dateRange.startDate,
           lte: dateRange.endDate,
@@ -151,9 +151,9 @@ class AnalyticsService {
       orderBy: { date: 'asc' },
     });
 
-    const summary = await prisma.sellerReport.aggregate({
+    const summary = await prisma.vendorReport.aggregate({
       where: {
-        sellerId,
+        vendorId: vendorId,
         date: {
           gte: dateRange.startDate,
           lte: dateRange.endDate,
@@ -254,16 +254,16 @@ class AnalyticsService {
     return result;
   }
 
-  async getTopSellers(dateRange: DateRange, limit = 10): Promise<TopSeller[]> {
-    const cacheKey = `top-sellers:${dateRange.startDate.toISOString()}:${dateRange.endDate.toISOString()}:${limit}`;
+  async getTopVendors(dateRange: DateRange, limit = 10): Promise<TopVendor[]> {
+    const cacheKey = `top-vendors:${dateRange.startDate.toISOString()}:${dateRange.endDate.toISOString()}:${limit}`;
     const cached = await redis.get(cacheKey);
 
     if (cached) {
       return JSON.parse(cached);
     }
 
-    const topSellers = await prisma.sellerReport.groupBy({
-      by: ['sellerId'],
+    const topVendors = await prisma.vendorReport.groupBy({
+      by: ['vendorId'],
       where: {
         date: {
           gte: dateRange.startDate,
@@ -282,8 +282,8 @@ class AnalyticsService {
       take: limit,
     });
 
-    const result: TopSeller[] = topSellers.map((s) => ({
-      sellerId: s.sellerId,
+    const result: TopVendor[] = topVendors.map((s) => ({
+      vendorId: s.vendorId,
       totalOrders: s._sum.totalOrders || 0,
       revenue: Number(s._sum.totalRevenue || 0),
     }));
@@ -455,7 +455,7 @@ class AnalyticsService {
     return report;
   }
 
-  async updateSellerReport(sellerId: string, date: Date, data: Partial<{
+  async updateVendorReport(vendorId: string, date: Date, data: Partial<{
     totalOrders: number;
     totalRevenue: number;
     totalItems: number;
@@ -466,10 +466,10 @@ class AnalyticsService {
   }>) {
     const dateOnly = new Date(date.toISOString().split('T')[0]);
 
-    return prisma.sellerReport.upsert({
-      where: { sellerId_date: { sellerId, date: dateOnly } },
+    return prisma.vendorReport.upsert({
+      where: { vendorId_date: { vendorId, date: dateOnly } },
       create: {
-        sellerId,
+        vendorId,
         date: dateOnly,
         ...data,
       },

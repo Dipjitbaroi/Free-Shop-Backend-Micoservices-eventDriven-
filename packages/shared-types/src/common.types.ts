@@ -157,13 +157,13 @@ export interface IDashboardMetrics {
   totalRevenue: number;
   totalCustomers: number;
   totalProducts: number;
-  totalSellers: number;
+  totalVendors: number;
   averageOrderValue: number;
   conversionRate: number;
   ordersByStatus: Record<string, number>;
   revenueByDay: Array<{ date: string; revenue: number }>;
   topProducts: Array<{ productId: string; name: string; sold: number; revenue: number }>;
-  topSellers: Array<{ sellerId: string; name: string; orders: number; revenue: number }>;
+  topVendors: Array<{ vendorId: string; name: string; orders: number; revenue: number }>;
   topCategories: Array<{ categoryId: string; name: string; orders: number; revenue: number }>;
 }
 

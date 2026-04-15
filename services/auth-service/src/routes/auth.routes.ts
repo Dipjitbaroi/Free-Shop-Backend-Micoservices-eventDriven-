@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { validate, authenticate, authorize } from '@freeshop/shared-middleware';
+import { validate, authenticate, authorizePermission } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import * as authController from '../controllers/auth.controller';
 import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation } from '../validators/auth.validators';
 import { query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 
@@ -29,11 +30,11 @@ router.get('/me', authenticate, authController.me);
 router.get(
   '/users',
   authenticate,
-  authorize('ADMIN', 'MANAGER'),
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('role').optional().isIn(['CUSTOMER', 'SELLER', 'MANAGER', 'ADMIN']),
+    query('role').optional().isIn(['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN']),
     query('status').optional().isIn(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']),
     query('search').optional().isString().trim(),
   ],
@@ -50,3 +51,4 @@ router.post('/admin/login', validate(adminLoginValidation), authController.admin
 router.post('/admin/create', validate(adminCreateValidation), authController.createAdminAccount);
 
 export default router;
+

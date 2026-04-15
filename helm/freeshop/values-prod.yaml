@@ -1,0 +1,52 @@
+# Production Environment Overrides
+# ==================================
+# helm upgrade freeshop ./helm/freeshop -f values-prod.yaml
+
+global:
+  environment: production
+
+image:
+  pullPolicy: IfNotPresent
+
+services:
+  # Production resource limits (can handle more traffic)
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Production HPA - Single-node VPS protection
+  # CRITICAL: maxReplicas: 2 prevents exceeding single-node capacity
+  # Total pods across all services: 2 replicas × 9-10 services = 18-20 pods
+  # Resource usage: ~18 pods × 200m = 3.6 CPU (fits within 4.75 available)
+  autoscaling:
+    enabled: true
+    minReplicas: 1
+    maxReplicas: 2  # PROTECTED FOR SINGLE-NODE VPS
+    targetCPUUtilizationPercentage: 70  # More conservative in production
+    targetMemoryUtilizationPercentage: 80
+
+  healthCheck:
+    liveness:
+      initialDelaySeconds: 45
+      periodSeconds: 20
+      failureThreshold: 3
+    readiness:
+      initialDelaySeconds: 15
+      periodSeconds: 10
+      failureThreshold: 2
+
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+database:
+  postgres:
+    sslMode: require  # Force SSL in production
+
+logging:
+  level: warn  # Less verbose logging in production
+  format: json

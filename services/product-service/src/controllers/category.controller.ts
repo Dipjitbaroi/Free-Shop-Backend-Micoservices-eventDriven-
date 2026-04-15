@@ -36,7 +36,7 @@ export const categoryController = {
 
   async getCategoryById(req: Request, res: Response, next: NextFunction) {
     try {
-      const category = await categoryService.getCategoryById(req.params.id);
+      const category = await categoryService.getCategoryById(req.params.id as string);
       res.json(successResponse(category, 'Category retrieved successfully'));
     } catch (error) {
       next(error);
@@ -45,7 +45,7 @@ export const categoryController = {
 
   async getCategoryBySlug(req: Request, res: Response, next: NextFunction) {
     try {
-      const category = await categoryService.getCategoryBySlug(req.params.slug);
+      const category = await categoryService.getCategoryBySlug(req.params.slug as string);
       res.json(successResponse(category, 'Category retrieved successfully'));
     } catch (error) {
       next(error);
@@ -54,7 +54,7 @@ export const categoryController = {
 
   async updateCategory(req: Request, res: Response, next: NextFunction) {
     try {
-      const category = await categoryService.updateCategory(req.params.id, req.body);
+      const category = await categoryService.updateCategory(req.params.id as string, req.body);
       res.json(successResponse(category, 'Category updated successfully'));
     } catch (error) {
       next(error);
@@ -63,7 +63,7 @@ export const categoryController = {
 
   async deleteCategory(req: Request, res: Response, next: NextFunction) {
     try {
-      await categoryService.deleteCategory(req.params.id);
+      await categoryService.deleteCategory(req.params.id as string);
       res.json(successResponse(null, 'Category deleted successfully'));
     } catch (error) {
       next(error);
@@ -73,7 +73,7 @@ export const categoryController = {
   async toggleCategoryStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const { isActive } = req.body;
-      const category = await categoryService.toggleCategoryStatus(req.params.id, isActive);
+      const category = await categoryService.toggleCategoryStatus(req.params.id as string, isActive);
       res.json(successResponse(category, `Category ${isActive ? 'activated' : 'deactivated'} successfully`));
     } catch (error) {
       next(error);

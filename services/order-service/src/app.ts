@@ -11,6 +11,7 @@ import {
 
 import cartRoutes from './routes/cart.routes';
 import orderRoutes from './routes/order.routes';
+import deliveryRoutes from './routes/delivery.routes';
 import healthRoutes from './routes/health.routes';
 import settingsRoutes from './routes/settings.routes';
 
@@ -28,6 +29,7 @@ app.use('/', healthRoutes);
 
 app.use('/cart', cartRoutes);
 app.use('/orders', orderRoutes);
+app.use('/', deliveryRoutes);
 app.use('/settings', settingsRoutes);
 
 // Error handling

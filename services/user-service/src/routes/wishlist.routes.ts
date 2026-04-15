@@ -4,7 +4,7 @@ import { authenticate } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param, query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 // All routes require authentication
 router.use(authenticate);

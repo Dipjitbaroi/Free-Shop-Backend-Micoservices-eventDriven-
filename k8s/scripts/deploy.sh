@@ -54,7 +54,7 @@ SERVICES=(
   "order-service"
   "payment-service"
   "inventory-service"
-  "seller-service"
+  "vendor-service"
   "notification-service"
   "analytics-service"
 )

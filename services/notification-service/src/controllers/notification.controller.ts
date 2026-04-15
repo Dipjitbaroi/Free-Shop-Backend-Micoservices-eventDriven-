@@ -79,7 +79,7 @@ export const notificationController = {
 
   async getNotificationById(req: Request, res: Response, next: NextFunction) {
     try {
-      const notification = await notificationService.getNotificationById(req.params.id);
+      const notification = await notificationService.getNotificationById(req.params.id as string);
       if (!notification) throw new NotFoundError('Notification not found');
 
       res.json(successResponse(notification, 'Notification retrieved'));
@@ -90,7 +90,7 @@ export const notificationController = {
 
   async cancelNotification(req: Request, res: Response, next: NextFunction) {
     try {
-      const notification = await notificationService.cancelNotification(req.params.id);
+      const notification = await notificationService.cancelNotification(req.params.id as string);
       res.json(successResponse(notification, 'Notification cancelled'));
     } catch (error) {
       next(error);
@@ -140,7 +140,7 @@ export const notificationController = {
 
   async unregisterDevice(req: Request, res: Response, next: NextFunction) {
     try {
-      await notificationService.unregisterDevice(req.params.token);
+      await notificationService.unregisterDevice(req.params.token as string);
       res.json(successResponse(null, 'Device unregistered successfully'));
     } catch (error) {
       next(error);

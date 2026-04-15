@@ -3,7 +3,7 @@ import { InventoryActionType } from './enums';
 export interface IInventory {
   id: string;
   productId: string;
-  sellerId: string;
+  vendorId: string;
   sku: string;
   totalStock: number;
   availableStock: number;
@@ -24,7 +24,7 @@ export interface IInventoryHistory {
   id: string;
   inventoryId: string;
   productId: string;
-  sellerId: string;
+  vendorId: string;
   action: InventoryActionType;
   quantity: number;
   previousStock: number;
@@ -64,7 +64,7 @@ export interface IBulkStockUpdate {
 }
 
 export interface IInventoryFilter {
-  sellerId?: string;
+  vendorId?: string;
   isLowStock?: boolean;
   search?: string;
   page?: number;
@@ -75,7 +75,7 @@ export interface IInventoryAlert {
   id: string;
   inventoryId: string;
   productId: string;
-  sellerId: string;
+  vendorId: string;
   alertType: 'LOW_STOCK' | 'OUT_OF_STOCK' | 'OVERSTOCK';
   currentStock: number;
   threshold: number;

@@ -1,5 +1,5 @@
 import { messageBroker } from '../lib/message-broker';
-import { Events, Queues, IOrderCreatedEvent, IOrderCancelledEvent, ISellerApprovedEvent } from '@freeshop/shared-events';
+import { Events, Queues, IOrderCreatedEvent, IOrderCancelledEvent, IVendorApprovedEvent } from '@freeshop/shared-events';
 import { prisma } from '../lib/prisma';
 import { logger } from '@freeshop/shared-utils';
 
@@ -52,19 +52,19 @@ export async function setupEventSubscribers(): Promise<void> {
     }
   );
 
-  // Subscribe to seller approved events
-  await messageBroker.subscribe<ISellerApprovedEvent>(
+  // Subscribe to Vendor approved events
+  await messageBroker.subscribe<IVendorApprovedEvent>(
     Queues.PRODUCT_EVENTS,
-    Events.SELLER_APPROVED,
+    Events.VENDOR_APPROVED,
     async (event) => {
-      logger.info('Product service received seller approved event', { sellerId: event.sellerId });
+      logger.info('Product service received vendor approved event', { vendorId: event.vendorId });
       
-      // Auto-approve pending products from verified sellers (optional behavior)
+      // Auto-approve pending products from verified Vendors (optional behavior)
       // This is a business logic decision - uncomment if needed
       /*
       await prisma.product.updateMany({
         where: { 
-          sellerId: event.sellerId,
+          vendorId: event.vendorId,
           status: 'PENDING',
         },
         data: {
@@ -77,3 +77,4 @@ export async function setupEventSubscribers(): Promise<void> {
 
   logger.info('Product service event subscribers initialized');
 }
+

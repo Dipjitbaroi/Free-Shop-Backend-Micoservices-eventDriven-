@@ -68,7 +68,7 @@ export const paymentController = {
 
   async getPaymentById(req: Request, res: Response, next: NextFunction) {
     try {
-      const payment = await paymentService.getPaymentById(req.params.id);
+      const payment = await paymentService.getPaymentById(req.params.id as string);
       res.json(successResponse(payment, 'Payment retrieved'));
     } catch (error) {
       next(error);
@@ -77,7 +77,7 @@ export const paymentController = {
 
   async getPaymentByOrder(req: Request, res: Response, next: NextFunction) {
     try {
-      const payment = await paymentService.getPaymentByOrder(req.params.orderId);
+      const payment = await paymentService.getPaymentByOrder(req.params.orderId as string);
       res.json(successResponse(payment, 'Payment retrieved'));
     } catch (error) {
       next(error);
@@ -111,7 +111,7 @@ export const paymentController = {
       const processedBy = req.user?.id as string;
       
       const payment = await paymentService.initiateRefund(
-        req.params.id,
+        req.params.id as string,
         amount,
         reason,
         processedBy
@@ -125,7 +125,7 @@ export const paymentController = {
 
   async verifyPayment(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await paymentService.verifyPayment(req.params.id);
+      const result = await paymentService.verifyPayment(req.params.id as string);
       res.json(successResponse(result, 'Payment verification result'));
     } catch (error) {
       next(error);
@@ -138,7 +138,7 @@ export const paymentController = {
       const collectedBy = req.user?.id as string;
       
       const payment = await paymentService.confirmCodPayment(
-        req.params.id,
+        req.params.id as string,
         collectedAmount,
         collectedBy
       );

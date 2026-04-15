@@ -47,12 +47,12 @@ export const Events = {
   STOCK_RELEASED: 'stock.released',
   STOCK_CONFIRMED: 'stock.confirmed',
 
-  // Seller Events
-  SELLER_CREATED: 'seller.created',
-  SELLER_UPDATED: 'seller.updated',
-  SELLER_APPROVED: 'seller.approved',
-  SELLER_REJECTED: 'seller.rejected',
-  SELLER_SUSPENDED: 'seller.suspended',
+  // Vendor Events
+  VENDOR_CREATED: 'vendor.created',
+  VENDOR_UPDATED: 'vendor.updated',
+  VENDOR_APPROVED: 'vendor.approved',
+  VENDOR_REJECTED: 'vendor.rejected',
+  VENDOR_SUSPENDED: 'vendor.suspended',
   WITHDRAWAL_REQUESTED: 'withdrawal.requested',
   WITHDRAWAL_PROCESSED: 'withdrawal.processed',
 
@@ -86,7 +86,7 @@ export const Exchanges = {
   ORDER: 'freeshop.order',
   PAYMENT: 'freeshop.payment',
   INVENTORY: 'freeshop.inventory',
-  SELLER: 'freeshop.seller',
+  VENDOR: 'freeshop.vendor',
   NOTIFICATION: 'freeshop.notification',
   ANALYTICS: 'freeshop.analytics',
   DEAD_LETTER: 'freeshop.dead_letter',
@@ -118,8 +118,8 @@ export const Queues = {
   INVENTORY_SERVICE: 'inventory.service',
   STOCK_UPDATES: 'inventory.stock_updates',
   
-  // Seller Service Queues
-  SELLER_SERVICE: 'seller.service',
+  // Vendor Service Queues
+  VENDOR_SERVICE: 'vendor.service',
   
   // Notification Service Queues
   NOTIFICATION_EMAIL: 'notification.email',
@@ -132,16 +132,16 @@ export const Queues = {
   NOTIFICATION_ORDER_DELIVERED: 'notification.order_delivered',
   NOTIFICATION_PAYMENT_RECEIVED: 'notification.payment_received',
   NOTIFICATION_PAYMENT_FAILED: 'notification.payment_failed',
-  NOTIFICATION_SELLER_VERIFIED: 'notification.seller_verified',
+  NOTIFICATION_VENDOR_VERIFIED: 'notification.vendor_verified',
   NOTIFICATION_WITHDRAWAL_COMPLETED: 'notification.withdrawal_completed',
   NOTIFICATION_LOW_STOCK: 'notification.low_stock',
   
-  // Seller Service Cross-Domain Queues
-  SELLER_ORDER_COMPLETED: 'seller.order_completed',
-  SELLER_ORDER_CANCELLED: 'seller.order_cancelled',
-  SELLER_PAYMENT_COMPLETED: 'seller.payment_completed',
-  SELLER_PRODUCT_CREATED: 'seller.product_created',
-  SELLER_PRODUCT_DELETED: 'seller.product_deleted',
+  // Vendor Service Cross-Domain Queues
+  VENDOR_ORDER_COMPLETED: 'vendor.order_completed',
+  VENDOR_ORDER_CANCELLED: 'vendor.order_cancelled',
+  VENDOR_PAYMENT_COMPLETED: 'vendor.payment_completed',
+  VENDOR_PRODUCT_CREATED: 'vendor.product_created',
+  VENDOR_PRODUCT_DELETED: 'vendor.product_deleted',
   
   // Inventory Service Cross-Domain Queues
   INVENTORY_ORDER_CREATED: 'inventory.order_created',

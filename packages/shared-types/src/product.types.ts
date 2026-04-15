@@ -2,13 +2,14 @@ import { ProductStatus, DiscountType, ReviewStatus } from './enums';
 
 export interface IProduct {
   id: string;
-  sellerId: string;
+  vendorId: string;
   name: string;
   slug: string;
   description: string;
   shortDescription?: string;
   sku: string;
   categoryId: string;
+  supplierPrice: number;
   price: number;
   discountPrice?: number;
   discountType?: DiscountType;
@@ -39,13 +40,14 @@ export interface IProduct {
 }
 
 export interface IProductCreate {
-  sellerId: string;
+  vendorId: string;
   name: string;
   description: string;
   shortDescription?: string;
   sku?: string;
   categoryId: string;
-  price: number;
+  supplierPrice: number;
+  price?: number;  // Optional - admins will set this during approval
   discountPrice?: number;
   discountType?: DiscountType;
   discountValue?: number;
@@ -85,6 +87,7 @@ export interface IProductUpdate {
   description?: string;
   shortDescription?: string;
   categoryId?: string;
+  supplierPrice?: number;
   price?: number;
   discountPrice?: number;
   discountType?: DiscountType;
@@ -100,6 +103,13 @@ export interface IProductUpdate {
   isFeatured?: boolean;
   metadata?: Record<string, unknown>;
   freeItems?: IFreeItemCreate[];
+}
+
+// Admin approval interface - admins set the retail price during approval
+export interface IProductApproval {
+  status: 'ACTIVE' | 'REJECTED';  // Approval status
+  price?: number;  // Retail price - must be set when approving
+  reason?: string;  // Rejection reason (required if status is REJECTED)
 }
 
 export interface ICategory {
@@ -154,7 +164,7 @@ export interface IReviewCreate {
 
 export interface IProductFilter {
   categoryId?: string;
-  sellerId?: string;
+  vendorId?: string;
   minPrice?: number;
   maxPrice?: number;
   isOrganic?: boolean;

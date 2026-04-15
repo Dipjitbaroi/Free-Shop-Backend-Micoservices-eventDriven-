@@ -1,0 +1,31 @@
+{{- if .Values.services.autoscaling.enabled }}
+{{- $serviceName := .Values.serviceName }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $serviceName }}-hpa
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "freeshop.labels" . | nindent 4 }}
+    app: {{ $serviceName }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $serviceName }}
+  minReplicas: {{ .Values.services.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.services.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.services.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.services.autoscaling.targetMemoryUtilizationPercentage }}
+{{- end }}

@@ -1,4 +1,4 @@
-import { UserRole, OAuthProvider } from './enums';
+import { OAuthProvider } from './enums';
 import { IUser } from './user.types';
 
 export interface ILoginRequest {
@@ -12,7 +12,7 @@ export interface IRegisterRequest {
   firstName: string;
   lastName: string;
   phone?: string;
-  role?: UserRole;
+  // role: Removed - users get roles from RBAC system after registration
 }
 
 export interface IAuthTokens {
@@ -72,7 +72,8 @@ export interface ITokenPayload {
   userId: string;
   id?: string;  // alias for userId, populated by authenticate middleware
   email: string;
-  role: UserRole;
+  // role: Removed - roles are assigned dynamically via RBAC system
+  // To get user roles/permissions, query auth service GET /auth/users/{userId}/roles
   type: 'access' | 'refresh' | 'guest';
   guestId?: string;
   iat?: number;
@@ -89,13 +90,13 @@ export interface ISessionInfo {
   expiresAt: Date;
 }
 
-export interface IPermission {
+export interface IJWTRolePermission {
   resource: string;
   action: string;
   conditions?: Record<string, unknown>;
 }
 
 export interface IRolePermissions {
-  role: UserRole;
-  permissions: IPermission[];
+  roleName: string; // Dynamic role name from RBAC system
+  permissions: IJWTRolePermission[];
 }

@@ -7,7 +7,7 @@ data:
   init-databases.sh: |
     #!/bin/bash
     set -e
-    DATABASES="freeshop_auth freeshop_user freeshop_product freeshop_order freeshop_payment freeshop_inventory freeshop_seller freeshop_notification freeshop_analytics"
+    DATABASES="freeshop_auth freeshop_user freeshop_product freeshop_order freeshop_payment freeshop_inventory freeshop_vendor freeshop_notification freeshop_analytics"
     for db in $DATABASES; do
       psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" <<-EOSQL
         SELECT 'CREATE DATABASE $db' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$db')\gexec

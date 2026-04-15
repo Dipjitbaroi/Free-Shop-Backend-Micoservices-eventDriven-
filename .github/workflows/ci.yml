@@ -13,25 +13,43 @@ jobs:
   typecheck:
     name: TypeScript
     runs-on: ubuntu-latest
+    env:
+      AUTH_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      USER_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      PRODUCT_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      ORDER_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      PAYMENT_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      INVENTORY_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      VENDOR_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      NOTIFICATION_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      ANALYTICS_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: "24"
+
+      - name: Install pnpm
+        run: npm install -g pnpm@latest
+
+      - name: Setup pnpm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "pnpm"
 
       - name: Install root workspace deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client for all services
         run: |
           for SERVICE in services/*/; do
             if [ -f "$SERVICE/prisma/schema.prisma" ]; then
               echo "Generating Prisma client for $SERVICE"
-              npx prisma generate --schema="$SERVICE/prisma/schema.prisma"
+              pnpm -C "$SERVICE" exec prisma generate
             fi
           done
 
@@ -39,8 +57,7 @@ jobs:
         run: |
           for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
             echo "Building $PKG..."
-            cd $PKG && npm ci --prefer-offline && npm run build --if-present || true
-            cd ../..
+            (cd $PKG && pnpm run build) || true
           done
 
       - name: Type-check all services
@@ -48,7 +65,7 @@ jobs:
           EXIT=0
           for SERVICE_DIR in services/*/; do
             echo "--- Checking $SERVICE_DIR ---"
-            (cd "$SERVICE_DIR" && npm ci --prefer-offline 2>/dev/null && npx tsc --noEmit) || EXIT=1
+            (pnpm -C "$SERVICE_DIR" exec tsc --noEmit) || EXIT=1
           done
           exit $EXIT
 
@@ -93,7 +110,7 @@ jobs:
           - order-service
           - payment-service
           - inventory-service
-          - seller-service
+          - vendor-service
           - notification-service
           - analytics-service
 

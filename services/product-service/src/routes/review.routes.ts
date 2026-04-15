@@ -1,11 +1,10 @@
 import { Router } from 'express';
 import { reviewController } from '../controllers/review.controller';
-import { authenticate, authorize, optionalAuth } from '@freeshop/shared-middleware';
+import { authenticate, optionalAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
-import { UserRole } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
 
-const router = Router();
+const router: Router = Router();
 
 // Validation schemas
 const createReviewValidation = [
