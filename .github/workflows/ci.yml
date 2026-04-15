@@ -13,6 +13,16 @@ jobs:
   typecheck:
     name: TypeScript
     runs-on: ubuntu-latest
+    env:
+      AUTH_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      USER_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      PRODUCT_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      ORDER_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      PAYMENT_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      INVENTORY_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      VENDOR_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      NOTIFICATION_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
+      ANALYTICS_DATABASE_URL: "postgresql://user:pass@localhost/dummy"
 
     steps:
       - uses: actions/checkout@v4
