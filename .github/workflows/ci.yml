@@ -21,10 +21,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          cache: "npm"
+          cache: "pnpm"
+
+      - name: Install pnpm
+        run: npm install -g pnpm@latest
 
       - name: Install root workspace deps
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma client for all services
         run: |
@@ -39,8 +42,7 @@ jobs:
         run: |
           for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
             echo "Building $PKG..."
-            cd $PKG && npm ci --prefer-offline && npm run build --if-present || true
-            cd ../..
+            (cd $PKG && pnpm run build --if-present) || true
           done
 
       - name: Type-check all services
@@ -48,7 +50,7 @@ jobs:
           EXIT=0
           for SERVICE_DIR in services/*/; do
             echo "--- Checking $SERVICE_DIR ---"
-            (cd "$SERVICE_DIR" && npm ci --prefer-offline 2>/dev/null && npx tsc --noEmit) || EXIT=1
+            (cd "$SERVICE_DIR" && npx tsc --noEmit) || EXIT=1
           done
           exit $EXIT
 
