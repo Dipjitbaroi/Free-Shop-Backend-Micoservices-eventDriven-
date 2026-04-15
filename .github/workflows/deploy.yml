@@ -365,14 +365,6 @@ jobs:
               --from-literal=FIREBASE_PRIVATE_KEY="$FIREBASE_PRIVATE_KEY" \
               --dry-run=client -o yaml | kubectl apply -f -
             echo "  ✓ Secrets created dynamically"
-            
-            # Apply ConfigMap for non-sensitive config
-            if [ -f "$REPO_PATH/k8s/config/freeshop-config.yaml" ]; then
-              kubectl apply -f "$REPO_PATH/k8s/config/freeshop-config.yaml"
-              echo "  ✓ ConfigMap applied"
-            else
-              echo "  ! freeshop-config.yaml not found at $REPO_PATH/k8s/config/freeshop-config.yaml"
-            fi
 
             # ── Step 6: Deploy/upgrade via Helm ──────────────────────────────
             echo ""
