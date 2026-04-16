@@ -379,22 +379,6 @@ jobs:
               exit 1
             fi
             
-            # ConfigMaps are now per-service (freeshop-config-{service-name})
-            # Helm manages ownership per release, no conflicts
-
-            
-            # Clean up old Services and Deployments to avoid Helm ownership conflicts
-            # These may exist from previous manual deployments without Helm metadata
-            echo "Cleaning up old Services and Deployments..."
-            SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
-            for SERVICE in $SERVICES; do
-              kubectl delete service "$SERVICE" --namespace="$NAMESPACE" 2>/dev/null || true
-              kubectl delete deployment "$SERVICE" --namespace="$NAMESPACE" 2>/dev/null || true
-              kubectl delete hpa "$SERVICE-hpa" --namespace="$NAMESPACE" 2>/dev/null || true
-              kubectl delete pdb "$SERVICE" --namespace="$NAMESPACE" 2>/dev/null || true
-            done
-            echo "Cleanup complete"
-            
             # ── Step 6a: Deploy each service separately with its config ──────────
             # Each service gets its own Helm release with service-specific values
             # This allows API Gateway to have minReplicas: 2, others minReplicas: 1

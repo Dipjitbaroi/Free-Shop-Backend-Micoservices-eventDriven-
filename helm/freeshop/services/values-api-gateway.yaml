@@ -5,7 +5,7 @@ serviceName: api-gateway
 
 services:
   ports:
-    api-gateway: 8000
+    api-gateway: 3000
   
   # API Gateway gets more resources due to routing/load balancing
   resources:
