@@ -439,6 +439,23 @@ jobs:
             
             echo "✓ Helm deployment successful"
 
+            # ── Step 6b: Apply Ingress configuration ──────────────────────────
+            echo ""
+            echo "--- Applying Ingress Configuration ---"
+            INGRESS_FILE="$REPO_PATH/k8s/ingress/ingress.yaml"
+            
+            if [ -f "$INGRESS_FILE" ]; then
+              if kubectl apply -f "$INGRESS_FILE"; then
+                echo "  ✓ Ingress configuration applied"
+              else
+                echo "  ✗ Ingress configuration failed"
+                exit 1
+              fi
+            else
+              echo "  ! Ingress file not found: $INGRESS_FILE"
+              exit 1
+            fi
+
             # ── Step 7: Wait for rollouts and verify ────────────────────────
             echo ""
             echo "--- Waiting for pod rollouts (10m timeout per service) ---"
