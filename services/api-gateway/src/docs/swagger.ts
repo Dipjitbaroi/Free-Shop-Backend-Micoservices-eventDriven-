@@ -5267,6 +5267,19 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
         },
       },
+      ErrorResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: false },
+          error: {
+            type: 'object',
+            properties: {
+              code: { type: 'string', example: 'UNAUTHORIZED' },
+              message: { type: 'string', example: 'Unauthorized' },
+            },
+          },
+        },
+      },
     },
 
     parameters: {
