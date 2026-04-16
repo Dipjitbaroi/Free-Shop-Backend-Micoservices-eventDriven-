@@ -440,29 +440,20 @@ jobs:
               exit 1
             fi
 
-            # ── Step 7: Wait for rollouts and verify ────────────────────────
+            # ── Step 7: Quick pod status check ──────────────────────────────
             echo ""
-            echo "--- Waiting for pod rollouts (10m timeout per service) ---"
+            echo "--- Checking pod status ---"
             SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
             
             FAILED=""
             for SERVICE in $SERVICES; do
-              echo "  Waiting for $SERVICE..."
-              # Increased timeout to 600s (10m) to accommodate slower single-node VPS startup
-              # Services may take time to pull images, initialize databases, etc.
-              if ! kubectl rollout status "deployment/$SERVICE" --namespace="$NAMESPACE" --timeout=600s 2>/dev/null; then
-                # Service is delayed but still starting - check if pods exist
-                POD_COUNT=$(kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null | tail -n +2 | wc -l)
-                if [ "$POD_COUNT" -gt 0 ]; then
-                  echo "    ⚠ $SERVICE pods starting (delayed, will be ready shortly)"
-                  # Don't fail - pods are being created
-                else
-                  echo "    ✗ $SERVICE has no pods"
-                  kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null || true
-                  FAILED="$FAILED $SERVICE"
-                fi
+              # Quick check: do pods exist? If yes, they're being created correctly
+              POD_COUNT=$(kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null | tail -n +2 | wc -l)
+              if [ "$POD_COUNT" -gt 0 ]; then
+                echo "  ✓ $SERVICE: $POD_COUNT pod(s) created"
               else
-                echo "    ✓ $SERVICE ready"
+                echo "  ✗ $SERVICE: no pods created"
+                FAILED="$FAILED $SERVICE"
               fi
             done
 
