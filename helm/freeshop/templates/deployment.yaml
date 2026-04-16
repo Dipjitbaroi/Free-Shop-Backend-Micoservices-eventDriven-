@@ -200,7 +200,7 @@ spec:
                   name: freeshop-secrets
                   key: ADMIN_SECRET_KEY
             
-            # Firebase Configuration
+            # Firebase Configuration (for push notifications)
             - name: FIREBASE_PROJECT_ID
               valueFrom:
                 secretKeyRef:
@@ -216,11 +216,6 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: FIREBASE_PRIVATE_KEY
-            - name: FIREBASE_CREDENTIALS
-              valueFrom:
-                secretKeyRef:
-                  name: freeshop-secrets
-                  key: FIREBASE_CREDENTIALS
             
             # Service-to-Service URLs (Kubernetes DNS)
             - name: AUTH_SERVICE_URL
@@ -302,26 +297,31 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: BKASH_APP_KEY
+                  optional: true
             - name: BKASH_APP_SECRET
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: BKASH_APP_SECRET
+                  optional: true
             - name: BKASH_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: BKASH_USERNAME
+                  optional: true
             - name: BKASH_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: BKASH_PASSWORD
+                  optional: true
             - name: BKASH_BASE_URL
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: BKASH_BASE_URL
+                  optional: true
             
             # Cloudinary Configuration (Image Upload)
             - name: CLOUDINARY_CLOUD_NAME
@@ -329,16 +329,19 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: CLOUDINARY_CLOUD_NAME
+                  optional: true
             - name: CLOUDINARY_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: CLOUDINARY_API_KEY
+                  optional: true
             - name: CLOUDINARY_API_SECRET
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: CLOUDINARY_API_SECRET
+                  optional: true
           
           {{- with .Values.services.resources }}
           resources:

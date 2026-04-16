@@ -38,7 +38,8 @@ export const config = {
   },
   
   push: {
-    firebaseCredentials: process.env.FIREBASE_CREDENTIALS || '',
+    // Firebase is initialized with FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
+    // See services/notification-service/src/modules/push/firebase.ts for initialization
   },
   
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3000',
