@@ -253,11 +253,11 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: SMTP_USER
-            - name: SMTP_PASS
+            - name: SMTP_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: freeshop-secrets
-                  key: SMTP_PASS
+                  key: SMTP_PASSWORD
             - name: EMAIL_FROM
               valueFrom:
                 secretKeyRef:
