@@ -54,9 +54,12 @@ const swaggerDoc = {
 };
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDoc));
 
-// Serve raw JSON spec for API clients
+// Serve raw JSON spec for API clients (with CORS headers)
 app.get('/api-docs.json', (_req, res) => {
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
   res.send(swaggerDoc);
 });
 

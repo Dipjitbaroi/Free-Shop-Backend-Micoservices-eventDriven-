@@ -127,6 +127,12 @@ spec:
             - name: VENDOR_SERVICE_PORT
               value: {{ $servicePort | quote }}
             
+            # API Gateway - Public URL for Swagger documentation
+            {{- if eq $serviceName "api-gateway" }}
+            - name: PUBLIC_API_URL
+              value: "https://api.freeshopbd.com/api/v1"
+            {{- end }}
+            
             # Database Configuration
             - name: POSTGRES_HOST
               valueFrom:
