@@ -146,6 +146,8 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: REDIS_PASSWORD
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@$(REDIS_HOST):$(REDIS_PORT)"
             
             # RabbitMQ Configuration
             - name: RABBITMQ_HOST
