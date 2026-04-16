@@ -11,9 +11,6 @@ metadata:
   namespace: freeshop
   annotations:
     kubernetes.io/ingress.class: "nginx"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    # Rewrite applies via capture groups only when /api/v1 is matched
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
@@ -33,24 +30,7 @@ spec:
     - host: api.freeshopbd.com
       http:
         paths:
-          # API Documentation (no rewrite - doesn't match /api/v1 pattern)
-          - path: /api-docs
-            pathType: Prefix
-            backend:
-              service:
-                name: api-gateway
-                port:
-                  number: 3000
-          # API v1 routes with rewrite: /api/v1/(...) → /...
-          # Capture groups: $1=/or empty, $2=everything after /api/v1
-          - path: /api/v1(/|$)(.*)
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: api-gateway
-                port:
-                  number: 3000
-          # Root and catch-all (no rewrite)
+          # All traffic → api-gateway (handles all routing internally)
           - path: /
             pathType: Prefix
             backend:
