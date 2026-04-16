@@ -11,6 +11,17 @@ interface ServiceHealth {
   error?: string;
 }
 
+// Root endpoint
+router.get('/', (_req: Request, res: Response) => {
+  res.json({
+    message: 'Free Shop API Gateway',
+    status: 'operational',
+    documentation: '/api-docs',
+    health: '/health',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Basic health check
 router.get('/health', (_req: Request, res: Response) => {
   res.json({

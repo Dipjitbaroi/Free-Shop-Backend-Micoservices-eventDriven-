@@ -12,7 +12,6 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
@@ -21,6 +20,10 @@ metadata:
     # SSL / TLS
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # Path-specific rewrite: only rewrite /api/v1/(...), not /api-docs or /
+    # See 'rules' section below for path matching
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      rewrite ^/api/v1(.*)$ $1 break;
 spec:
   ingressClassName: nginx
   tls:
@@ -32,6 +35,21 @@ spec:
     - host: api.freeshopbd.com     # <-- Change this
       http:
         paths:
+          # API Documentation (no path rewrite)
+          - path: /api-docs(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 3000
+          - path: /api-docs.json
+            pathType: Exact
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 3000
           - path: /api/v1(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
