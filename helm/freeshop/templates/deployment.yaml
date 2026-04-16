@@ -79,6 +79,8 @@ spec:
             {{- $dbName := printf "freeshop_%s" (replace "-service" "" $serviceName) }}
             - name: {{ printf "%s_DATABASE_URL" (upper (replace "-" "_" (replace "-service" "" $serviceName))) }}
               value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/{{ $dbName }}"
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/{{ $dbName }}"
           resources:
             requests:
               cpu: 100m
