@@ -21,7 +21,7 @@ image:
 services:
   # Port configuration
   ports:
-    api-gateway: 8000
+    api-gateway: 3000
     auth-service: 3001
     user-service: 3002
     product-service: 3003

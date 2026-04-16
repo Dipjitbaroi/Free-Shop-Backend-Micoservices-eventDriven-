@@ -38,7 +38,7 @@ spec:
               service:
                 name: api-gateway
                 port:
-                  number: 8000
+                  number: 3000
           # regex above strips /api/v1 prefix so the gateway receives /health, /ready, etc.
           - path: /
             pathType: Prefix
@@ -46,4 +46,4 @@ spec:
               service:
                 name: api-gateway
                 port:
-                  number: 8000
+                  number: 3000
