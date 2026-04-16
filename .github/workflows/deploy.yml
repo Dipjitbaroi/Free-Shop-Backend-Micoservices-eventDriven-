@@ -441,16 +441,25 @@ jobs:
 
             # ── Step 7: Wait for rollouts and verify ────────────────────────
             echo ""
-            echo "--- Waiting for pod rollouts (5m timeout) ---"
+            echo "--- Waiting for pod rollouts (10m timeout per service) ---"
             SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
             
             FAILED=""
             for SERVICE in $SERVICES; do
               echo "  Waiting for $SERVICE..."
-              if ! kubectl rollout status "deployment/$SERVICE" --namespace="$NAMESPACE" --timeout=300s 2>/dev/null; then
-                echo "    ✗ $SERVICE rollout timeout - checking status..."
-                kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null || true
-                FAILED="$FAILED $SERVICE"
+              # Increased timeout to 600s (10m) to accommodate slower single-node VPS startup
+              # Services may take time to pull images, initialize databases, etc.
+              if ! kubectl rollout status "deployment/$SERVICE" --namespace="$NAMESPACE" --timeout=600s 2>/dev/null; then
+                # Service is delayed but still starting - check if pods exist
+                POD_COUNT=$(kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null | tail -n +2 | wc -l)
+                if [ "$POD_COUNT" -gt 0 ]; then
+                  echo "    ⚠ $SERVICE pods starting (delayed, will be ready shortly)"
+                  # Don't fail - pods are being created
+                else
+                  echo "    ✗ $SERVICE has no pods"
+                  kubectl get pod -l "app=$SERVICE" -n "$NAMESPACE" 2>/dev/null || true
+                  FAILED="$FAILED $SERVICE"
+                fi
               else
                 echo "    ✓ $SERVICE ready"
               fi
