@@ -1,11 +1,13 @@
 ﻿import 'dotenv/config';
 import { defineConfig, env } from 'prisma/config';
 
+// Allow prisma generate to run without database connection during build
+const databaseUrl = process.env.AUTH_DATABASE_URL || 'postgresql://user:password@localhost:5432/freeshop_auth';
+
 export default defineConfig({
   schema: './prisma/schema.prisma',
   datasource: {
-    // Use fallback during build (prisma generate), actual value at runtime
-    url: env('AUTH_DATABASE_URL', 'postgresql://user:password@localhost:5432/freeshop_auth'),
+    url: databaseUrl,
   },
   migrations: {
     path: './prisma/migrations',

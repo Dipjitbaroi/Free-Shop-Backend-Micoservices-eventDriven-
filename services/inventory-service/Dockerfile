@@ -21,7 +21,7 @@ COPY services/inventory-service/ ./services/inventory-service/
 # Install with pnpm and BuildKit cache, optimized for slow networks
 RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
 
-# Generate Prisma client
+# Generate Prisma client (uses fallback DB from config)
 RUN pnpm -C services/inventory-service exec prisma generate
 
 # Build all packages in dependency order
