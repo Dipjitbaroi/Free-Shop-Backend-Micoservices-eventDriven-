@@ -11,24 +11,21 @@ COPY pnpm-workspace.yaml ./
 COPY .pnpmrc ./
 COPY tsconfig.base.json ./
 
-COPY packages/shared-types/package*.json ./packages/shared-types/
-COPY packages/shared-utils/package*.json ./packages/shared-utils/
-COPY packages/shared-events/package*.json ./packages/shared-events/
-COPY packages/shared-middleware/package*.json ./packages/shared-middleware/
-COPY services/payment-service/package*.json ./services/payment-service/
-
-# Install with pnpm and BuildKit cache, optimized for slow networks
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
-
+# Copy all source files BEFORE install (so hoisting works correctly)
 COPY packages/shared-types/ ./packages/shared-types/
 COPY packages/shared-utils/ ./packages/shared-utils/
 COPY packages/shared-events/ ./packages/shared-events/
 COPY packages/shared-middleware/ ./packages/shared-middleware/
 COPY services/payment-service/ ./services/payment-service/
 
+# Install with pnpm and BuildKit cache, optimized for slow networks
+RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
+
+# Generate Prisma client
+RUN pnpm -C services/payment-service exec prisma generate
+
 # Build all packages in dependency order
 WORKDIR /app
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/payment-service install --frozen-lockfile
 RUN pnpm run build
 
 FROM node:24-alpine AS production
@@ -39,23 +36,25 @@ RUN npm install -g pnpm@10
 WORKDIR /app
 
 COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/payment-service/package*.json ./services/payment-service/
+COPY --from=builder /app/services/payment-service/prisma.config.ts ./services/payment-service/
 COPY --from=builder /app/services/payment-service/generated ./services/payment-service/generated
+COPY --from=builder /app/services/payment-service/prisma ./services/payment-service/prisma
 
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
+# Reinstall with frozen-lockfile to ensure dependencies, uses cache
+RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
 
 COPY --from=builder /app/services/payment-service/dist ./services/payment-service/dist
-COPY --from=builder /app/services/payment-service/prisma.config.ts ./services/payment-service/
-COPY --from=builder /app/services/payment-service/prisma ./services/payment-service/prisma
-COPY --from=builder /app/services/payment-service/generated ./services/payment-service/generated
 
 WORKDIR /app/services/payment-service
 
 EXPOSE 3005
 
 # Run app directly; migrations should be executed by CI/k8s Job before rollout
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]

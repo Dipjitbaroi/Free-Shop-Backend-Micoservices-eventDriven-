@@ -1,14 +1,14 @@
-import { UserProfile, Address, Gender, AddressType } from '../../generated/prisma';
+import { UserProfile, Address, Gender, AddressType } from '../../generated/client/client.js';
 import { NotFoundError, BadRequestError } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { 
   cacheGet, 
   cacheSet, 
   cacheDelete,
   profileCacheKey,
   addressesCacheKey,
-} from '../lib/redis';
-import config from '../config';
+} from '../lib/redis.js';
+import config from '../config/index.js';
 
 interface ProfileData {
   email?: string;

@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "@freeshop/auth-service",
   "version": "1.0.0",
   "description": "Authentication service for Free Shop",

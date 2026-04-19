@@ -1,5 +1,5 @@
 import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
-import config from '../config';
+import config from '../config/index.js';
 
 export interface AddressSnapshot {
   fullName: string;

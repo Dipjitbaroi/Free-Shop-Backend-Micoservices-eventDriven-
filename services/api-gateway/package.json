@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "@freeshop/api-gateway",
   "version": "1.0.0",
   "description": "API Gateway for Free Shop microservices",

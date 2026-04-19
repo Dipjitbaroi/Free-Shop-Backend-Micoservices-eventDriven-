@@ -1,8 +1,8 @@
-import { messageBroker } from '../lib/message-broker';
+import { messageBroker } from '../lib/message-broker.js';
 import { Events, Queues, IOrderCreatedEvent, IOrderCancelledEvent } from '@freeshop/shared-events';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { logger } from '@freeshop/shared-utils';
-import { PaymentStatus } from '../../generated/prisma';
+import { PaymentStatus } from '../../generated/client/client.js';
 
 export async function setupEventSubscribers(): Promise<void> {
   // Subscribe to order created events

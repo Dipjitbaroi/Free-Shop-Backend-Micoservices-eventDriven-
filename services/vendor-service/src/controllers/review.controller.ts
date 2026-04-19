@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { reviewService } from '../services/review.service';
-import { vendorService } from '../services/vendor.service';
+import { reviewService } from '../services/review.service.js';
+import { vendorService } from '../services/vendor.service.js';
 import { successResponse, UnauthorizedError, NotFoundError } from '@freeshop/shared-utils';
 
 export const reviewController = {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { orderController } from '../controllers/order.controller';
+import { orderController } from '../controllers/order.controller.js';
 import { authenticate, authorizePermission, guestOrAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';

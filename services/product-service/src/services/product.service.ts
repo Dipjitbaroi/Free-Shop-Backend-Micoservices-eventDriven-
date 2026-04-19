@@ -1,4 +1,4 @@
-import { Prisma, Product, ProductStatus } from '../../generated/prisma';
+import { Prisma, Product, ProductStatus } from '../../generated/client/client.js';
 import { 
   IProductCreate, 
   IProductUpdate, 
@@ -14,16 +14,16 @@ import {
   calculateOffset,
   createPaginatedResponse,
 } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { 
   cacheGet, 
   cacheSet, 
   cacheDelete,
   productCacheKey,
   productSlugCacheKey,
-} from '../lib/redis';
-import { eventPublisher } from '../lib/message-broker';
-import config from '../config';
+} from '../lib/redis.js';
+import { eventPublisher } from '../lib/message-broker.js';
+import config from '../config/index.js';
 
 class ProductService {
   async createProduct(data: IProductCreate): Promise<Product> {

@@ -4,8 +4,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { errorHandler, requestLogger, notFoundHandler } from '@freeshop/shared-middleware';
 
-import inventoryRoutes from './routes/inventory.routes';
-import healthRoutes from './routes/health.routes';
+import inventoryRoutes from './routes/inventory.routes.js';
+import healthRoutes from './routes/health.routes.js';
 
 const app: Application = express();
 

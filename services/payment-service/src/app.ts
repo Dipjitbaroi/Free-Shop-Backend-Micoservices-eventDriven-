@@ -8,8 +8,8 @@ import {
   notFoundHandler,
 } from '@freeshop/shared-middleware';
 
-import paymentRoutes from './routes/payment.routes';
-import healthRoutes from './routes/health.routes';
+import paymentRoutes from './routes/payment.routes.js';
+import healthRoutes from './routes/health.routes.js';
 
 const app: Application = express();
 

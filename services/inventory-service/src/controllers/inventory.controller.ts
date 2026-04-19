@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { inventoryService } from '../services/inventory.service';
+import { inventoryService } from '../services/inventory.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const inventoryController = {

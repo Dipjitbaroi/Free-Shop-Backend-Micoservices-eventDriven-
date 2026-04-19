@@ -1,7 +1,9 @@
-import { messageBroker } from '../lib/message-broker';
+import { messageBroker } from '../lib/message-broker.js';
 import { Events, Queues, IOrderCreatedEvent, IOrderCancelledEvent, IVendorApprovedEvent } from '@freeshop/shared-events';
-import { prisma } from '../lib/prisma';
-import { logger } from '@freeshop/shared-utils';
+import { prisma } from '../lib/prisma.js';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('product-service');
 
 export async function setupEventSubscribers(): Promise<void> {
   // Subscribe to order created events to potentially track product sales

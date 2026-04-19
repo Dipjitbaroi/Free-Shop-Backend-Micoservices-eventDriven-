@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { wishlistService } from '../services/wishlist.service';
+import { wishlistService } from '../services/wishlist.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const wishlistController = {

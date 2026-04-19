@@ -15,9 +15,9 @@ import {
   apiRateLimiter,
 } from '@freeshop/shared-middleware';
 
-import { setupRoutes } from './routes';
-import { healthRoutes } from './routes/health.routes';
-import swaggerDocument from './docs/swagger';
+import { setupRoutes } from './routes/index.js';
+import { healthRoutes } from './routes/health.routes.js';
+import swaggerDocument from './docs/swagger.js';
 
 const app: Application = express();
 

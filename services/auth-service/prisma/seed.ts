@@ -1,6 +1,13 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../generated/client/client.js';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: process.env.AUTH_DATABASE_URL,
+});
+
+const prisma = new PrismaClient({
+  adapter,
+});
 
 // Permission code constants (must match PERMISSION_CODES in shared-types)
 const PERMISSION_CODES = {
@@ -327,6 +334,7 @@ async function main() {
             data: {
               roleId: role.id,
               permissionId: permission.id,
+              grantedBy: SYSTEM_USER_ID,
             },
           });
         })
@@ -350,4 +358,9 @@ async function main() {
   }
 }
 
-main();
+// Call main and handle errors
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { analyticsService } from '../services/analytics.service';
+import { analyticsService } from '../services/analytics.service.js';
 import { ApiResponse } from '@freeshop/shared-types';
 
 const parseDateRange = (req: Request) => {

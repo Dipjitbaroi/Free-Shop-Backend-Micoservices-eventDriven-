@@ -1,14 +1,15 @@
 import Redis from 'ioredis';
-import config from '../config';
+import config from '../config/index.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
 
 const logger = createServiceLogger('auth-service');
 
-export const redis = new Redis({
+// Type assertion needed for ESM interop with CommonJS ioredis module
+export const redis = new (Redis as any)({
   host: config.redis.host,
   port: config.redis.port,
   password: config.redis.password || undefined,
-  retryStrategy: (times) => {
+  retryStrategy: (times: number) => {
     if (times > 3) {
       logger.error('Redis connection failed after 3 retries');
       return null;
@@ -21,7 +22,7 @@ redis.on('connect', () => {
   logger.info('Connected to Redis');
 });
 
-redis.on('error', (error) => {
+redis.on('error', (error: Error) => {
   logger.error('Redis error', error);
 });
 

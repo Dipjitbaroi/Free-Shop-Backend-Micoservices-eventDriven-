@@ -13,12 +13,12 @@ import {
   comparePassword,
   hashPassword,
 } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
-import { blacklistToken, isTokenBlacklisted, invalidateAllSessions } from '../lib/redis';
-import { eventPublisher } from '../lib/message-broker';
-import { verifyFirebaseToken } from '../lib/firebase';
+import { prisma } from '../lib/prisma.js';
+import { blacklistToken, isTokenBlacklisted, invalidateAllSessions } from '../lib/redis.js';
+import { eventPublisher } from '../lib/message-broker.js';
+import { verifyFirebaseToken } from '../lib/firebase.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
-import config from '../config';
+import config from '../config/index.js';
 
 const logger = createServiceLogger('auth-service');
 
@@ -533,7 +533,6 @@ class AuthService {
         firstName: true,
         lastName: true,
         avatar: true,
-        role: true,
         status: true,
         oauthProvider: true,
         emailVerified: true,
@@ -587,7 +586,6 @@ class AuthService {
           firstName: true,
           lastName: true,
           avatar: true,
-          role: true,
           status: true,
           oauthProvider: true,
           emailVerified: true,

@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "@freeshop/vendor-service",
   "version": "1.0.0",
   "description": "Vendor management service for Free Shop",

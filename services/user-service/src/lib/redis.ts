@@ -1,16 +1,18 @@
 import Redis from 'ioredis';
-import config from '../config';
-import { logger } from '@freeshop/shared-utils';
+import config from '../config/index.js';
+import { createServiceLogger } from '@freeshop/shared-utils';
 
-export const redis = new Redis(config.redis.url, {
+const logger = createServiceLogger('user-service');
+
+export const redis = new (Redis as any)(config.redis.url, {
   maxRetriesPerRequest: 3,
-  retryStrategy(times) {
+  retryStrategy(times: number) {
     const delay = Math.min(times * 50, 2000);
     return delay;
   },
 });
 
-redis.on('error', (err) => {
+redis.on('error', (err: Error) => {
   logger.error('Redis connection error', err);
 });
 

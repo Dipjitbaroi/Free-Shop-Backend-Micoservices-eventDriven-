@@ -1,8 +1,14 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-import app from './app';
+import app from './app.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
 
 const logger = createServiceLogger('api-gateway');

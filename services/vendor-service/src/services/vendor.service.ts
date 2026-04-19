@@ -1,9 +1,9 @@
-import { prisma } from '../lib/prisma';
-import { redis, CACHE_TTL } from '../lib/redis';
-import { messageBroker } from '../lib/message-broker';
+import { prisma } from '../lib/prisma.js';
+import { redis, CACHE_TTL } from '../lib/redis.js';
+import { messageBroker } from '../lib/message-broker.js';
 import { EXCHANGES, getRoutingKey } from '@freeshop/shared-events';
-import { Prisma, VendorStatus, VerificationStatus } from '../../generated/prisma';
-import { config } from '../config';
+import { Prisma, VendorStatus, VerificationStatus } from '../../generated/client/client.js';
+import { config } from '../config/index.js';
 import logger, { ConflictError, NotFoundError } from '@freeshop/shared-utils';
 
 interface createVendorInput {

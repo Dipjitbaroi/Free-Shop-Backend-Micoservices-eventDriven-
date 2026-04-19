@@ -11,25 +11,20 @@ COPY pnpm-workspace.yaml ./
 COPY .pnpmrc ./
 COPY tsconfig.base.json ./
 
-COPY packages/shared-types/package*.json ./packages/shared-types/
-COPY packages/shared-utils/package*.json ./packages/shared-utils/
-COPY packages/shared-events/package*.json ./packages/shared-events/
-COPY packages/shared-middleware/package*.json ./packages/shared-middleware/
-COPY services/product-service/package*.json ./services/product-service/
-
-# Install with pnpm and BuildKit cache, optimized for slow networks
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
-
-# Copy source code
 COPY packages/shared-types/ ./packages/shared-types/
 COPY packages/shared-utils/ ./packages/shared-utils/
 COPY packages/shared-events/ ./packages/shared-events/
 COPY packages/shared-middleware/ ./packages/shared-middleware/
 COPY services/product-service/ ./services/product-service/
 
+# Install with pnpm and BuildKit cache, optimized for slow networks
+RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
+
+# Generate Prisma client
+RUN pnpm -C services/product-service exec prisma generate
+
 # Build all packages in dependency order
 WORKDIR /app
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm --filter ./services/product-service install --frozen-lockfile
 RUN pnpm run build
 
 # Production stage
@@ -46,21 +41,21 @@ COPY --from=builder /app/pnpm-lock.yaml ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/services/product-service/package*.json ./services/product-service/
+COPY --from=builder /app/services/product-service/prisma.config.ts ./services/product-service/
 COPY --from=builder /app/services/product-service/generated ./services/product-service/generated
+COPY --from=builder /app/services/product-service/prisma ./services/product-service/prisma
 
-# Install production dependencies
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
+# Reinstall with frozen-lockfile to ensure dependencies, uses cache
+RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
 
 COPY --from=builder /app/services/product-service/dist ./services/product-service/dist
-COPY --from=builder /app/services/product-service/prisma.config.ts ./services/product-service/
-COPY --from=builder /app/services/product-service/prisma ./services/product-service/prisma
-COPY --from=builder /app/services/product-service/generated ./services/product-service/generated
 
 WORKDIR /app/services/product-service
 
 EXPOSE 3003
 
 # Run app directly; migrations should be executed by CI/k8s Job before rollout
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist/src/index.js"]

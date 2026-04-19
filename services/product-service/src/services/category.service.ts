@@ -1,7 +1,7 @@
-import { Prisma, Category } from '../../generated/prisma';
+import { Prisma, Category } from '../../generated/client/client.js';
 import { ICategoryCreate } from '@freeshop/shared-types';
 import { generateSlug, NotFoundError, BadRequestError } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { 
   cacheGet, 
   cacheSet, 
@@ -9,8 +9,8 @@ import {
   cacheDeletePattern,
   categoryCacheKey,
   categoryListCacheKey,
-} from '../lib/redis';
-import config from '../config';
+} from '../lib/redis.js';
+import config from '../config/index.js';
 
 class CategoryService {
   async createCategory(data: ICategoryCreate): Promise<Category> {

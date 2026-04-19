@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
-import { prisma } from '../lib/prisma';
-import { redis } from '../lib/redis';
-import { messageBroker } from '../lib/message-broker';
+import { prisma } from '../lib/prisma.js';
+import { redis } from '../lib/redis.js';
+import { messageBroker } from '../lib/message-broker.js';
 
 const router: Router = Router();
 

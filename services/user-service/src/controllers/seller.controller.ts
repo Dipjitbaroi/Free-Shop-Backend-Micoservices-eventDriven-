@@ -4,7 +4,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { sellerService } from '../services/seller.service';
+import { sellerService } from '../services/seller.service.js';
 import { successResponse, BadRequestError, NotFoundError, ForbiddenError } from '@freeshop/shared-utils';
 
 export const sellerController = {

@@ -1,10 +1,12 @@
-import { prisma } from '../lib/prisma';
-import { redis } from '../lib/redis';
-import { messageBroker } from '../lib/message-broker';
+import { prisma } from '../lib/prisma.js';
+import { redis } from '../lib/redis.js';
+import { messageBroker } from '../lib/message-broker.js';
 import { EXCHANGES, getRoutingKey } from '@freeshop/shared-events';
-import { CommissionStatus, WithdrawalStatus, WithdrawalMethod, Prisma } from '../../generated/prisma';
-import { config } from '../config';
-import logger, { NotFoundError, BadRequestError } from '@freeshop/shared-utils';
+import { CommissionStatus, WithdrawalStatus, WithdrawalMethod, Prisma } from '../../generated/client/client.js';
+import { config } from '../config/index.js';
+import { createServiceLogger, NotFoundError, BadRequestError } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('vendor-service');
 
 interface CreateCommissionInput {
   vendorId: string;

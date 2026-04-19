@@ -1,7 +1,9 @@
-import { prisma } from '../lib/prisma';
-import { redis, CACHE_TTL } from '../lib/redis';
-import { Prisma } from '../../generated/prisma';
-import logger from '@freeshop/shared-utils';
+import { prisma } from '../lib/prisma.js';
+import { redis, CACHE_TTL } from '../lib/redis.js';
+import { Prisma } from '../../generated/prisma/index.js';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('analytics-service');
 
 interface DateRange {
   startDate: Date;

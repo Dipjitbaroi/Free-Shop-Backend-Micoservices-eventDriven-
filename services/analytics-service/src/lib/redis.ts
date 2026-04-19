@@ -1,12 +1,15 @@
 import Redis from 'ioredis';
-import { config } from '../config';
-import logger from '@freeshop/shared-utils';
+import { config } from '../config/index.js';
+import { createServiceLogger } from '@freeshop/shared-utils';
 
-export const redis = new Redis({
+const logger = createServiceLogger('analytics-service');
+
+// Type assertion needed for ESM interop with CommonJS ioredis module
+export const redis = new (Redis as any)({
   host: config.redis.host,
   port: config.redis.port,
   password: config.redis.password,
-  retryStrategy: (times) => {
+  retryStrategy: (times: number) => {
     const delay = Math.min(times * 50, 2000);
     return delay;
   },
@@ -16,7 +19,7 @@ redis.on('connect', () => {
   logger.info('Connected to Redis');
 });
 
-redis.on('error', (error) => {
+redis.on('error', (error: Error) => {
   logger.error('Redis connection error', { error: error.message });
 });
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { vendorService } from '../services/vendor.service';
+import { vendorService } from '../services/vendor.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 import { UnauthorizedError, NotFoundError } from '@freeshop/shared-utils';
 

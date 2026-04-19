@@ -8,9 +8,9 @@ import {
   notFoundHandler,
 } from '@freeshop/shared-middleware';
 
-import authRoutes from './routes/auth.routes';
-import rbacRoutes from './routes/rbac.routes';
-import healthRoutes from './routes/health.routes';
+import authRoutes from './routes/auth.routes.js';
+import rbacRoutes from './routes/rbac.routes.js';
+import healthRoutes from './routes/health.routes.js';
 
 const app: Application = express();
 

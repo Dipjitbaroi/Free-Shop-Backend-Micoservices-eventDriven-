@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
-import { reviewController } from '../controllers/review.controller';
+import { reviewController } from '../controllers/review.controller.js';
 import { authenticate, authorize, validate } from '@freeshop/shared-middleware';
 
 const router: Router = Router();

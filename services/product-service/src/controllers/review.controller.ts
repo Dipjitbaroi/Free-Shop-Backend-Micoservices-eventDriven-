@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { reviewService } from '../services/review.service';
+import { reviewService } from '../services/review.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const reviewController = {

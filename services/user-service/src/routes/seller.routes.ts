@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import { authenticate, validate } from '@freeshop/shared-middleware';
-import { sellerController } from '../controllers/seller.controller';
+import { sellerController } from '../controllers/seller.controller.js';
 import { body, param, query } from 'express-validator';
 
 const router: Router = Router();

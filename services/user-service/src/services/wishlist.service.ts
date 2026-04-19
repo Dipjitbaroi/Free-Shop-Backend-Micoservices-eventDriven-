@@ -1,13 +1,13 @@
-import { Prisma, WishlistItem, RecentlyViewed } from '../../generated/prisma';
+import { Prisma, WishlistItem, RecentlyViewed } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError, createPaginatedResponse, calculateOffset, IPaginatedResult } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { 
   cacheGet, 
   cacheSet, 
   cacheDelete,
   wishlistCacheKey,
-} from '../lib/redis';
-import config from '../config';
+} from '../lib/redis.js';
+import config from '../config/index.js';
 
 class WishlistService {
   async getWishlist(userId: string, page: number = 1, limit: number = 20): Promise<IPaginatedResult<WishlistItem>> {

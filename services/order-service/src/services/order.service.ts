@@ -1,4 +1,4 @@
-import { Order, OrderItem, OrderStatus, PaymentStatus, PaymentMethod, Prisma } from '../../generated/prisma';
+import { Order, OrderItem, OrderStatus, PaymentStatus, PaymentMethod, Prisma } from '../../generated/client/client.js';
 import { 
   BadRequestError, 
   NotFoundError, 
@@ -7,14 +7,14 @@ import {
   calculateOffset,
   IPaginatedResult,
 } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
-import { eventPublisher } from '../lib/message-broker';
+import { prisma } from '../lib/prisma.js';
+import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
-import { cacheDelete, orderCacheKey } from '../lib/redis';
+import { cacheDelete, orderCacheKey } from '../lib/redis.js';
 
-import config from '../config';
-import { cartService } from './cart.service';
-import { settingsService } from './settings.service';
+import config from '../config/index.js';
+import { cartService } from './cart.service.js';
+import { settingsService } from './settings.service.js';
 
 interface OrderWithItems extends Order {
   items: OrderItem[];

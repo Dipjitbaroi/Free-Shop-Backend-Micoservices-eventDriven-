@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { notificationService } from '../services/notification.service';
+import { notificationService } from '../services/notification.service.js';
 import { successResponse, NotFoundError } from '@freeshop/shared-utils';
 
 export const templateController = {

@@ -4,7 +4,7 @@
  */
 
 import { Request, Response } from 'express';
-import RBACService from '../services/rbac.service';
+import RBACService from '../services/rbac.service.js';
 import {
   ICreateRoleRequest,
   ICreatePermissionRequest,

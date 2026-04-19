@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { cartService } from '../services/cart.service';
+import { cartService } from '../services/cart.service.js';
 import { successResponse, BadRequestError } from '@freeshop/shared-utils';
-import { fetchProduct, resolveEffectivePrice } from '../lib/product-client';
+import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 
 export const cartController = {
   async getCart(req: Request, res: Response, next: NextFunction) {

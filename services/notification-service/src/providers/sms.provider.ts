@@ -1,5 +1,7 @@
-import { config } from '../config';
-import logger from '@freeshop/shared-utils';
+import { config } from '../config/index.js';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('notification-service');
 
 interface SmsOptions {
   to: string;

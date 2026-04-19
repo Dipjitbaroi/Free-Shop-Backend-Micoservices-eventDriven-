@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { wishlistController } from '../controllers/wishlist.controller';
+import { wishlistController } from '../controllers/wishlist.controller.js';
 import { authenticate } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param, query } from 'express-validator';
