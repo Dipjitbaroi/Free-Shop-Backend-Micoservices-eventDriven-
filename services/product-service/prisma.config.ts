@@ -4,7 +4,7 @@ import { defineConfig, env } from 'prisma/config';
 export default defineConfig({
   schema: './prisma/schema.prisma',
   datasource: {
-    url: env('PRODUCT_DATABASE_URL'),
+    url: env('PRODUCT_DATABASE_URL', 'postgresql://user:password@localhost:5432/freeshop_product'),
   },
   migrations: {
     path: './prisma/migrations',
