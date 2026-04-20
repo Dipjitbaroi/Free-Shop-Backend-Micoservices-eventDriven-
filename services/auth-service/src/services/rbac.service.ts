@@ -38,15 +38,24 @@ export class RBACService {
           const action = code === 'USER_MANAGEMENT_UPDATE' ? 'UPDATE' : 'DELETE';
           const resource = 'USER';
 
-          const permission = await prisma.permission.upsert({
-            where: { permissionCode: permCode },
-            update: {
-              action: action as PermissionAction,
-              resource: resource as PermissionResource,
-              description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
-              active: true,
-            },
-            create: {
+          // Prefer existing by code; if not found, fall back to action+resource
+          let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
+          if (permission) {
+            await prisma.permission.update({ where: { id: permission.id }, data: { description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts', active: true } });
+            permissionMap[permCode] = permission.id;
+            continue;
+          }
+
+          const existingByAR = await prisma.permission.findFirst({ where: { action: action as any, resource: resource as any } });
+          if (existingByAR) {
+            // Map the requested code to the existing permission id to avoid duplicates
+            console.warn(`Permission for ${action}/${resource} already exists with code ${existingByAR.permissionCode}; mapping ${permCode} -> ${existingByAR.id}`);
+            permissionMap[permCode] = existingByAR.id;
+            continue;
+          }
+
+          permission = await prisma.permission.create({
+            data: {
               permissionCode: permCode,
               action: action as PermissionAction,
               resource: resource as PermissionResource,
@@ -69,15 +78,23 @@ export class RBACService {
         const resource = parts[1] as PermissionResource;
         const action = parts[2] as PermissionAction;
 
-        const permission = await prisma.permission.upsert({
-          where: { permissionCode: permCode },
-          update: {
-            action: action as PermissionAction,
-            resource: resource as PermissionResource,
-            description: `${action} ${resource}`,
-            active: true,
-          },
-          create: {
+        // Avoid upsert unique-constraint conflicts by checking existing records
+        let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
+        if (permission) {
+          await prisma.permission.update({ where: { id: permission.id }, data: { action: action as PermissionAction, resource: resource as PermissionResource, description: `${action} ${resource}`, active: true } });
+          permissionMap[permCode] = permission.id;
+          continue;
+        }
+
+        const existingByAR = await prisma.permission.findFirst({ where: { action: action as any, resource: resource as any } });
+        if (existingByAR) {
+          console.warn(`Permission for ${action}/${resource} already exists with code ${existingByAR.permissionCode}; mapping ${permCode} -> ${existingByAR.id}`);
+          permissionMap[permCode] = existingByAR.id;
+          continue;
+        }
+
+        permission = await prisma.permission.create({
+          data: {
             permissionCode: permCode,
             action: action as PermissionAction,
             resource: resource as PermissionResource,
