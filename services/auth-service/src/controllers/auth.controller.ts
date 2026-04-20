@@ -187,3 +187,74 @@ export const adminLogin = asyncHandler(async (req: Request, res: Response) => {
   });
   res.json(createApiResponse(result, 'Login successful', req.requestId));
 });
+
+/**
+ * PATCH /auth/users/:userId
+ * Update user profile (firstName, lastName, phone, avatar, status)
+ */
+export const updateUser = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params as { userId: string };
+  const { firstName, lastName, phone, avatar, status } = req.body;
+  
+  logger.debug('updateUser → enter', { userId, requestId: req.requestId });
+
+  const updatedUser = await authService.updateUser(userId, {
+    firstName,
+    lastName,
+    phone,
+    avatar,
+    status,
+  });
+
+  // Track which fields were updated
+  const updatedFields: string[] = [];
+  if (firstName !== undefined) updatedFields.push('firstName');
+  if (lastName !== undefined) updatedFields.push('lastName');
+  if (phone !== undefined) updatedFields.push('phone');
+  if (avatar !== undefined) updatedFields.push('avatar');
+  if (status !== undefined) updatedFields.push('status');
+
+  logger.info('updateUser → success', {
+    requestId: req.requestId,
+    userId,
+    updatedFields,
+  });
+
+  res.json(createApiResponse(
+    {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      phone: updatedUser.phone,
+      avatar: updatedUser.avatar,
+      status: updatedUser.status,
+      updatedAt: updatedUser.updatedAt,
+    },
+    'User updated successfully',
+    req.requestId
+  ));
+});
+
+/**
+ * DELETE /auth/users/:userId
+ * Delete a user account (hard delete with cascading deletes)
+ */
+export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params as { userId: string };
+  
+  logger.debug('deleteUser → enter', { userId, requestId: req.requestId });
+
+  await authService.deleteUser(userId);
+
+  logger.info('deleteUser → success', {
+    requestId: req.requestId,
+    userId,
+  });
+
+  res.json(createApiResponse(
+    null,
+    'User account deleted successfully',
+    req.requestId
+  ));
+});

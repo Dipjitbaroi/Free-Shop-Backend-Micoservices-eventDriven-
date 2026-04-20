@@ -12,13 +12,14 @@ import {
   ForbiddenError,
   comparePassword,
   hashPassword,
+  NotFoundError,
+  createServiceLogger,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { RBACService } from './rbac.service.js';
 import { blacklistToken, isTokenBlacklisted, invalidateAllSessions } from '../lib/redis.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import { verifyFirebaseToken } from '../lib/firebase.js';
-import { createServiceLogger } from '@freeshop/shared-utils';
 import config from '../config/index.js';
 
 const logger = createServiceLogger('auth-service');
@@ -649,6 +650,79 @@ class AuthService {
     ]);
 
     return { users, total, page, limit };
+  }
+
+  /**
+   * Update user profile (firstName, lastName, phone, avatar, status)
+   */
+  async updateUser(
+    userId: string,
+    updates: {
+      firstName?: string;
+      lastName?: string;
+      phone?: string;
+      avatar?: string;
+      status?: UserStatus;
+    }
+  ) {
+    try {
+      // Validate user exists
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      // Update user fields
+      const updateData: any = {};
+      if (updates.firstName !== undefined) updateData.firstName = updates.firstName.trim();
+      if (updates.lastName !== undefined) updateData.lastName = updates.lastName.trim();
+      if (updates.phone !== undefined) updateData.phone = updates.phone.trim() || null;
+      if (updates.avatar !== undefined) updateData.avatar = updates.avatar.trim() || null;
+      if (updates.status !== undefined) updateData.status = updates.status;
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: updateData,
+      });
+
+      logger.info('User profile updated', { userId, updates: Object.keys(updateData) });
+
+      return updatedUser;
+    } catch (error) {
+      logger.error('Error updating user', { userId, error: (error as Error).message });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a user account (hard delete)
+   * Cascades to related records: refresh tokens, sessions, user roles, etc.
+   */
+  async deleteUser(userId: string): Promise<void> {
+    try {
+      // Validate user exists
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        throw new NotFoundError('User not found');
+      }
+
+      // Delete user (cascades to refresh tokens, sessions, user roles via foreign keys)
+      await prisma.user.delete({
+        where: { id: userId },
+      });
+
+      // Publish user.deleted event
+      (eventPublisher as any).userDeleted({
+        userId,
+      }).catch((err: any) =>
+        logger.error('Failed to publish user.deleted event', { error: err?.message }),
+      );
+
+      logger.info('User account deleted', { userId, email: user.email });
+    } catch (error) {
+      logger.error('Error deleting user', { userId, error: (error as Error).message });
+      throw error;
+    }
   }
 
 }

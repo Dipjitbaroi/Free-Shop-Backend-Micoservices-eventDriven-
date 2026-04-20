@@ -3,6 +3,7 @@ import { Events, Exchanges, ExchangeName } from './constants';
 import {
   IUserCreatedPayload,
   IUserUpdatedPayload,
+  IUserDeletedEvent,
   IOrderCreatedPayload,
   IOrderStatusChangedPayload,
   IOrderCancelledPayload,
@@ -37,6 +38,10 @@ export class EventPublisher {
 
   async userUpdated(data: IUserUpdatedPayload, options?: IPublishOptions): Promise<boolean> {
     return this.broker.publish(Exchanges.USER, Events.USER_UPDATED, data, options);
+  }
+
+  async userDeleted(data: IUserDeletedEvent, options?: IPublishOptions): Promise<boolean> {
+    return this.broker.publish(Exchanges.USER, Events.USER_DELETED, data, options);
   }
 
   // Product Events
