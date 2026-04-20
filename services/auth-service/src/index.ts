@@ -13,6 +13,7 @@ import { createServiceLogger } from '@freeshop/shared-utils';
 import { prisma } from './lib/prisma.js';
 import { messageBroker } from './lib/message-broker.js';
 import { setupEventSubscribers } from './events/subscribers.js';
+import RBACService from './services/rbac.service.js';
 
 const logger = createServiceLogger('auth-service');
 const PORT = process.env.AUTH_SERVICE_PORT || 3001;
@@ -26,6 +27,14 @@ const startServer = async (): Promise<void> => {
     // Connect to message broker
     await messageBroker.connect();
     logger.info('Connected to RabbitMQ');
+
+    // Initialize RBAC (creates default roles & permissions if not already present)
+    try {
+      await RBACService.initializeDefaultRoles();
+      logger.info('RBAC system initialized');
+    } catch (err: any) {
+      logger.warn('RBAC initialization warning', { message: err?.message });
+    }
 
     // Register event subscribers
     await setupEventSubscribers();
