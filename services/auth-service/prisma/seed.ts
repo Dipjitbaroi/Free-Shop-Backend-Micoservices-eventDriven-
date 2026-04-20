@@ -44,6 +44,7 @@ const PERMISSION_CODES = {
   PRODUCT_READ: 5002,
   PRODUCT_UPDATE: 5003,
   PRODUCT_DELETE: 5004,
+  PRODUCT_UPDATE_PRICE: 5005,
 
   // Delivery permissions
   DELIVERY_CREATE: 6001,
@@ -122,6 +123,7 @@ const permissionDefs: PermissionDef[] = [
   { code: 5002, resource: 'PRODUCT', action: 'READ', description: 'View products' },
   { code: 5003, resource: 'PRODUCT', action: 'UPDATE', description: 'Update products' },
   { code: 5004, resource: 'PRODUCT', action: 'DELETE', description: 'Delete products' },
+  { code: 5005, resource: 'PRODUCT', action: 'UPDATE', description: 'Set or update product price' },
 
   // Review permissions (managed under PRODUCT)
   // Note: Reviews are product-related, so they don't need separate resource
@@ -185,6 +187,7 @@ const defaultRoles: RoleDef[] = [
       PERMISSION_CODES.USER_UPDATE,
       PERMISSION_CODES.USER_MANAGEMENT_UPDATE,
       PERMISSION_CODES.USER_MANAGEMENT_DELETE,
+        PERMISSION_CODES.PRODUCT_UPDATE_PRICE,
       PERMISSION_CODES.USER_APPROVE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.ORDER_UPDATE,
@@ -202,6 +205,7 @@ const defaultRoles: RoleDef[] = [
       PERMISSION_CODES.USER_READ,
       PERMISSION_CODES.USER_MANAGEMENT_UPDATE,
       PERMISSION_CODES.USER_MANAGEMENT_DELETE,
+        PERMISSION_CODES.PRODUCT_UPDATE_PRICE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.ORDER_UPDATE,
       PERMISSION_CODES.PRODUCT_READ,
