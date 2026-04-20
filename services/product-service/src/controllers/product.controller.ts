@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { productService } from '../services/product.service.js';
 import axios from 'axios';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { ProductStatus } from '@freeshop/shared-types';
 import { successResponse } from '@freeshop/shared-utils';
 
@@ -106,6 +107,7 @@ export const productController = {
       // Determine actor role by querying the auth-service so service can correctly
       // enforce admin-only approval rules. Falls back to undefined if unavailable.
       let actorRole: string | undefined = undefined;
+      let priceAuthorized = false;
       try {
         const token = (req.headers.authorization || '').replace('Bearer ', '');
         const resp = await axios.get(
@@ -113,8 +115,13 @@ export const productController = {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         const roleNames: string[] = resp.data?.roleNames || [];
+        const permissionCodes: number[] = resp.data?.permissionCodes || [];
         if (roleNames.includes('SUPERADMIN') || roleNames.includes('ADMIN')) actorRole = 'ADMIN';
         else if (roleNames.includes('MANAGER')) actorRole = 'MANAGER';
+
+        // Determine if caller is allowed to set/update product price
+        const hasPricePermission = permissionCodes.includes(PERMISSION_CODES.PRODUCT_UPDATE_PRICE);
+        priceAuthorized = (!!actorRole && ['ADMIN', 'MANAGER'].includes(actorRole)) || hasPricePermission;
       } catch (err) {
         // If the role lookup fails, continue without actorRole — the service
         // will perform conservative checks and may reject admin-only actions.
@@ -123,7 +130,7 @@ export const productController = {
         console.debug('Failed to resolve actor role from auth-service', (err as any)?.message || err);
       }
 
-      const product = await productService.updateProductStatus(id as string, status, actorRole, reason, price);
+      const product = await productService.updateProductStatus(id as string, status, actorRole, reason, price, priceAuthorized);
       res.json(successResponse(product, 'Product status updated successfully'));
     } catch (error) {
       next(error);

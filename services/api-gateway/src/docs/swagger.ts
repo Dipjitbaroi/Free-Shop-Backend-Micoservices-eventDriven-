@@ -1719,6 +1719,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                 properties: {
                   status: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'REJECTED'] },
                   reason: { type: 'string', description: 'Required when status is REJECTED' },
+                  price: { type: 'number', format: 'double', description: 'Retail price. Required when approving if product has no existing price. Requires PRODUCT_UPDATE_PRICE permission to set.' },
                 },
               },
             },

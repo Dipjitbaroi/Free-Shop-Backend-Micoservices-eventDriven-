@@ -372,6 +372,7 @@ class ProductService {
     actorRole?: string,
     reason?: string,
     price?: number,  // Admin can set retail price during approval
+    priceAuthorized?: boolean,
   ): Promise<Product> {
     const product = await prisma.product.findUnique({ where: { id }, include: { category: true } });
     if (!product) throw new NotFoundError('Product not found');
@@ -385,10 +386,17 @@ class ProductService {
     }
     if (status === ProductStatus.ACTIVE) {
       if (!isAdmin) throw new ForbiddenError('Only admins can approve products');
-      // Require price to be set during approval
-      if (price === undefined || price === null) {
+      // Allow using existing product.price if present (> 0). If caller supplied
+      // a new price, require they have priceAuthorized or be an admin.
+      const finalPrice = price !== undefined && price !== null ? price : (product.price ? Number(product.price) : undefined);
+      if (finalPrice === undefined || finalPrice === null || finalPrice <= 0) {
         throw new BadRequestError('Price must be provided when approving a product');
       }
+      if (price !== undefined && price !== null && !priceAuthorized && !isAdmin) {
+        throw new ForbiddenError('Not authorized to set product price');
+      }
+      // assign finalPrice to price variable for later update
+      price = finalPrice;
     }
     if (status === ProductStatus.REJECTED) {
       if (!isAdmin) throw new ForbiddenError('Only admins can reject products');
