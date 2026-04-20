@@ -644,12 +644,30 @@ class AuthService {
           lastLoginAt: true,
           createdAt: true,
           updatedAt: true,
+          // Include roles via userRoles relation
+          userRoles: {
+            select: {
+              role: {
+                select: { id: true, name: true },
+              },
+            },
+          },
         },
       }),
       prisma.user.count({ where }),
     ]);
 
-    return { users, total, page, limit };
+    // Map roles into a simple array of role names for each user
+    const mappedUsers = users.map((u: any) => {
+      const roleNames = (u.userRoles || []).map((ur: any) => ur.role?.name).filter(Boolean);
+      const { userRoles, ...rest } = u;
+      return {
+        ...rest,
+        roles: roleNames,
+      };
+    });
+
+    return { users: mappedUsers, total, page, limit };
   }
 
   /**
