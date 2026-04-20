@@ -25,6 +25,10 @@ export interface IAuthTokens {
 export interface IAuthResponse {
   user: Omit<IUser, 'passwordHash'>;
   tokens: IAuthTokens;
+  // Optional RBAC snapshot returned at login or from `/auth/me`
+  roles?: any[]; // full role objects as returned by RBAC (id, name, permissions...)
+  roleNames?: string[];
+  permissionCodes?: number[];
 }
 
 export interface IRefreshTokenRequest {

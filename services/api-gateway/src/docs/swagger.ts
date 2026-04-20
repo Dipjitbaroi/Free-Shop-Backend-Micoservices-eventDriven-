@@ -4723,6 +4723,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   expiresIn: { type: 'integer', description: 'Seconds until access token expiry' },
                 },
               },
+                // RBAC snapshot: optional
+                roles: { type: 'array', items: { type: 'object', additionalProperties: true } },
+                roleNames: { type: 'array', items: { type: 'string' } },
+                permissionCodes: { type: 'array', items: { type: 'integer' } },
             },
           },
         },
@@ -4758,6 +4762,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               lastName: { type: 'string', example: 'Doe' },
               avatar: { type: 'string', format: 'uri', nullable: true },
               role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'], example: 'CUSTOMER' },
+              // For `/auth/me` the server may also include an RBAC snapshot
+              roles: { type: 'array', items: { type: 'object', additionalProperties: true } },
+              roleNames: { type: 'array', items: { type: 'string' } },
+              permissionCodes: { type: 'array', items: { type: 'integer' } },
               status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], example: 'ACTIVE' },
               oauthProvider: { type: 'string', example: 'LOCAL' },
               emailVerified: { type: 'boolean', example: false },

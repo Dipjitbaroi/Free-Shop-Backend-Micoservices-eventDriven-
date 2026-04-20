@@ -14,6 +14,7 @@ import {
   hashPassword,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
+import { RBACService } from './rbac.service.js';
 import { blacklistToken, isTokenBlacklisted, invalidateAllSessions } from '../lib/redis.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import { verifyFirebaseToken } from '../lib/firebase.js';
@@ -216,6 +217,10 @@ class AuthService {
     });
 
     logger.debug('loginWithFirebase → done', { userId: user.id, email: user.email });
+
+    // Fetch roles & permissions for frontend convenience
+    const rbac = await RBACService.getUserRolesAndPermissions(user.id);
+
     return {
       user: {
         id: user.id,
@@ -233,6 +238,9 @@ class AuthService {
         updatedAt: user.updatedAt,
       },
       tokens,
+      roles: rbac.roles,
+      roleNames: rbac.roleNames,
+      permissionCodes: rbac.permissionCodes,
     };
   }
 
@@ -428,6 +436,9 @@ class AuthService {
 
     logger.info('loginWithCredentials → success', { userId: updatedUser.id });
 
+    // Fetch roles & permissions for frontend convenience
+    const rbac = await RBACService.getUserRolesAndPermissions(updatedUser.id);
+
     return {
       user: {
         id: updatedUser.id,
@@ -445,6 +456,9 @@ class AuthService {
         updatedAt: updatedUser.updatedAt,
       },
       tokens,
+      roles: rbac.roles,
+      roleNames: rbac.roleNames,
+      permissionCodes: rbac.permissionCodes,
     };
   }
 
@@ -547,7 +561,20 @@ class AuthService {
       throw new UnauthorizedError('User not found');
     }
 
-    return user;
+    // Attach RBAC info so `/auth/me` returns roles and permissions
+    try {
+      const rbac = await RBACService.getUserRolesAndPermissions(userId);
+      return {
+        ...user,
+        roles: rbac.roles,
+        roleNames: rbac.roleNames,
+        permissionCodes: rbac.permissionCodes,
+      };
+    } catch (err) {
+      // If RBAC lookup fails, return user without roles to avoid blocking
+      logger.error('Failed to fetch RBAC info for user', { userId, error: (err as any)?.message });
+      return user;
+    }
   }
 
   async getUsers(filters: {
