@@ -91,56 +91,61 @@ enum AddressType {
 enum SellerStatus {
   ACTIVE
   INACTIVE
+  ON_LEAVE
   SUSPENDED
-  PENDING_VERIFICATION
-  ONBOARDING
+  TERMINATED
+}
+
+enum SellerDepartment {
+  ORDER_PROCESSING
+  DELIVERY_ASSIGNMENT
+  CUSTOMER_SUPPORT
+  QUALITY_CONTROL
 }
 
 model SellerProfile {
   id            String   @id @default(uuid())
   userId        String   @unique // References auth service user (with SELLER role)
   
-  // Shop Info
-  shopName      String
-  shopSlug      String   @unique
-  shopDescription String?
-  shopLogo      String?
-  shopBanner    String?
+  // Personal Info
+  firstName     String
+  lastName      String
+  email         String   @unique
+  phone         String
+  avatar        String?
   
-  // Contact Info
-  phone         String?
-  email         String?
-  address       String?
-  city          String?
-  postalCode    String?
+  // Employee Info
+  employeeId    String   @unique // Unique staff number
+  department    SellerDepartment
+  assignedZone  String?  // Geographic zone or region for order/delivery assignment
   
-  // Business Info
-  businessLicense String?
-  nidNumber     String?
-  tin           String?
-  
-  // Status & Verification
-  status        SellerStatus @default(ONBOARDING)
-  isVerified    Boolean  @default(false)
-  documentVerified Boolean @default(false)
+  // Employment Status
+  status        SellerStatus @default(ACTIVE)
+  joinDate      DateTime @default(now())
+  terminationDate DateTime?
   
   // Performance Metrics
-  rating        Float?   @default(5)
-  ratingCount   Int      @default(0)
-  totalOrders   Int      @default(0)
-  totalRevenue  Decimal  @default(0)
-  completionRate Float?  @default(0)
-  returnRate    Float?   @default(0)
+  ordersProcessed Int      @default(0)
+  assignedDeliveries Int   @default(0)
+  successRate   Float?   @default(0) // %age of successful operations
+  rating        Float?   @default(5)  // Customer rating/feedback
   
-  // Store Settings
-  operatingHours Json?   // { monday: { open: "09:00", close: "21:00" }, ... }
-  bankDetails   Json?    // Sensitive - { accountNumber, accountHolderName, bankName }
+  // Commission & Payment
+  commissionRate Decimal  @default(5) @db.Decimal(5, 2) // %age or flat rate
+  bankDetails   Json?    // { accountNumber, accountHolderName, bankName, ifscCode }
+  
+  // Work Schedule & Contact
+  workSchedule  Json?    // { monday: { start: "09:00", end: "18:00" }, ... }
+  isAvailable   Boolean  @default(true)
   
   // Timestamps
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   @@index([userId])
+  @@index([employeeId])
+  @@index([department])
+  @@index([assignedZone])
   @@index([status])
-  @@index([isVerified])
+  @@index([isAvailable])
 }
