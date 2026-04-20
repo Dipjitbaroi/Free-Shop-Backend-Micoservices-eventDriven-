@@ -23,6 +23,21 @@ import config from '../config/index.js';
 
 const logger = createServiceLogger('auth-service');
 
+// Sanitize roles: remove audit/metadata fields before returning to clients
+const sanitizeRoles = (roles: any[] = []) =>
+  roles.map((r) => ({
+    id: r.id,
+    name: r.name,
+    permissionCount: r.permissionCount ?? (r.permissions?.length ?? undefined),
+    permissions:
+      r.permissions?.map((p: any) => ({
+        id: p.permission?.id ?? p.id,
+        permissionCode: p.permission?.permissionCode ?? p.permissionCode,
+        action: p.permission?.action ?? p.action,
+        resource: p.permission?.resource ?? p.resource,
+      })) || [],
+  }));
+
 class AuthService {
   private generateTokens(user: { id: string; email: string; role?: string }): IAuthTokens {
     const payload: Omit<ITokenPayload, 'iat' | 'exp'> = {
