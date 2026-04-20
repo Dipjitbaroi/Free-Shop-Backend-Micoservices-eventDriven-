@@ -1,28 +1,44 @@
 /**
  * Seller Service
- * Manages seller profiles and related operations
+ * Manages seller (employee/worker) profiles and related operations
+ * Sellers are internal Free Shop staff who process orders and assign deliveries
  */
 
-import { SellerProfile } from '../../generated/client/client.js';
+import { SellerProfile, SellerStatus, SellerDepartment } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError, ConflictError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 
 interface CreateSellerProfileData {
-  shopName: string;
-  shopSlug: string;
-  shopDescription?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  employeeId: string;
+  department: SellerDepartment;
+  assignedZone?: string;
+  avatar?: string;
+  commissionRate?: number;
+  bankDetails?: any;
+  workSchedule?: any;
+}
+
+interface UpdateSellerProfileData {
+  firstName?: string;
+  lastName?: string;
   phone?: string;
-  email?: string;
-  address?: string;
-  city?: string;
-  postalCode?: string;
+  avatar?: string;
+  department?: SellerDepartment;
+  assignedZone?: string;
+  commissionRate?: number;
+  bankDetails?: any;
+  workSchedule?: any;
 }
 
 interface UpdateSellerMetricsData {
-  totalOrders?: number;
-  completionRate?: number;
-  returnRate?: number;
-  totalRevenue?: number;
+  ordersProcessed?: number;
+  assignedDeliveries?: number;
+  successRate?: number;
+  rating?: number;
 }
 
 class SellerService {
@@ -39,27 +55,40 @@ class SellerService {
       throw new ConflictError('User already has a seller profile');
     }
 
-    // Check if shopSlug is unique
-    const slugExists = await prisma.sellerProfile.findUnique({
-      where: { shopSlug: data.shopSlug },
+    // Check if employeeId is unique
+    const employeeExists = await prisma.sellerProfile.findUnique({
+      where: { employeeId: data.employeeId },
     });
 
-    if (slugExists) {
-      throw new ConflictError('Shop slug already exists');
+    if (employeeExists) {
+      throw new ConflictError('Employee ID already exists');
+    }
+
+    // Check if email is unique
+    const emailExists = await prisma.sellerProfile.findUnique({
+      where: { email: data.email },
+    });
+
+    if (emailExists) {
+      throw new ConflictError('Email already in use');
     }
 
     const seller = await prisma.sellerProfile.create({
       data: {
         userId,
-        shopName: data.shopName,
-        shopSlug: data.shopSlug,
-        shopDescription: data.shopDescription,
-        phone: data.phone,
+        firstName: data.firstName,
+        lastName: data.lastName,
         email: data.email,
-        address: data.address,
-        city: data.city,
-        postalCode: data.postalCode,
-        status: 'ONBOARDING',
+        phone: data.phone,
+        employeeId: data.employeeId,
+        department: data.department,
+        assignedZone: data.assignedZone,
+        avatar: data.avatar,
+        commissionRate: data.commissionRate || 5,
+        bankDetails: data.bankDetails,
+        workSchedule: data.workSchedule,
+        status: 'ACTIVE' as SellerStatus,
+        isAvailable: true,
       },
     });
 
@@ -74,9 +103,9 @@ class SellerService {
     return seller;
   }
 
-  async getSellerProfileBySlug(shopSlug: string): Promise<SellerProfile | null> {
+  async getSellerProfileByEmployeeId(employeeId: string): Promise<SellerProfile | null> {
     const seller = await prisma.sellerProfile.findUnique({
-      where: { shopSlug },
+      where: { employeeId },
     });
 
     return seller;
@@ -84,19 +113,18 @@ class SellerService {
 
   async updateSellerProfile(
     userId: string,
-    data: Partial<SellerProfile>
+    data: UpdateSellerProfileData
   ): Promise<SellerProfile> {
-    // Filter out read-only fields that shouldn't be updated
     const updateData: any = {};
     const allowedFields = [
-      'shopName', 'shopSlug', 'shopDescription', 'shopLogo', 'shopBanner',
-      'phone', 'email', 'address', 'city', 'postalCode', 'status',
-      'operatingHours', 'bankDetails', 'returnAddress', 'customFields'
+      'firstName', 'lastName', 'phone', 'avatar',
+      'department', 'assignedZone', 'commissionRate',
+      'bankDetails', 'workSchedule'
     ];
 
     for (const key of allowedFields) {
-      if (key in data && data[key as keyof SellerProfile] !== undefined) {
-        updateData[key] = data[key as keyof SellerProfile];
+      if (key in data && data[key as keyof UpdateSellerProfileData] !== undefined) {
+        updateData[key] = data[key as keyof UpdateSellerProfileData];
       }
     }
 
@@ -111,7 +139,7 @@ class SellerService {
   async getAllSellers(
     page = 1,
     limit = 20,
-    filters?: { status?: string; isVerified?: boolean }
+    filters?: { status?: SellerStatus; department?: SellerDepartment; isAvailable?: boolean }
   ): Promise<{ sellers: SellerProfile[]; total: number }> {
     const where: any = {};
 
@@ -119,8 +147,12 @@ class SellerService {
       where.status = filters.status;
     }
 
-    if (filters?.isVerified !== undefined) {
-      where.isVerified = filters.isVerified;
+    if (filters?.department) {
+      where.department = filters.department;
+    }
+
+    if (filters?.isAvailable !== undefined) {
+      where.isAvailable = filters.isAvailable;
     }
 
     const sellers = await prisma.sellerProfile.findMany({
@@ -135,29 +167,36 @@ class SellerService {
     return { sellers, total };
   }
 
-  async verifySeller(userId: string, verified: boolean): Promise<SellerProfile> {
-    const seller = await prisma.sellerProfile.update({
-      where: { userId },
-      data: {
-        isVerified: verified,
-        status: verified ? 'ACTIVE' : 'PENDING_VERIFICATION',
-      },
-    });
+  async getSellersByDepartment(
+    department: SellerDepartment,
+    status?: SellerStatus
+  ): Promise<SellerProfile[]> {
+    const where: any = { department };
 
-    return seller;
+    if (status) {
+      where.status = status;
+    }
+
+    return prisma.sellerProfile.findMany({
+      where,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async getSellersByZone(assignedZone: string): Promise<SellerProfile[]> {
+    return prisma.sellerProfile.findMany({
+      where: { assignedZone, status: 'ACTIVE' as SellerStatus, isAvailable: true },
+      orderBy: { firstName: 'asc' },
+    });
   }
 
   async updateSellerRating(
     userId: string,
-    rating: number,
-    ratingCount: number
+    rating: number
   ): Promise<SellerProfile> {
     const seller = await prisma.sellerProfile.update({
       where: { userId },
-      data: {
-        rating,
-        ratingCount,
-      },
+      data: { rating },
     });
 
     return seller;
@@ -169,10 +208,10 @@ class SellerService {
   ): Promise<SellerProfile> {
     const updateData: any = {};
 
-    if (data.totalOrders !== undefined) updateData.totalOrders = data.totalOrders;
-    if (data.completionRate !== undefined) updateData.completionRate = data.completionRate;
-    if (data.returnRate !== undefined) updateData.returnRate = data.returnRate;
-    if (data.totalRevenue !== undefined) updateData.totalRevenue = data.totalRevenue;
+    if (data.ordersProcessed !== undefined) updateData.ordersProcessed = data.ordersProcessed;
+    if (data.assignedDeliveries !== undefined) updateData.assignedDeliveries = data.assignedDeliveries;
+    if (data.successRate !== undefined) updateData.successRate = data.successRate;
+    if (data.rating !== undefined) updateData.rating = data.rating;
 
     const seller = await prisma.sellerProfile.update({
       where: { userId },
@@ -182,19 +221,50 @@ class SellerService {
     return seller;
   }
 
-  async suspendSeller(userId: string): Promise<SellerProfile> {
+  async setSuspended(userId: string): Promise<SellerProfile> {
     const seller = await prisma.sellerProfile.update({
       where: { userId },
-      data: { status: 'SUSPENDED' },
+      data: { status: 'SUSPENDED' as SellerStatus },
     });
 
     return seller;
   }
 
-  async activateSeller(userId: string): Promise<SellerProfile> {
+  async setActive(userId: string): Promise<SellerProfile> {
     const seller = await prisma.sellerProfile.update({
       where: { userId },
-      data: { status: 'ACTIVE' },
+      data: { status: 'ACTIVE' as SellerStatus },
+    });
+
+    return seller;
+  }
+
+  async setOnLeave(userId: string): Promise<SellerProfile> {
+    const seller = await prisma.sellerProfile.update({
+      where: { userId },
+      data: { status: 'ON_LEAVE' as SellerStatus, isAvailable: false },
+    });
+
+    return seller;
+  }
+
+  async setTerminated(userId: string): Promise<SellerProfile> {
+    const seller = await prisma.sellerProfile.update({
+      where: { userId },
+      data: { 
+        status: 'TERMINATED' as SellerStatus, 
+        isAvailable: false,
+        terminationDate: new Date(),
+      },
+    });
+
+    return seller;
+  }
+
+  async setAvailability(userId: string, isAvailable: boolean): Promise<SellerProfile> {
+    const seller = await prisma.sellerProfile.update({
+      where: { userId },
+      data: { isAvailable },
     });
 
     return seller;

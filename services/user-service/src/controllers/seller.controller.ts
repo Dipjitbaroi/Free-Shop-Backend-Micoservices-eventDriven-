@@ -11,17 +11,20 @@ export const sellerController = {
   async createSellerProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id as string;
-      const { shopName, shopSlug, shopDescription, phone, email, address, city, postalCode } = req.body;
+      const { firstName, lastName, email, phone, employeeId, department, assignedZone, avatar, commissionRate, bankDetails, workSchedule } = req.body;
 
       const seller = await sellerService.createSellerProfile(userId, {
-        shopName,
-        shopSlug,
-        shopDescription,
-        phone,
+        firstName,
+        lastName,
         email,
-        address,
-        city,
-        postalCode,
+        phone,
+        employeeId,
+        department,
+        assignedZone,
+        avatar,
+        commissionRate,
+        bankDetails,
+        workSchedule,
       });
 
       res.status(201).json(successResponse(seller, 'Seller profile created successfully'));
@@ -46,17 +49,17 @@ export const sellerController = {
     }
   },
 
-  async getSellerByShop(req: Request, res: Response, next: NextFunction) {
+  async getSellerByEmployeeId(req: Request, res: Response, next: NextFunction) {
     try {
-      const shopSlug = Array.isArray(req.params.shopSlug) ? req.params.shopSlug[0] : req.params.shopSlug;
+      const employeeId = Array.isArray(req.params.employeeId) ? req.params.employeeId[0] : req.params.employeeId;
 
-      const seller = await sellerService.getSellerProfileBySlug(shopSlug);
+      const seller = await sellerService.getSellerProfileByEmployeeId(employeeId);
 
       if (!seller) {
-        throw new NotFoundError('Shop not found');
+        throw new NotFoundError('Seller not found');
       }
 
-      res.json(successResponse(seller, 'Shop profile retrieved successfully'));
+      res.json(successResponse(seller, 'Seller profile retrieved successfully'));
     } catch (error) {
       next(error);
     }
@@ -105,10 +108,12 @@ export const sellerController = {
 
       const filters: any = {};
       const status = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
-      const verified = Array.isArray(req.query.verified) ? req.query.verified[0] : req.query.verified;
+      const department = Array.isArray(req.query.department) ? req.query.department[0] : req.query.department;
+      const isAvailable = Array.isArray(req.query.isAvailable) ? req.query.isAvailable[0] : req.query.isAvailable;
       
       if (status) filters.status = status;
-      if (verified !== undefined) filters.isVerified = verified === 'true';
+      if (department) filters.department = department;
+      if (isAvailable !== undefined) filters.isAvailable = isAvailable === 'true';
 
       const { sellers, total } = await sellerService.getAllSellers(page, limit, filters);
 
@@ -131,38 +136,37 @@ export const sellerController = {
     }
   },
 
-  async verifySeller(req: Request, res: Response, next: NextFunction) {
+  async setSuspended(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
-      const { verified } = req.body;
 
-      const seller = await sellerService.verifySeller(userId, verified);
+      const seller = await sellerService.setSuspended(userId);
 
-      res.json(successResponse(seller, `Seller ${verified ? 'verified' : 'unverified'} successfully`));
+      res.json(successResponse(seller, 'Seller status changed to suspended'));
     } catch (error) {
       next(error);
     }
   },
 
-  async suspendSeller(req: Request, res: Response, next: NextFunction) {
+  async setActive(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
 
-      const seller = await sellerService.suspendSeller(userId);
+      const seller = await sellerService.setActive(userId);
 
-      res.json(successResponse(seller, 'Seller suspended successfully'));
+      res.json(successResponse(seller, 'Seller status changed to active'));
     } catch (error) {
       next(error);
     }
   },
 
-  async activateSeller(req: Request, res: Response, next: NextFunction) {
+  async setOnLeave(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
 
-      const seller = await sellerService.activateSeller(userId);
+      const seller = await sellerService.setOnLeave(userId);
 
-      res.json(successResponse(seller, 'Seller activated successfully'));
+      res.json(successResponse(seller, 'Seller status changed to on leave'));
     } catch (error) {
       next(error);
     }
