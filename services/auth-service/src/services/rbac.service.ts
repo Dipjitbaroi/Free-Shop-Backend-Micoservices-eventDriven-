@@ -30,6 +30,8 @@ export class RBACService {
       const permissionMap: Record<number, string> = {};
 
       // Upsert all permissions based on PERMISSION_CODES
+      // Key principle: Each permissionCode is unique, even if multiple codes share the same (action, resource)
+      // Example: PRODUCT_UPDATE (5003) and PRODUCT_UPDATE_PRICE (5005) both have action=UPDATE, resource=PRODUCT
       for (const [code, permCodeRaw] of Object.entries(PERMISSION_CODES)) {
         try {
           const permCode = Number(permCodeRaw as unknown as number);
@@ -39,11 +41,8 @@ export class RBACService {
             const action: PermissionAction = code === 'USER_MANAGEMENT_UPDATE' ? PermissionAction.UPDATE : PermissionAction.DELETE;
             const resource: PermissionResource = PermissionResource.USER;
 
-            // For USER_MANAGEMENT permissions, check ONLY by permissionCode (not by action/resource)
-            // because there may be other USER/UPDATE or USER/DELETE permissions with different codes
             let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
             if (permission) {
-              // Update existing permission to ensure correct action/resource
               await prisma.permission.update({
                 where: { id: permission.id },
                 data: {
@@ -58,8 +57,6 @@ export class RBACService {
               continue;
             }
 
-            // Create new permission - do NOT check by action/resource for USER_MANAGEMENT codes
-            // to avoid conflicts with regular USER_UPDATE/USER_DELETE permissions
             permission = await prisma.permission.create({
               data: {
                 permissionCode: permCode,
@@ -78,7 +75,6 @@ export class RBACService {
           // Attempt to parse standard PATTERNS like PRODUCT_UPDATE or ORDER_APPROVE
           const parts = code.match(/([A-Z]+)_([A-Z]+)/);
           if (!parts) {
-            // Skip if unable to parse; some codes may include extra segments
             console.debug(`Skipping ${code}: does not match standard pattern`);
             continue;
           }
@@ -95,21 +91,20 @@ export class RBACService {
             continue;
           }
 
-          // Avoid upsert unique-constraint conflicts by checking existing records
+          // Check ONLY by permissionCode - each code is unique
+          // Multiple codes can share the same (action, resource) but we create/update each independently
           let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
           if (permission) {
-            await prisma.permission.update({ where: { id: permission.id }, data: { action, resource, description: `${action} ${resource}`, active: true } });
+            await prisma.permission.update({
+              where: { id: permission.id },
+              data: { action, resource, description: `${action} ${resource}`, active: true }
+            });
             permissionMap[permCode] = permission.id;
+            console.log(`Updated existing permission ${code} (${permCode})`);
             continue;
           }
 
-          const existingByAR = await prisma.permission.findFirst({ where: { action, resource } });
-          if (existingByAR) {
-            console.warn(`Permission for ${action}/${resource} already exists with code ${existingByAR.permissionCode}; mapping ${permCode} -> ${existingByAR.id}`);
-            permissionMap[permCode] = existingByAR.id;
-            continue;
-          }
-
+          // Create new permission - never skip based on (action, resource) because multiple codes can coexist
           permission = await prisma.permission.create({
             data: {
               permissionCode: permCode,
