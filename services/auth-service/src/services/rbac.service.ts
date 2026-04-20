@@ -25,92 +25,116 @@ export class RBACService {
    */
   static async initializeDefaultRoles(): Promise<void> {
     try {
-      // Check if roles already exist
-      const existingRoles = await prisma.role.count();
-      if (existingRoles > 0) {
-        console.log('Roles already initialized');
-        return;
-      }
-
-      // Create all permissions first
+      // This initializer is idempotent. It will upsert permissions and
+      // reconcile role -> permission assignments even if roles exist.
       const permissionMap: Record<number, string> = {};
-      
-      for (const [code, permCode] of Object.entries(PERMISSION_CODES)) {
-        // Handle special system permissions
-        if (code === 'USER_MANAGEMENT_UPDATE') {
-          const permission = await prisma.permission.create({
-            data: {
+
+      // Upsert all permissions based on PERMISSION_CODES
+      for (const [code, permCodeRaw] of Object.entries(PERMISSION_CODES)) {
+        const permCode = Number(permCodeRaw as unknown as number);
+
+        // special-case user-management codes to ensure correct action/resource
+        if (code === 'USER_MANAGEMENT_UPDATE' || code === 'USER_MANAGEMENT_DELETE') {
+          const action = code === 'USER_MANAGEMENT_UPDATE' ? 'UPDATE' : 'DELETE';
+          const resource = 'USER';
+
+          const permission = await prisma.permission.upsert({
+            where: { permissionCode: permCode },
+            update: {
+              action: action as PermissionAction,
+              resource: resource as PermissionResource,
+              description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
+              active: true,
+            },
+            create: {
               permissionCode: permCode,
-              action: 'UPDATE' as PermissionAction,
-              resource: 'USER' as PermissionResource,
-              description: 'Permission to update user profiles',
+              action: action as PermissionAction,
+              resource: resource as PermissionResource,
+              description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
+              active: true,
             },
           });
-          permissionMap[permCode] = permission.id;
-          continue;
-        }
-        
-        if (code === 'USER_MANAGEMENT_DELETE') {
-          const permission = await prisma.permission.create({
-            data: {
-              permissionCode: permCode,
-              action: 'DELETE' as PermissionAction,
-              resource: 'USER' as PermissionResource,
-              description: 'Permission to delete user accounts',
-            },
-          });
+
           permissionMap[permCode] = permission.id;
           continue;
         }
 
+        // Attempt to parse standard PATTERNS like PRODUCT_UPDATE or ORDER_APPROVE
         const parts = code.match(/([A-Z]+)_([A-Z]+)/);
-        if (!parts) continue;
+        if (!parts) {
+          // Skip if unable to parse; some codes may include extra segments
+          continue;
+        }
 
         const resource = parts[1] as PermissionResource;
         const action = parts[2] as PermissionAction;
 
-        const permission = await prisma.permission.create({
-          data: {
-            permissionCode: permCode,
-            action,
-            resource,
+        const permission = await prisma.permission.upsert({
+          where: { permissionCode: permCode },
+          update: {
+            action: action as PermissionAction,
+            resource: resource as PermissionResource,
             description: `${action} ${resource}`,
+            active: true,
+          },
+          create: {
+            permissionCode: permCode,
+            action: action as PermissionAction,
+            resource: resource as PermissionResource,
+            description: `${action} ${resource}`,
+            active: true,
           },
         });
 
         permissionMap[permCode] = permission.id;
       }
 
-      // Create roles with permissions
+      // Ensure roles exist and reconcile their permissions
       const superadminUser = await prisma.user.findFirst({
         where: { email: process.env.SUPERADMIN_EMAIL || 'superadmin@freeshop.com' },
       });
-
-      const superadminId = superadminUser?.id || 'system';
+      const systemUserId = superadminUser?.id || 'system';
 
       for (const [roleName, permissionCodes] of Object.entries(ROLE_PERMISSIONS)) {
-        const permissionIds = permissionCodes
-          .map(code => permissionMap[code])
-          .filter(Boolean);
-
-        const role = await prisma.role.create({
-          data: {
-            name: roleName,
-            description: `${roleName} role with default permissions`,
-            createdBy: superadminId,
-            permissions: {
-              create: permissionIds.map(permissionId => ({
-                permission: { connect: { id: permissionId } },
-                grantedBy: superadminId,
-              })),
+        // find or create role
+        let role = await prisma.role.findUnique({ where: { name: roleName } });
+        if (!role) {
+          role = await prisma.role.create({
+            data: {
+              name: roleName,
+              description: `${roleName} role with default permissions`,
+              createdBy: systemUserId,
             },
-          },
-        });
+          });
+          console.log(`Created role: ${roleName}`);
+        }
 
-        console.log(`Created role: ${roleName} with ${permissionIds.length} permissions`);
+        // Assign missing permissions to role
+        let assigned = 0;
+        for (const code of permissionCodes as number[]) {
+          const permissionId = permissionMap[code];
+          if (!permissionId) {
+            console.warn(`Permission code ${code} not found in permissionMap, skipping assignment to ${roleName}`);
+            continue;
+          }
+
+          // upsert rolePermission using composite unique key
+          try {
+            await prisma.rolePermission.upsert({
+              where: { roleId_permissionId: { roleId: role.id, permissionId } },
+              update: { revokedAt: null, revokedBy: null },
+              create: { roleId: role.id, permissionId, grantedBy: systemUserId },
+            });
+            assigned += 1;
+          } catch (err) {
+            console.warn(`Failed assigning permission ${code} to role ${roleName}:`, err);
+          }
+        }
+
+        console.log(`Reconciled role ${roleName}: assigned/verified ${assigned} permissions`);
       }
 
-      console.log('Default roles and permissions initialized successfully');
+      console.log('Default roles and permissions initialized/reconciled successfully');
     } catch (error) {
       console.error('Error initializing default roles:', error);
       throw error;
