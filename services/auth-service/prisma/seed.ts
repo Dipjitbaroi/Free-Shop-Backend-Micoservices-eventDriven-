@@ -72,9 +72,13 @@ const PERMISSION_CODES = {
   SETTINGS_READ: 10002,
   SETTINGS_UPDATE: 10003,
 
+  // User Management permissions (specific to user update/delete operations)
+  USER_MANAGEMENT_UPDATE: 11002,
+  USER_MANAGEMENT_DELETE: 11003,
+
   // Admin panel permissions
   ADMIN_PANEL_ACCESS: 11001,
-};
+} as const;
 
 // Map permission codes to their action and resource
 interface PermissionDef {
@@ -152,6 +156,10 @@ const permissionDefs: PermissionDef[] = [
   { code: 10002, resource: 'SETTINGS', action: 'READ', description: 'View settings' },
   { code: 10003, resource: 'SETTINGS', action: 'UPDATE', description: 'Update settings' },
 
+  // User Management permissions
+  { code: 11002, resource: 'USER', action: 'UPDATE', description: 'Permission to update user profiles' },
+  { code: 11003, resource: 'USER', action: 'DELETE', description: 'Permission to delete user accounts' },
+
   // Admin panel access
   { code: 11001, resource: 'ADMIN_PANEL', action: 'APPROVE', description: 'Access admin panel' },
 ];
@@ -175,6 +183,8 @@ const defaultRoles: RoleDef[] = [
     permissionCodes: [
       PERMISSION_CODES.USER_READ,
       PERMISSION_CODES.USER_UPDATE,
+      PERMISSION_CODES.USER_MANAGEMENT_UPDATE,
+      PERMISSION_CODES.USER_MANAGEMENT_DELETE,
       PERMISSION_CODES.USER_APPROVE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.ORDER_UPDATE,
@@ -190,6 +200,8 @@ const defaultRoles: RoleDef[] = [
     description: 'Manager with operational permissions',
     permissionCodes: [
       PERMISSION_CODES.USER_READ,
+      PERMISSION_CODES.USER_MANAGEMENT_UPDATE,
+      PERMISSION_CODES.USER_MANAGEMENT_DELETE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.ORDER_UPDATE,
       PERMISSION_CODES.PRODUCT_READ,
