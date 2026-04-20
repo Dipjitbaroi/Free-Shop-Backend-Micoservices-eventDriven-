@@ -39,7 +39,9 @@ enum PermissionResource {
   PERMISSION
   ORDER
   PRODUCT
+  REVIEW
   DELIVERY
+  INVENTORY
   SELLER
   PAYMENT
   REPORT
