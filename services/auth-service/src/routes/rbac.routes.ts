@@ -13,15 +13,31 @@ const router: Router = Router();
 // ── Public Routes ──────────────────────────────────────────────────────────────
 /**
  * Initialize default roles and permissions
- * Only callable by superadmin during system setup
+ * POST /auth/rbac/init
+ * 
+ * By default, only superadmin can call this endpoint.
+ * Can be disabled by setting RBAC_INIT_OPEN=true in environment (dev only)
+ * 
+ * Response:
+ * - 200: Successfully initialized or already initialized
+ * - 403: Forbidden (not superadmin, unless RBAC_INIT_OPEN=true)
+ * - 500: Initialization error
  */
 router.post('/init', authenticate, async (req, res, next) => {
-  // Check if user is superadmin before calling RBAC init
-  const userId = (req as any).user?.id;
-  const isSuperadmin = await checkIfSuperadmin(userId);
+  // Check if RBAC init endpoint should be open (dev/testing only)
+  const isOpenInit = process.env.RBAC_INIT_OPEN === 'true';
   
-  if (!isSuperadmin) {
-    return res.status(403).json({ error: 'FORBIDDEN', message: 'Only superadmin can initialize RBAC' });
+  if (!isOpenInit) {
+    // Require superadmin
+    const userId = (req as any).user?.id;
+    const isSuperadmin = await checkIfSuperadmin(userId);
+    
+    if (!isSuperadmin) {
+      return res.status(403).json({ 
+        error: 'FORBIDDEN', 
+        message: 'Only superadmin can initialize RBAC. Set RBAC_INIT_OPEN=true to allow all authenticated users (dev only).' 
+      });
+    }
   }
   
   next();
