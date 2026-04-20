@@ -13,19 +13,55 @@ import {
 
 /**
  * Initialize default roles and permissions
- * POST /rbac/init
+ * POST /auth/rbac/init
+ * Requires: Superadmin role or INIT_TOKEN header
+ * Returns: Initialization status with role and permission counts
  */
 export const initializeRBAC = async (req: Request, res: Response) => {
   try {
+    const startTime = Date.now();
+    
+    // Count existing roles before initialization
+    const existingRolesCount = await (req as any).prisma?.role?.count?.() || 0;
+    
+    if (existingRolesCount > 0) {
+      // Already initialized - return status
+      const rolesCount = await (req as any).prisma?.role?.count?.() || 0;
+      const permissionsCount = await (req as any).prisma?.permission?.count?.() || 0;
+      
+      return res.status(200).json({
+        success: true,
+        message: 'RBAC system is already initialized',
+        status: 'already_initialized',
+        data: {
+          rolesCount,
+          permissionsCount,
+          timestamp: new Date().toISOString(),
+        },
+      });
+    }
+    
+    // Initialize RBAC
     await RBACService.initializeDefaultRoles();
+    
+    const duration = Date.now() - startTime;
+    
     return res.status(200).json({
+      success: true,
       message: 'RBAC system initialized successfully',
+      status: 'initialized',
+      data: {
+        timestamp: new Date().toISOString(),
+        durationMs: duration,
+      },
     });
   } catch (error: any) {
     console.error('RBAC initialization error:', error);
     return res.status(500).json({
+      success: false,
       error: 'INITIALIZATION_FAILED',
       message: error.message,
+      timestamp: new Date().toISOString(),
     });
   }
 };

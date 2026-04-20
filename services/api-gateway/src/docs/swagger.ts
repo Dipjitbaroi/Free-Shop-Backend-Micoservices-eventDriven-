@@ -484,11 +484,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       post: {
         tags: ['RBAC'],
         summary: 'Initialize default roles and permissions (superadmin only)',
-        description: 'Initializes the RBAC system with default roles like ADMIN, MANAGER, VENDOR, CUSTOMER and their corresponding permissions. Only callable once during system setup.',
+        description: 'Manually initialize or check the status of the RBAC system. Creates default roles (SUPERADMIN, ADMIN, MANAGER, VENDOR, SELLER, CUSTOMER, DELIVERY_MAN) and their corresponding permissions. By default requires superadmin role. Can be set to allow all authenticated users by setting `RBAC_INIT_OPEN=true` environment variable (dev/testing only).',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
-            description: 'RBAC system initialized successfully',
+            description: 'RBAC initialization status (successful or already initialized)',
             content: {
               'application/json': {
                 schema: {
@@ -496,13 +496,24 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   properties: {
                     success: { type: 'boolean', example: true },
                     message: { type: 'string', example: 'RBAC system initialized successfully' },
+                    status: { type: 'string', enum: ['initialized', 'already_initialized'], example: 'initialized' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        rolesCount: { type: 'number', example: 7 },
+                        permissionsCount: { type: 'number', example: 50 },
+                        durationMs: { type: 'number', example: 125 },
+                        timestamp: { type: 'string', format: 'date-time', example: '2026-04-20T12:00:00.000Z' },
+                      },
+                    },
                   },
                 },
               },
             },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { $ref: '#/components/responses/Forbidden', description: 'Only superadmin can initialize (unless RBAC_INIT_OPEN=true)' },
+          500: { $ref: '#/components/responses/InternalServerError' },
         },
       },
     },
