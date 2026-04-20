@@ -220,6 +220,14 @@ class AuthService {
 
     // Fetch roles & permissions for frontend convenience
     const rbac = await RBACService.getUserRolesAndPermissions(user.id);
+    // Sanitize roles: remove audit/metadata fields before returning to clients
+    const sanitizeRoles = (roles: any[]) =>
+      roles.map((r) => ({
+        id: r.id,
+        name: r.name,
+        permissionCount: r.permissionCount ?? (r.permissions?.length ?? undefined),
+        permissions: r.permissions?.map((p: any) => ({ id: p.permission?.id ?? p.id, permissionCode: p.permission?.permissionCode ?? p.permissionCode, action: p.permission?.action ?? p.action, resource: p.permission?.resource ?? p.resource })) || [],
+      }));
 
     return {
       user: {
@@ -238,7 +246,7 @@ class AuthService {
         updatedAt: user.updatedAt,
       },
       tokens,
-      roles: rbac.roles,
+      roles: sanitizeRoles(rbac.roles || []),
       roleNames: rbac.roleNames,
       permissionCodes: rbac.permissionCodes,
     };
@@ -456,7 +464,7 @@ class AuthService {
         updatedAt: updatedUser.updatedAt,
       },
       tokens,
-      roles: rbac.roles,
+      roles: sanitizeRoles(rbac.roles || []),
       roleNames: rbac.roleNames,
       permissionCodes: rbac.permissionCodes,
     };
@@ -566,7 +574,7 @@ class AuthService {
       const rbac = await RBACService.getUserRolesAndPermissions(userId);
       return {
         ...user,
-        roles: rbac.roles,
+        roles: sanitizeRoles(rbac.roles || []),
         roleNames: rbac.roleNames,
         permissionCodes: rbac.permissionCodes,
       };
