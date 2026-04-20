@@ -4845,7 +4845,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           lastName: { type: 'string' },
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
-          role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] },
+          roles: { type: 'array', items: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'VENDOR', 'DELIVERY_MAN', 'CUSTOMER'] } },
           status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
           isEmailVerified: { type: 'boolean' },
           createdAt: { type: 'string', format: 'date-time' },
