@@ -268,7 +268,7 @@ export enum PermissionResource {
   PERMISSION = 'PERMISSION',
   ORDER = 'ORDER',
   PRODUCT = 'PRODUCT',
-  REVIEW = 'REVIE',
+  REVIEW = 'REVIEW',
   DELIVERY = 'DELIVERY',
   INVENTORY = 'INVENTORY',
   SELLER = 'SELLER',
