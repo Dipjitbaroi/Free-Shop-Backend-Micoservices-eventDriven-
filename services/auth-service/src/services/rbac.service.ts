@@ -35,18 +35,18 @@ export class RBACService {
 
         // special-case user-management codes to ensure correct action/resource
         if (code === 'USER_MANAGEMENT_UPDATE' || code === 'USER_MANAGEMENT_DELETE') {
-          const action = code === 'USER_MANAGEMENT_UPDATE' ? 'UPDATE' : 'DELETE';
-          const resource = 'USER';
+          const action: PermissionAction = code === 'USER_MANAGEMENT_UPDATE' ? PermissionAction.UPDATE : PermissionAction.DELETE;
+          const resource: PermissionResource = PermissionResource.USER;
 
           // Prefer existing by code; if not found, fall back to action+resource
           let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
           if (permission) {
-            await prisma.permission.update({ where: { id: permission.id }, data: { description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts', active: true } });
+            await prisma.permission.update({ where: { id: permission.id }, data: { action, resource, description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts', active: true } });
             permissionMap[permCode] = permission.id;
             continue;
           }
 
-          const existingByAR = await prisma.permission.findFirst({ where: { action: action as any, resource: resource as any } });
+          const existingByAR = await prisma.permission.findFirst({ where: { action, resource } });
           if (existingByAR) {
             // Map the requested code to the existing permission id to avoid duplicates
             console.warn(`Permission for ${action}/${resource} already exists with code ${existingByAR.permissionCode}; mapping ${permCode} -> ${existingByAR.id}`);
@@ -57,8 +57,8 @@ export class RBACService {
           permission = await prisma.permission.create({
             data: {
               permissionCode: permCode,
-              action: action as PermissionAction,
-              resource: resource as PermissionResource,
+              action,
+              resource,
               description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
               active: true,
             },
@@ -75,18 +75,27 @@ export class RBACService {
           continue;
         }
 
-        const resource = parts[1] as PermissionResource;
-        const action = parts[2] as PermissionAction;
+        const resourceStr = parts[1];
+        const actionStr = parts[2];
+
+        // Map string to enum value
+        const resource = PermissionResource[resourceStr as keyof typeof PermissionResource];
+        const action = PermissionAction[actionStr as keyof typeof PermissionAction];
+
+        if (!action || !resource) {
+          console.warn(`Unable to map ${code}: action=${actionStr}, resource=${resourceStr}`);
+          continue;
+        }
 
         // Avoid upsert unique-constraint conflicts by checking existing records
         let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
         if (permission) {
-          await prisma.permission.update({ where: { id: permission.id }, data: { action: action as PermissionAction, resource: resource as PermissionResource, description: `${action} ${resource}`, active: true } });
+          await prisma.permission.update({ where: { id: permission.id }, data: { action, resource, description: `${action} ${resource}`, active: true } });
           permissionMap[permCode] = permission.id;
           continue;
         }
 
-        const existingByAR = await prisma.permission.findFirst({ where: { action: action as any, resource: resource as any } });
+        const existingByAR = await prisma.permission.findFirst({ where: { action, resource } });
         if (existingByAR) {
           console.warn(`Permission for ${action}/${resource} already exists with code ${existingByAR.permissionCode}; mapping ${permCode} -> ${existingByAR.id}`);
           permissionMap[permCode] = existingByAR.id;
@@ -96,8 +105,8 @@ export class RBACService {
         permission = await prisma.permission.create({
           data: {
             permissionCode: permCode,
-            action: action as PermissionAction,
-            resource: resource as PermissionResource,
+            action,
+            resource,
             description: `${action} ${resource}`,
             active: true,
           },
