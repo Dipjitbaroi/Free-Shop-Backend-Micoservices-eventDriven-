@@ -39,7 +39,7 @@ enum PermissionResource {
   PERMISSION
   ORDER
   PRODUCT
-  REVIE
+  REVIEW
   DELIVERY
   INVENTORY
   SELLER
