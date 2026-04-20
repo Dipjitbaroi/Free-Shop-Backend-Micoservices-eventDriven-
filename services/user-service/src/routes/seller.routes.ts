@@ -12,44 +12,45 @@ const router: Router = Router();
 
 // Validation schemas
 const createSellerValidation = [
-  body('shopName').isString().notEmpty().withMessage('Shop name is required'),
-  body('shopSlug').isString().notEmpty().isSlug().withMessage('Valid shop slug is required'),
-  body('shopDescription').optional().isString(),
-  body('phone').optional().isString(),
-  body('email').optional().isEmail(),
-  body('address').optional().isString(),
-  body('city').optional().isString(),
-  body('postalCode').optional().isString(),
+  body('firstName').isString().notEmpty().withMessage('First name is required'),
+  body('lastName').isString().notEmpty().withMessage('Last name is required'),
+  body('email').isEmail().withMessage('Valid email is required'),
+  body('phone').isString().notEmpty().withMessage('Phone is required'),
+  body('employeeId').isString().notEmpty().withMessage('Employee ID is required'),
+  body('department').isIn(['ORDER_PROCESSING', 'DELIVERY_ASSIGNMENT', 'CUSTOMER_SUPPORT', 'QUALITY_CONTROL']).withMessage('Valid department is required'),
+  body('assignedZone').optional().isString(),
+  body('avatar').optional().isString().isURL(),
+  body('commissionRate').optional().isDecimal(),
+  body('bankDetails').optional().isObject(),
+  body('workSchedule').optional().isObject(),
 ];
 
 const updateSellerValidation = [
-  body('shopName').optional().isString(),
-  body('shopSlug').optional().isSlug(),
-  body('shopDescription').optional().isString(),
+  body('firstName').optional().isString(),
+  body('lastName').optional().isString(),
   body('phone').optional().isString(),
-  body('email').optional().isEmail(),
-  body('address').optional().isString(),
-  body('city').optional().isString(),
-  body('postalCode').optional().isString(),
-];
-
-const verifySellerValidation = [
-  body('verified').isBoolean().withMessage('verified must be a boolean'),
+  body('avatar').optional().isString().isURL(),
+  body('department').optional().isIn(['ORDER_PROCESSING', 'DELIVERY_ASSIGNMENT', 'CUSTOMER_SUPPORT', 'QUALITY_CONTROL']),
+  body('assignedZone').optional().isString(),
+  body('commissionRate').optional().isDecimal(),
+  body('bankDetails').optional().isObject(),
+  body('workSchedule').optional().isObject(),
 ];
 
 const paginationValidation = [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('status').optional().isString(),
-  query('verified').optional().isBoolean(),
+  query('department').optional().isString(),
+  query('isAvailable').optional().isBoolean(),
 ];
 
 // Public routes - get seller info
 /**
- * Get seller profile by shop slug (public)
- * GET /sellers/shop/:shopSlug
+ * Get seller profile by employee ID
+ * GET /sellers/employee/:employeeId
  */
-router.get('/shop/:shopSlug', sellerController.getSellerByShop);
+router.get('/employee/:employeeId', param('employeeId').isString(), validate, sellerController.getSellerByEmployeeId);
 
 /**
  * Get all sellers (public - paginated)
@@ -97,20 +98,7 @@ router.put(
 
 // Admin-only routes
 /**
- * Verify seller
- * PUT /sellers/:userId/verify
- */
-router.put(
-  '/:userId/verify',
-  authenticate,
-  param('userId').isUUID(),
-  verifySellerValidation,
-  validate,
-  sellerController.verifySeller
-);
-
-/**
- * Suspend seller
+ * Change seller status to suspended
  * PUT /sellers/:userId/suspend
  */
 router.put(
@@ -118,11 +106,11 @@ router.put(
   authenticate,
   param('userId').isUUID(),
   validate,
-  sellerController.suspendSeller
+  sellerController.setSuspended
 );
 
 /**
- * Activate seller
+ * Change seller status to active
  * PUT /sellers/:userId/activate
  */
 router.put(
@@ -130,7 +118,19 @@ router.put(
   authenticate,
   param('userId').isUUID(),
   validate,
-  sellerController.activateSeller
+  sellerController.setActive
+);
+
+/**
+ * Change seller status to on leave
+ * PUT /sellers/:userId/on-leave
+ */
+router.put(
+  '/:userId/on-leave',
+  authenticate,
+  param('userId').isUUID(),
+  validate,
+  sellerController.setOnLeave
 );
 
 export default router;
