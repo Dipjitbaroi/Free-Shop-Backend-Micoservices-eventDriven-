@@ -383,6 +383,99 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
     },
 
+    '/auth/users/{userId}': {
+      patch: {
+        tags: ['Auth'],
+        summary: 'Update user profile (requires USER_MANAGEMENT_UPDATE permission)',
+        description: 'Update user profile fields including firstName, lastName, phone, avatar, and status. Only users with USER_MANAGEMENT_UPDATE permission can update other users. This is a granular permission specifically for user management.',
+
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'User ID to update' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  firstName: { type: 'string', description: 'First name (optional)', example: 'John' },
+                  lastName: { type: 'string', description: 'Last name (optional)', example: 'Doe' },
+                  phone: { type: 'string', description: 'Phone number (optional)', example: '+1234567890' },
+                  avatar: { type: 'string', format: 'uri', description: 'Avatar URL (optional)', example: 'https://example.com/avatar.jpg' },
+                  status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], description: 'Account status (optional)' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'User updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string' },
+                        email: { type: 'string' },
+                        firstName: { type: 'string' },
+                        lastName: { type: 'string' },
+                        phone: { type: 'string', nullable: true },
+                        avatar: { type: 'string', nullable: true },
+                        status: { type: 'string' },
+                        updatedAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    message: { type: 'string', example: 'User updated successfully' },
+                    requestId: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Forbidden - requires USER_MANAGEMENT_UPDATE permission' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Auth'],
+        summary: 'Delete user account (requires USER_MANAGEMENT_DELETE permission)',
+        description: 'Permanently delete a user account and all associated data (hard delete with cascading deletes to refresh tokens, sessions, roles, etc.). This action cannot be undone. Only users with USER_MANAGEMENT_DELETE permission can delete users. This is a granular permission specifically for user management.',
+
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'User ID to delete' },
+        ],
+        responses: {
+          200: {
+            description: 'User account deleted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    data: { type: 'null' },
+                    message: { type: 'string', example: 'User account deleted successfully' },
+                    requestId: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Forbidden - requires USER_MANAGEMENT_DELETE permission' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
     // Password reset, change and email verification are handled by Firebase
     // on the client — no backend endpoints are needed for these operations.
 

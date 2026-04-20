@@ -36,6 +36,33 @@ export class RBACService {
       const permissionMap: Record<number, string> = {};
       
       for (const [code, permCode] of Object.entries(PERMISSION_CODES)) {
+        // Handle special system permissions
+        if (code === 'USER_MANAGEMENT_UPDATE') {
+          const permission = await prisma.permission.create({
+            data: {
+              permissionCode: permCode,
+              action: 'UPDATE' as PermissionAction,
+              resource: 'USER' as PermissionResource,
+              description: 'Permission to update user profiles',
+            },
+          });
+          permissionMap[permCode] = permission.id;
+          continue;
+        }
+        
+        if (code === 'USER_MANAGEMENT_DELETE') {
+          const permission = await prisma.permission.create({
+            data: {
+              permissionCode: permCode,
+              action: 'DELETE' as PermissionAction,
+              resource: 'USER' as PermissionResource,
+              description: 'Permission to delete user accounts',
+            },
+          });
+          permissionMap[permCode] = permission.id;
+          continue;
+        }
+
         const parts = code.match(/([A-Z]+)_([A-Z]+)/);
         if (!parts) continue;
 
