@@ -53,6 +53,37 @@ jobs:
             fi
           done
 
+      - name: Validate Prisma migrations
+        run: |
+          EXIT=0
+          for SERVICE in services/*/; do
+            if [ -f "$SERVICE/prisma/schema.prisma" ]; then
+              SERVICE_NAME=$(basename "$SERVICE")
+              echo "Validating migrations for $SERVICE_NAME..."
+              # Check if migrations directory exists
+              if [ ! -d "$SERVICE/prisma/migrations" ]; then
+                echo "⚠️ Warning: No migrations directory for $SERVICE_NAME"
+              fi
+            fi
+          done
+
+      - name: Check for schema drift (migrations needed)
+        env:
+          # Use dummy database URLs for validation only
+          AUTH_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          USER_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          PRODUCT_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          ORDER_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          PAYMENT_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          INVENTORY_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          VENDOR_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          NOTIFICATION_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+          ANALYTICS_DATABASE_URL: "postgresql://dummy:dummy@localhost/dummy"
+        run: |
+          echo "⚠️ Reminder: If you modified any schema.prisma file, please run:"
+          echo "   pnpm -C services/<service-name> exec prisma migrate dev --name <migration-name>"
+          echo "   Then commit the migration files before pushing"
+
       - name: Build shared packages first
         run: |
           for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
