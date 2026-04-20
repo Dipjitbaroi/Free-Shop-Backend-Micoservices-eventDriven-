@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { productService } from '../services/product.service.js';
+import axios from 'axios';
 import { ProductStatus } from '@freeshop/shared-types';
 import { successResponse } from '@freeshop/shared-utils';
 
@@ -102,8 +103,27 @@ export const productController = {
     try {
       const { id } = req.params;
       const { status, reason, price } = req.body;
-      // Note: actorRole no longer available - service layer enforces business rules
-      const product = await productService.updateProductStatus(id as string, status, undefined, reason, price);
+      // Determine actor role by querying the auth-service so service can correctly
+      // enforce admin-only approval rules. Falls back to undefined if unavailable.
+      let actorRole: string | undefined = undefined;
+      try {
+        const token = (req.headers.authorization || '').replace('Bearer ', '');
+        const resp = await axios.get(
+          `${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}/rbac/users/${req.user?.id || req.user?.userId}/roles`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const roleNames: string[] = resp.data?.roleNames || [];
+        if (roleNames.includes('SUPERADMIN') || roleNames.includes('ADMIN')) actorRole = 'ADMIN';
+        else if (roleNames.includes('MANAGER')) actorRole = 'MANAGER';
+      } catch (err) {
+        // If the role lookup fails, continue without actorRole — the service
+        // will perform conservative checks and may reject admin-only actions.
+        // Log at debug level.
+        // eslint-disable-next-line no-console
+        console.debug('Failed to resolve actor role from auth-service', (err as any)?.message || err);
+      }
+
+      const product = await productService.updateProductStatus(id as string, status, actorRole, reason, price);
       res.json(successResponse(product, 'Product status updated successfully'));
     } catch (error) {
       next(error);
