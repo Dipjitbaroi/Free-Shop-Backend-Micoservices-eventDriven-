@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { userService } from '../services/user.service';
+import { userService } from '../services/user.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const userController = {

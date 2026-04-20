@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
-import { analyticsController } from '../controllers/analytics.controller';
+import { analyticsController } from '../controllers/analytics.controller.js';
 import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 

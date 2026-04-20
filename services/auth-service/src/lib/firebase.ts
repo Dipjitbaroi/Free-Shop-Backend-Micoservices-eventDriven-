@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import config from '../config';
+import config from '../config/index.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
 
 const logger = createServiceLogger('firebase');

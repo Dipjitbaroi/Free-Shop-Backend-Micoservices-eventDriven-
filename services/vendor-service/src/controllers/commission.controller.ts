@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { commissionService } from '../services/commission.service';
-import { vendorService } from '../services/vendor.service';
+import { commissionService } from '../services/commission.service.js';
+import { vendorService } from '../services/vendor.service.js';
 import { successResponse, NotFoundError, ForbiddenError, UnauthorizedError } from '@freeshop/shared-utils';
 
 export const commissionController = {

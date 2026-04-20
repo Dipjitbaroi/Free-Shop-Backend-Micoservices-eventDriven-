@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { productController } from '../controllers/product.controller';
+import { productController } from '../controllers/product.controller.js';
 import { authenticate, authorizePermission, optionalAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
-import config from '../config';
+import config from '../config/index.js';
 
 const router: Router = Router();
 

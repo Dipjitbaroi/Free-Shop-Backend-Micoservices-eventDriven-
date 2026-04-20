@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
-import { vendorController } from '../controllers/vendor.controller';
+import { vendorController } from '../controllers/vendor.controller.js';
 import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 

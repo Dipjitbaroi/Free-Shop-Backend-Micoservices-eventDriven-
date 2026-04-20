@@ -1,12 +1,14 @@
-import { prisma } from '../lib/prisma';
-import { redis, CACHE_TTL } from '../lib/redis';
-import { messageBroker } from '../lib/message-broker';
-import { emailProvider } from '../providers/email.provider';
-import { smsProvider } from '../providers/sms.provider';
+import { prisma } from '../lib/prisma.js';
+import { redis, CACHE_TTL } from '../lib/redis.js';
+import { messageBroker } from '../lib/message-broker.js';
+import { emailProvider } from '../providers/email.provider.js';
+import { smsProvider } from '../providers/sms.provider.js';
 import { EXCHANGES, getRoutingKey } from '@freeshop/shared-events';
-import { NotificationType, NotificationChannel, NotificationStatus, Prisma } from '../../generated/prisma';
+import { NotificationType, NotificationChannel, NotificationStatus, Prisma } from '../../generated/client/client.js';
 import Handlebars from 'handlebars';
-import logger, { NotFoundError, BadRequestError } from '@freeshop/shared-utils';
+import { createServiceLogger, NotFoundError, BadRequestError } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('notification-service');
 
 interface SendNotificationInput {
   userId?: string;

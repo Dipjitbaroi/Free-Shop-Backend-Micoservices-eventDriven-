@@ -1,9 +1,9 @@
-import { Prisma, Review } from '../../generated/prisma';
+import { Prisma, Review } from '../../generated/client/client.js';
 import { IReviewCreate, IPaginatedResult, ReviewReport } from '@freeshop/shared-types';
 import { NotFoundError, BadRequestError, createPaginatedResponse, calculateOffset } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
-import { productService } from './product.service';
-import { eventPublisher } from '../lib/message-broker';
+import { prisma } from '../lib/prisma.js';
+import { productService } from './product.service.js';
+import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
 
 interface ReviewFilters {

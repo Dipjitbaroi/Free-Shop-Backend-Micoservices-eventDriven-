@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { deliveryService } from '../services/delivery.service';
+import { deliveryService } from '../services/delivery.service.js';
 import { successResponse, BadRequestError, NotFoundError } from '@freeshop/shared-utils';
 
 export const deliveryController = {

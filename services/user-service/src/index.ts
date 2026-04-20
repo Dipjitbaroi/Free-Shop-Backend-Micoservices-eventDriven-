@@ -1,12 +1,18 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-import app from './app';
+import app from './app.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
-import { prisma } from './lib/prisma';
-import { messageBroker } from './lib/message-broker';
-import { setupEventSubscribers } from './events/subscribers';
+import { prisma } from './lib/prisma.js';
+import { messageBroker } from './lib/message-broker.js';
+import { setupEventSubscribers } from './events/subscribers.js';
 
 const logger = createServiceLogger('user-service');
 const PORT = process.env.USER_SERVICE_PORT || 3002;

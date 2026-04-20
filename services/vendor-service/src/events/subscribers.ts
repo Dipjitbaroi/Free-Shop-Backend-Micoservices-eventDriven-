@@ -1,8 +1,10 @@
-import { messageBroker } from '../lib/message-broker';
-import { vendorService } from '../services/vendor.service';
-import { commissionService } from '../services/commission.service';
+import { messageBroker } from '../lib/message-broker.js';
+import { vendorService } from '../services/vendor.service.js';
+import { commissionService } from '../services/commission.service.js';
 import { EXCHANGES, getRoutingKey, QUEUES } from '@freeshop/shared-events';
-import logger from '@freeshop/shared-utils';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('vendor-service');
 
 interface EventEnvelope<T> {
   data?: T;

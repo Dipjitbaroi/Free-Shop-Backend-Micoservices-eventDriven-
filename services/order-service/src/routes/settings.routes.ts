@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { settingsController } from '../controllers/settings.controller';
+import { settingsController } from '../controllers/settings.controller.js';
 import { authenticate, authorizePermission } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body } from 'express-validator';

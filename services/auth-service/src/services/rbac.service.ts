@@ -16,7 +16,7 @@ import {
   PermissionResource,
   IPermissionAuditLog,
 } from '@freeshop/shared-types';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 
 export class RBACService {
   /**

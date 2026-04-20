@@ -1,7 +1,9 @@
-import { messageBroker } from '../lib/message-broker';
-import { prisma } from '../lib/prisma';
+import { messageBroker } from '../lib/message-broker.js';
+import { prisma } from '../lib/prisma.js';
 import { EXCHANGES, getRoutingKey } from '@freeshop/shared-events';
-import logger from '@freeshop/shared-utils';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('auth-service');
 
 interface VendorCreatedPayload {
   vendorId: string;

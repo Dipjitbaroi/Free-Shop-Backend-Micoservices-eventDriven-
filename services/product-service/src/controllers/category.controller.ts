@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { categoryService } from '../services/category.service';
+import { categoryService } from '../services/category.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const categoryController = {

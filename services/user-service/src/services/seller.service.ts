@@ -3,9 +3,9 @@
  * Manages seller profiles and related operations
  */
 
-import { SellerProfile } from '../../generated/prisma';
+import { SellerProfile } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError, ConflictError } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 
 interface CreateSellerProfileData {
   shopName: string;

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { inventoryController } from '../controllers/inventory.controller';
+import { inventoryController } from '../controllers/inventory.controller.js';
 import { authenticate, authorizePermission } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';

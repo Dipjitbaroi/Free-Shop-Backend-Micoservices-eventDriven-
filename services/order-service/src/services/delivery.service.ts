@@ -1,6 +1,6 @@
-import { DeliveryInfo } from '../../generated/prisma';
+import { DeliveryInfo } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { DeliveryProvider, DeliveryStatus } from '@freeshop/shared-types';
 
 interface IDeliveryInfoData {

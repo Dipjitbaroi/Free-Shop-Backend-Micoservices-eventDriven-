@@ -1,6 +1,6 @@
 import axios from 'axios';
-import config from '../../config';
-import { storeGatewayToken, getGatewayToken } from '../../lib/redis';
+import config from '../../config/index.js';
+import { storeGatewayToken, getGatewayToken } from '../../lib/redis.js';
 import { logger } from '@freeshop/shared-utils';
 
 interface BkashTokenResponse {

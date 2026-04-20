@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { cartController } from '../controllers/cart.controller';
+import { cartController } from '../controllers/cart.controller.js';
 import { authenticate, guestOrAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param, query } from 'express-validator';

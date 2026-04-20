@@ -1,10 +1,10 @@
-import { Prisma } from '../../generated/prisma';
+import { Prisma } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
-import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis';
-import config from '../config';
-import { settingsService } from './settings.service';
-import { fetchProduct } from '../lib/product-client';
+import { prisma } from '../lib/prisma.js';
+import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis.js';
+import config from '../config/index.js';
+import { settingsService } from './settings.service.js';
+import { fetchProduct } from '../lib/product-client.js';
 
 type CartWithItems = Prisma.CartGetPayload<{
   include: { items: true };

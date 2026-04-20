@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { validate, authenticate, authorizePermission } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
-import * as authController from '../controllers/auth.controller';
-import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation } from '../validators/auth.validators';
+import * as authController from '../controllers/auth.controller.js';
+import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation } from '../validators/auth.validators.js';
 import { query } from 'express-validator';
 
 const router: Router = Router();

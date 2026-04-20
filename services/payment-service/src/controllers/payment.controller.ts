@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { paymentService } from '../services/payment.service';
+import { paymentService } from '../services/payment.service.js';
 import { successResponse } from '@freeshop/shared-utils';
-import { PaymentMethod, PaymentStatus } from '../../generated/prisma';
+import { PaymentMethod, PaymentStatus } from '../../generated/client/client.js';
 
 export const paymentController = {
   async initiatePayment(req: Request, res: Response, next: NextFunction) {

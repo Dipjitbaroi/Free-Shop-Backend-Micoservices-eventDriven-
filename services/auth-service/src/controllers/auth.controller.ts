@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '@freeshop/shared-middleware';
 import { createApiResponse, createServiceLogger, BadRequestError } from '@freeshop/shared-utils';
-import { authService } from '../services/auth.service';
+import { authService } from '../services/auth.service.js';
 
 const logger = createServiceLogger('auth-controller');
 

@@ -21,10 +21,7 @@ COPY packages/shared-middleware ./packages/shared-middleware
 COPY services/api-gateway ./services/api-gateway
 
 # Install dependencies with pnpm and BuildKit cache, optimized for slow networks
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
-
-# Generate Prisma client during build
-RUN pnpm --filter ./services/api-gateway exec prisma generate || true
+RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --no-frozen-lockfile
 
 # Build all packages in one command (reduces network calls and layer count)
 RUN pnpm run build
@@ -43,6 +40,9 @@ COPY --from=builder /app/pnpm-lock.yaml ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/.pnpmrc ./
 
+# Copy node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
+
 # Copy built files
 COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
 COPY --from=builder /app/packages/shared-types/package.json ./packages/shared-types/
@@ -52,13 +52,15 @@ COPY --from=builder /app/packages/shared-events/dist ./packages/shared-events/di
 COPY --from=builder /app/packages/shared-events/package.json ./packages/shared-events/
 COPY --from=builder /app/packages/shared-middleware/dist ./packages/shared-middleware/dist
 COPY --from=builder /app/packages/shared-middleware/package.json ./packages/shared-middleware/
-COPY --from=builder /app/services/api-gateway/dist ./services/api-gateway/dist
 COPY --from=builder /app/services/api-gateway/package.json ./services/api-gateway/
-# api-gateway has no Prisma client; skip copying prisma/generated files
 
-# Install production dependencies with pnpm and BuildKit cache
-RUN --mount=type=cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
+# Reinstall with frozen-lockfile to ensure dependencies, uses cache
+RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
+
+COPY --from=builder /app/services/api-gateway/dist ./services/api-gateway/dist
+
+# api-gateway has no Prisma client; skip copying prisma/generated files
 
 EXPOSE 3000
 
-CMD ["node", "services/api-gateway/dist/index.js"]
+CMD ["node", "services/api-gateway/dist/src/index.js"]

@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "@freeshop/notification-service",
   "version": "1.0.0",
   "description": "Notification service for Free Shop - Email, SMS, Push notifications",

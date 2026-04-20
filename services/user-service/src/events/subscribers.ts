@@ -1,6 +1,6 @@
-import { messageBroker } from '../lib/message-broker';
+import { messageBroker } from '../lib/message-broker.js';
 import { Events, Queues, IUserCreatedEvent, IUserDeletedEvent } from '@freeshop/shared-events';
-import { prisma } from '../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import { logger } from '@freeshop/shared-utils';
 
 export async function setupEventSubscribers(): Promise<void> {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { paymentController } from '../controllers/payment.controller';
+import { paymentController } from '../controllers/payment.controller.js';
 import { authenticate, authorizePermission, guestOrAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';

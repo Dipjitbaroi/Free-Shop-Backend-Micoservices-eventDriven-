@@ -1,23 +1,23 @@
-import { 
-  Inventory, 
-  StockReservation, 
-  StockMovement, 
-  MovementType, 
+import {
+  Inventory,
+  StockReservation,
+  StockMovement,
+  MovementType,
   ReservationStatus,
   Prisma,
-} from '../../generated/prisma';
-import { 
-  NotFoundError, 
+} from '../../generated/client/client.js';
+import {
+  NotFoundError,
   BadRequestError,
   createPaginatedResponse,
   calculateOffset,
   IPaginatedResult,
 } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
-import { eventPublisher } from '../lib/message-broker';
+import { prisma } from '../lib/prisma.js';
+import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
-import { acquireLock, releaseLock } from '../lib/redis';
-import config from '../config';
+import { acquireLock, releaseLock } from '../lib/redis.js';
+import config from '../config/index.js';
 
 interface InventoryWithDetails extends Inventory {
   reservations?: StockReservation[];

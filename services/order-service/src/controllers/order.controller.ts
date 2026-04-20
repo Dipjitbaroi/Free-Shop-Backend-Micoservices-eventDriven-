@@ -1,10 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
-import { orderService } from '../services/order.service';
-import { cartService } from '../services/cart.service';
+import { orderService } from '../services/order.service.js';
+import { cartService } from '../services/cart.service.js';
 import { successResponse } from '@freeshop/shared-utils';
-import { fetchProduct, resolveEffectivePrice } from '../lib/product-client';
-import { fetchAddressById } from '../lib/user-client';
-import { settingsService } from '../services/settings.service';
+import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
+import { fetchAddressById } from '../lib/user-client.js';
+import { settingsService } from '../services/settings.service.js';
 import { BadRequestError } from '@freeshop/shared-utils';
 
 export const orderController = {

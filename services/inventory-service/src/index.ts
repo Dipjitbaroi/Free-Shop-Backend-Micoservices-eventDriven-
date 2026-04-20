@@ -1,10 +1,12 @@
-import app from './app';
-import config from './config';
-import { prisma } from './lib/prisma';
-import { messageBroker } from './lib/message-broker';
-import { redis } from './lib/redis';
-import { setupEventSubscribers } from './events/subscribers';
-import logger from '@freeshop/shared-utils';
+import app from './app.js';
+import config from './config/index.js';
+import { prisma } from './lib/prisma.js';
+import { messageBroker } from './lib/message-broker.js';
+import { redis } from './lib/redis.js';
+import { setupEventSubscribers } from './events/subscribers.js';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('inventory-service');
 
 const startServer = async (): Promise<void> => {
   try {

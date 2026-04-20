@@ -1,7 +1,9 @@
-import { messageBroker } from '../lib/message-broker';
-import { notificationService } from '../services/notification.service';
+import { messageBroker } from '../lib/message-broker.js';
+import { notificationService } from '../services/notification.service.js';
 import { EXCHANGES, getRoutingKey, QUEUES } from '@freeshop/shared-events';
-import logger from '@freeshop/shared-utils';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('notification-service');
 
 interface UserCreatedPayload {
   userId: string;

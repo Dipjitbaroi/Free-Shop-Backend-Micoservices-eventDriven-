@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "name": "order-service",
   "version": "1.0.0",
   "description": "Free Shop Order Service - Order processing, cart management",

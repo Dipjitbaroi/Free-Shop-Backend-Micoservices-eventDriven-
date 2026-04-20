@@ -9,11 +9,11 @@ import {
 } from '@freeshop/shared-middleware';
 
 
-import cartRoutes from './routes/cart.routes';
-import orderRoutes from './routes/order.routes';
-import deliveryRoutes from './routes/delivery.routes';
-import healthRoutes from './routes/health.routes';
-import settingsRoutes from './routes/settings.routes';
+import cartRoutes from './routes/cart.routes.js';
+import orderRoutes from './routes/order.routes.js';
+import deliveryRoutes from './routes/delivery.routes.js';
+import healthRoutes from './routes/health.routes.js';
+import settingsRoutes from './routes/settings.routes.js';
 
 const app: Application = express();
 

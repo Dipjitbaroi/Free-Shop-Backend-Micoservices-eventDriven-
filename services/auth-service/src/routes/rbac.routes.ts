@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import { authenticate, authorize, auditPermissionLog } from '@freeshop/shared-middleware';
-import * as rbacController from '../controllers/rbac.controller';
+import * as rbacController from '../controllers/rbac.controller.js';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 
 const router: Router = Router();

@@ -1,7 +1,9 @@
-import { messageBroker } from '../lib/message-broker';
-import { inventoryService } from '../services/inventory.service';
+import { messageBroker } from '../lib/message-broker.js';
+import { inventoryService } from '../services/inventory.service.js';
 import { EXCHANGES, getRoutingKey, QUEUES} from '@freeshop/shared-events';
-import logger from '@freeshop/shared-utils';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('inventory-service');
 
 interface OrderItem {
   productId: string;

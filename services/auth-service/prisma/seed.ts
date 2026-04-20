@@ -1,6 +1,13 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '../generated/client/client.js';
 
-const prisma = new PrismaClient();
+const adapter = new PrismaPg({
+  connectionString: process.env.AUTH_DATABASE_URL,
+});
+
+const prisma = new PrismaClient({
+  adapter,
+});
 
 // Permission code constants (must match PERMISSION_CODES in shared-types)
 const PERMISSION_CODES = {
@@ -38,24 +45,12 @@ const PERMISSION_CODES = {
   PRODUCT_UPDATE: 5003,
   PRODUCT_DELETE: 5004,
 
-  // Review permissions
-  REVIEW_CREATE: 5101,
-  REVIEW_READ: 5102,
-  REVIEW_UPDATE: 5103,
-  REVIEW_DELETE: 5104,
-
   // Delivery permissions
   DELIVERY_CREATE: 6001,
   DELIVERY_READ: 6002,
   DELIVERY_UPDATE: 6003,
   DELIVERY_DELETE: 6004,
   DELIVERY_ASSIGN: 6005,
-
-  // Inventory permissions
-  INVENTORY_CREATE: 6101,
-  INVENTORY_READ: 6102,
-  INVENTORY_UPDATE: 6103,
-  INVENTORY_DELETE: 6104,
 
   // Seller permissions
   SELLER_CREATE: 7001,
@@ -124,12 +119,9 @@ const permissionDefs: PermissionDef[] = [
   { code: 5003, resource: 'PRODUCT', action: 'UPDATE', description: 'Update products' },
   { code: 5004, resource: 'PRODUCT', action: 'DELETE', description: 'Delete products' },
 
-  // Review permissions
-  { code: 5101, resource: 'PRODUCT', action: 'CREATE', description: 'Create reviews' },
-  { code: 5102, resource: 'PRODUCT', action: 'READ', description: 'View reviews' },
-  { code: 5103, resource: 'PRODUCT', action: 'UPDATE', description: 'Update reviews' },
-  { code: 5104, resource: 'PRODUCT', action: 'DELETE', description: 'Delete reviews' },
-
+  // Review permissions (managed under PRODUCT)
+  // Note: Reviews are product-related, so they don't need separate resource
+  
   // Delivery permissions
   { code: 6001, resource: 'DELIVERY', action: 'CREATE', description: 'Create deliveries' },
   { code: 6002, resource: 'DELIVERY', action: 'READ', description: 'View deliveries' },
@@ -137,11 +129,8 @@ const permissionDefs: PermissionDef[] = [
   { code: 6004, resource: 'DELIVERY', action: 'DELETE', description: 'Delete deliveries' },
   { code: 6005, resource: 'DELIVERY', action: 'APPROVE', description: 'Assign delivery personnel' },
 
-  // Inventory permissions
-  { code: 6101, resource: 'DELIVERY', action: 'CREATE', description: 'Create inventory entries' },
-  { code: 6102, resource: 'DELIVERY', action: 'READ', description: 'View inventory' },
-  { code: 6103, resource: 'DELIVERY', action: 'UPDATE', description: 'Update inventory' },
-  { code: 6104, resource: 'DELIVERY', action: 'DELETE', description: 'Delete inventory entries' },
+  // Inventory permissions (managed under PRODUCT or SELLER)
+  // Note: Inventory management is handled through PRODUCT or SELLER resources
 
   // Seller permissions
   { code: 7001, resource: 'SELLER', action: 'CREATE', description: 'Create seller accounts' },
@@ -208,8 +197,6 @@ const defaultRoles: RoleDef[] = [
       PERMISSION_CODES.DELIVERY_READ,
       PERMISSION_CODES.DELIVERY_UPDATE,
       PERMISSION_CODES.PAYMENT_READ,
-      PERMISSION_CODES.INVENTORY_READ,
-      PERMISSION_CODES.INVENTORY_UPDATE,
       PERMISSION_CODES.REPORT_READ,
       PERMISSION_CODES.ADMIN_PANEL_ACCESS,
     ],
@@ -223,8 +210,6 @@ const defaultRoles: RoleDef[] = [
       PERMISSION_CODES.PRODUCT_UPDATE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.PAYMENT_READ,
-      PERMISSION_CODES.INVENTORY_READ,
-      PERMISSION_CODES.INVENTORY_UPDATE,
       PERMISSION_CODES.SELLER_READ,
       PERMISSION_CODES.SELLER_UPDATE,
       PERMISSION_CODES.REPORT_READ,
@@ -239,8 +224,6 @@ const defaultRoles: RoleDef[] = [
       PERMISSION_CODES.PRODUCT_UPDATE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.PAYMENT_READ,
-      PERMISSION_CODES.INVENTORY_READ,
-      PERMISSION_CODES.INVENTORY_UPDATE,
     ],
   },
   {
@@ -327,6 +310,7 @@ async function main() {
             data: {
               roleId: role.id,
               permissionId: permission.id,
+              grantedBy: SYSTEM_USER_ID,
             },
           });
         })
@@ -350,4 +334,9 @@ async function main() {
   }
 }
 
-main();
+// Call main and handle errors
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });

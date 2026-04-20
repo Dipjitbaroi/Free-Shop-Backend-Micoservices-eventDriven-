@@ -1,6 +1,6 @@
-import { Payment, PaymentMethod, PaymentStatus, Prisma } from '../../generated/prisma';
-import { 
-  NotFoundError, 
+import { Payment, PaymentMethod, PaymentStatus, Prisma } from '../../generated/client/client.js';
+import {
+  NotFoundError,
   BadRequestError,
   PaymentError,
   generateId,
@@ -8,13 +8,13 @@ import {
   calculateOffset,
   IPaginatedResult,
 } from '@freeshop/shared-utils';
-import { prisma } from '../lib/prisma';
-import { eventPublisher } from '../lib/message-broker';
+import { prisma } from '../lib/prisma.js';
+import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
-import { bkashGateway } from '../gateways/bkash/bkash.gateway';
-import { codGateway } from '../gateways/cod/cod.gateway';
-import { epsGateway } from '../gateways/eps/eps.gateway';
-import config from '../config';
+import { bkashGateway } from '../gateways/bkash/bkash.gateway.js';
+import { codGateway } from '../gateways/cod/cod.gateway.js';
+import { epsGateway } from '../gateways/eps/eps.gateway.js';
+import config from '../config/index.js';
 
 interface CreatePaymentData {
   orderId: string;

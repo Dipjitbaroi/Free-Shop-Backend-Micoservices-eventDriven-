@@ -1,7 +1,9 @@
-import { messageBroker } from '../lib/message-broker';
-import { analyticsService } from '../services/analytics.service';
+import { messageBroker } from '../lib/message-broker.js';
+import { analyticsService } from '../services/analytics.service.js';
 import { EXCHANGES, getRoutingKey, QUEUES } from '@freeshop/shared-events';
-import logger from '@freeshop/shared-utils';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('analytics-service');
 
 interface EventEnvelope<T> {
   data?: T;

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
-import { commissionController } from '../controllers/commission.controller';
+import { commissionController } from '../controllers/commission.controller.js';
 import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 

@@ -1,7 +1,7 @@
 import { Application, Request } from 'express';
 import { createProxyMiddleware, Options } from 'http-proxy-middleware';
 import { IncomingMessage, ServerResponse } from 'http';
-import config from '../config';
+import config from '../config/index.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
 import { authRateLimiter } from '@freeshop/shared-middleware';
 

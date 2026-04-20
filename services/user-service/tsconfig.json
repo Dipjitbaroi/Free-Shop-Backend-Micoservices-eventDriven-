@@ -1,10 +1,9 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
     "paths": {
-      "@prisma/client": ["./generated/prisma"],
       "@freeshop/shared-types": ["../../packages/shared-types/dist"],
       "@freeshop/shared-utils": ["../../packages/shared-utils/dist"],
       "@freeshop/shared-middleware": ["../../packages/shared-middleware/dist"],

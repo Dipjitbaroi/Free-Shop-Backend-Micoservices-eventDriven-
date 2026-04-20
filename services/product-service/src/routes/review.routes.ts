@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { reviewController } from '../controllers/review.controller';
+import { reviewController } from '../controllers/review.controller.js';
 import { authenticate, optionalAuth } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param, query } from 'express-validator';

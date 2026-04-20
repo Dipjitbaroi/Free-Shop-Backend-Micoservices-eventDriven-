@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { settingsService } from '../services/settings.service';
+import { settingsService } from '../services/settings.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const settingsController = {
