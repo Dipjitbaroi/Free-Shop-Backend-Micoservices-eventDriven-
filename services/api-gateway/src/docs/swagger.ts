@@ -4763,7 +4763,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               avatar: { type: 'string', format: 'uri', nullable: true },
               role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'], example: 'CUSTOMER' },
               // For `/auth/me` the server may also include an RBAC snapshot
-              roles: { type: 'array', items: { type: 'object', additionalProperties: true } },
+              roles: { type: 'array', items: { $ref: '#/components/schemas/Role' } },
               roleNames: { type: 'array', items: { type: 'string' } },
               permissionCodes: { type: 'array', items: { type: 'integer' } },
               status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], example: 'ACTIVE' },
@@ -4828,6 +4828,25 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         properties: {
           success: { type: 'boolean' },
           data: { $ref: '#/components/schemas/Product' },
+        },
+      },
+      Permission: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          permissionCode: { type: 'integer' },
+          action: { type: 'string' },
+          resource: { type: 'string' },
+          description: { type: 'string' },
+        },
+      },
+      Role: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          permissionCount: { type: 'integer' },
+          permissions: { type: 'array', items: { $ref: '#/components/schemas/Permission' } },
         },
       },
       PaginatedProducts: {
