@@ -31,24 +31,80 @@ export class RBACService {
 
       // Upsert all permissions based on PERMISSION_CODES
       for (const [code, permCodeRaw] of Object.entries(PERMISSION_CODES)) {
-        const permCode = Number(permCodeRaw as unknown as number);
+        try {
+          const permCode = Number(permCodeRaw as unknown as number);
 
-        // special-case user-management codes to ensure correct action/resource
-        if (code === 'USER_MANAGEMENT_UPDATE' || code === 'USER_MANAGEMENT_DELETE') {
-          const action: PermissionAction = code === 'USER_MANAGEMENT_UPDATE' ? PermissionAction.UPDATE : PermissionAction.DELETE;
-          const resource: PermissionResource = PermissionResource.USER;
+          // special-case user-management codes to ensure correct action/resource
+          if (code === 'USER_MANAGEMENT_UPDATE' || code === 'USER_MANAGEMENT_DELETE') {
+            const action: PermissionAction = code === 'USER_MANAGEMENT_UPDATE' ? PermissionAction.UPDATE : PermissionAction.DELETE;
+            const resource: PermissionResource = PermissionResource.USER;
 
-          // Prefer existing by code; if not found, fall back to action+resource
+            // For USER_MANAGEMENT permissions, check ONLY by permissionCode (not by action/resource)
+            // because there may be other USER/UPDATE or USER/DELETE permissions with different codes
+            let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
+            if (permission) {
+              // Update existing permission to ensure correct action/resource
+              await prisma.permission.update({
+                where: { id: permission.id },
+                data: {
+                  action,
+                  resource,
+                  description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
+                  active: true,
+                },
+              });
+              permissionMap[permCode] = permission.id;
+              console.log(`Updated existing permission ${code} (${permCode})`);
+              continue;
+            }
+
+            // Create new permission - do NOT check by action/resource for USER_MANAGEMENT codes
+            // to avoid conflicts with regular USER_UPDATE/USER_DELETE permissions
+            permission = await prisma.permission.create({
+              data: {
+                permissionCode: permCode,
+                action,
+                resource,
+                description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
+                active: true,
+              },
+            });
+
+            permissionMap[permCode] = permission.id;
+            console.log(`Created permission ${code} (${permCode})`);
+            continue;
+          }
+
+          // Attempt to parse standard PATTERNS like PRODUCT_UPDATE or ORDER_APPROVE
+          const parts = code.match(/([A-Z]+)_([A-Z]+)/);
+          if (!parts) {
+            // Skip if unable to parse; some codes may include extra segments
+            console.debug(`Skipping ${code}: does not match standard pattern`);
+            continue;
+          }
+
+          const resourceStr = parts[1];
+          const actionStr = parts[2];
+
+          // Map string to enum value
+          const resource = PermissionResource[resourceStr as keyof typeof PermissionResource];
+          const action = PermissionAction[actionStr as keyof typeof PermissionAction];
+
+          if (!action || !resource) {
+            console.warn(`Unable to map ${code}: action=${actionStr}, resource=${resourceStr}`);
+            continue;
+          }
+
+          // Avoid upsert unique-constraint conflicts by checking existing records
           let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
           if (permission) {
-            await prisma.permission.update({ where: { id: permission.id }, data: { action, resource, description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts', active: true } });
+            await prisma.permission.update({ where: { id: permission.id }, data: { action, resource, description: `${action} ${resource}`, active: true } });
             permissionMap[permCode] = permission.id;
             continue;
           }
 
           const existingByAR = await prisma.permission.findFirst({ where: { action, resource } });
           if (existingByAR) {
-            // Map the requested code to the existing permission id to avoid duplicates
             console.warn(`Permission for ${action}/${resource} already exists with code ${existingByAR.permissionCode}; mapping ${permCode} -> ${existingByAR.id}`);
             permissionMap[permCode] = existingByAR.id;
             continue;
@@ -59,60 +115,17 @@ export class RBACService {
               permissionCode: permCode,
               action,
               resource,
-              description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
+              description: `${action} ${resource}`,
               active: true,
             },
           });
 
           permissionMap[permCode] = permission.id;
-          continue;
+          console.log(`Created permission ${code} (${permCode})`);
+        } catch (error) {
+          console.error(`Error processing permission ${code}: ${error instanceof Error ? error.message : String(error)}`);
+          // Continue to next permission instead of failing entire init
         }
-
-        // Attempt to parse standard PATTERNS like PRODUCT_UPDATE or ORDER_APPROVE
-        const parts = code.match(/([A-Z]+)_([A-Z]+)/);
-        if (!parts) {
-          // Skip if unable to parse; some codes may include extra segments
-          continue;
-        }
-
-        const resourceStr = parts[1];
-        const actionStr = parts[2];
-
-        // Map string to enum value
-        const resource = PermissionResource[resourceStr as keyof typeof PermissionResource];
-        const action = PermissionAction[actionStr as keyof typeof PermissionAction];
-
-        if (!action || !resource) {
-          console.warn(`Unable to map ${code}: action=${actionStr}, resource=${resourceStr}`);
-          continue;
-        }
-
-        // Avoid upsert unique-constraint conflicts by checking existing records
-        let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
-        if (permission) {
-          await prisma.permission.update({ where: { id: permission.id }, data: { action, resource, description: `${action} ${resource}`, active: true } });
-          permissionMap[permCode] = permission.id;
-          continue;
-        }
-
-        const existingByAR = await prisma.permission.findFirst({ where: { action, resource } });
-        if (existingByAR) {
-          console.warn(`Permission for ${action}/${resource} already exists with code ${existingByAR.permissionCode}; mapping ${permCode} -> ${existingByAR.id}`);
-          permissionMap[permCode] = existingByAR.id;
-          continue;
-        }
-
-        permission = await prisma.permission.create({
-          data: {
-            permissionCode: permCode,
-            action,
-            resource,
-            description: `${action} ${resource}`,
-            active: true,
-          },
-        });
-
-        permissionMap[permCode] = permission.id;
       }
 
       // Ensure roles exist and reconcile their permissions
