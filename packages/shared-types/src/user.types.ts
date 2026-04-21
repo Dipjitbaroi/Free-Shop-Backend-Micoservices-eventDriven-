@@ -50,12 +50,13 @@ export interface IAddress {
   label: string;
   fullName: string;
   phone: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
+  addressLine: string;
+  upazila?: string;
+  district: string;
+  postalCode?: string;
+  country?: string;
+  /** Canonical zone id (UUID) referencing delivery Zone */
+  zone: string;
   isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -65,12 +66,12 @@ export interface IAddressCreate {
   label: string;
   fullName: string;
   phone: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  postalCode: string;
-  country: string;
+  addressLine: string;
+  upazila?: string;
+  district: string;
+  postalCode?: string;
+  country?: string;
+  zone: string;
   isDefault?: boolean;
 }
 

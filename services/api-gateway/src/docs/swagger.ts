@@ -4523,11 +4523,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Basic order without free items',
             value: {
               shippingAddress: {
-                zone: 'in_dhaka',
-                name: 'John Doe',
+                zone: '<zone-uuid>',
+                fullName: 'John Doe',
                 phone: '+8801234567890',
-                address: '123 Main Street, Dhaka',
-                city: 'Dhaka',
+                addressLine: '123 Main Street, Dhaka',
+                district: 'Dhaka',
                 postalCode: '1200'
               },
               paymentMethod: 'COD',
@@ -4544,11 +4544,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Order with free item selected',
             value: {
               shippingAddress: {
-                zone: 'in_dhaka',
-                name: 'John Doe',
+                zone: '<zone-uuid>',
+                fullName: 'John Doe',
                 phone: '+8801234567890',
-                address: '123 Main Street, Dhaka',
-                city: 'Dhaka',
+                addressLine: '123 Main Street, Dhaka',
+                district: 'Dhaka',
                 postalCode: '1200'
               },
               paymentMethod: 'COD',
@@ -5174,15 +5174,14 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       // ── Shared sub-schemas ─────────────────────────────────────────────────
       Address: {
         type: 'object',
-        required: ['fullName', 'phone', 'addressLine1', 'city', 'state', 'postalCode', 'country'],
+        required: ['fullName', 'phone', 'addressLine', 'district', 'zone'],
         properties: {
           fullName: { type: 'string' },
           phone: { type: 'string' },
-          addressLine1: { type: 'string' },
-          addressLine2: { type: 'string' },
-          city: { type: 'string' },
-          state: { type: 'string' },
-          // Optional shipping zone identifier. Required for order creation when providing inline shippingAddress.
+          addressLine: { type: 'string' },
+          district: { type: 'string' },
+          upazila: { type: 'string' },
+          // Canonical shipping zone identifier. Required for order creation when providing inline shippingAddress.
           zone: { type: 'string' },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
@@ -5190,12 +5189,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       VendorAddress: {
         type: 'object',
-        required: ['addressLine1', 'city', 'state', 'postalCode', 'country'],
+        required: ['addressLine', 'district', 'postalCode', 'country'],
         properties: {
-          addressLine1: { type: 'string' },
-          addressLine2: { type: 'string' },
-          city: { type: 'string' },
-          state: { type: 'string' },
+          addressLine: { type: 'string' },
+          district: { type: 'string' },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
         },

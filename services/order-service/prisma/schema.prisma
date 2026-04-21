@@ -244,6 +244,15 @@ model Setting {
   updatedAt DateTime?
 }
 
+// Delivery zones stored as first-class records. Keep minimal fields: key, name, price
+model Zone {
+  id        String   @id @default(uuid())
+  name      String   // human readable name or code
+  price     Float    // delivery charge for this zone
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 enum OrderStatus {
   PENDING
   CONFIRMED

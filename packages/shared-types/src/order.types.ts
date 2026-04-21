@@ -52,14 +52,13 @@ export interface IOrderItem {
 export interface IShippingAddress {
   fullName: string;
   phone: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;
-  /** Shipping zone identifier (used to calculate delivery charges) */
-  zone?: string;
-  postalCode: string;
-  country: string;
+  addressLine: string;
+  upazila?: string;
+  district: string;
+  /** Canonical zone id (UUID) used to calculate delivery charges */
+  zone: string;
+  postalCode?: string;
+  country?: string;
 }
 
 export interface IOrderCreate {

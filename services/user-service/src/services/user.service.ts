@@ -24,14 +24,14 @@ interface AddressData {
   label?: string;
   fullName: string;
   phone: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state?: string;
-  district?: string;
-  division?: string;
+  // Single detailed address line used by local e-commerce (house/road/flat)
+  addressLine: string;
+  // Proper Bangladesh address fields (kept minimal following local patterns)
+  district: string; // required
+  upazila?: string; // upazila/thana
   postalCode?: string;
   country?: string;
+  zoneId: string; // required canonical zone reference (delivery charge lookup)
   isDefault?: boolean;
   type?: AddressType;
 }
@@ -149,22 +149,26 @@ class UserService {
       });
     }
 
+    // Validate required Bangladesh fields
+    if (!data.district) throw new BadRequestError('`district` is required');
+    if (!data.zoneId) throw new BadRequestError('`zoneId` is required');
+
     const address = await prisma.address.create({
+      // Cast to any because generated client input types differ across builds/environments
       data: {
         userProfileId: profile.id,
         label: data.label,
         fullName: data.fullName,
         phone: data.phone,
-        addressLine1: data.addressLine1,
-        addressLine2: data.addressLine2,
-        city: data.city,
-        district: data.district ?? data.state ?? '',
-        division: data.division ?? '',
-        postalCode: data.postalCode ?? '',
+        addressLine: data.addressLine,
+        district: data.district,
+        upazila: data.upazila ?? undefined,
+        postalCode: data.postalCode ?? undefined,
         country: data.country || 'Bangladesh',
+        zoneId: data.zoneId,
         isDefault: data.isDefault || false,
         type: data.type || AddressType.SHIPPING,
-      },
+      } as any,
     });
 
     await cacheDelete(addressesCacheKey(userId));
@@ -198,22 +202,25 @@ class UserService {
       });
     }
 
+    // For update: only set fields provided. Do not null out required fields.
+    const updateData: any = {
+      label: data.label,
+      fullName: data.fullName,
+      phone: data.phone,
+      addressLine: data.addressLine ?? undefined,
+      district: data.district ?? undefined,
+      upazila: data.upazila ?? undefined,
+      postalCode: data.postalCode ?? undefined,
+      country: data.country ?? undefined,
+      isDefault: data.isDefault,
+      type: data.type,
+    };
+
+    if ((data as any).zoneId) updateData.zoneId = (data as any).zoneId;
+
     const updated = await prisma.address.update({
       where: { id: addressId },
-      data: {
-        label: data.label,
-        fullName: data.fullName,
-        phone: data.phone,
-        addressLine1: data.addressLine1,
-        addressLine2: data.addressLine2,
-        city: data.city,
-        district: data.district ?? data.state,
-        division: data.division,
-        postalCode: data.postalCode,
-        country: data.country,
-        isDefault: data.isDefault,
-        type: data.type,
-      },
+      data: updateData as any,
     });
 
     await cacheDelete(addressesCacheKey(userId));

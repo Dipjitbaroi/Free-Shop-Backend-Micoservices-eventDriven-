@@ -4,12 +4,10 @@ import config from '../config/index.js';
 export interface AddressSnapshot {
   fullName: string;
   phone: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  state: string;    // mapped from district
-  division?: string;
-  postalCode: string;
+  addressLine: string;
+  district: string;
+  upazila?: string;
+  postalCode?: string;
   country: string;
   zone?: string;
 }
@@ -50,18 +48,16 @@ export async function fetchAddressById(
   const body = (await response.json()) as any;
   const a = body?.data ?? body;
 
-  // Prefer an explicit 'zone' property from user-service, fall back to district/state
-  const zone = a.zone ?? a.zoneName ?? a.district ?? a.state ?? undefined;
+  // Prefer an explicit zoneId from user-service, then legacy zone fields, then district
+  const zone = a.zoneId ?? a.zone ?? a.district ?? undefined;
 
   return {
     fullName: a.fullName,
     phone: a.phone,
-    addressLine1: a.addressLine1,
-    addressLine2: a.addressLine2 ?? undefined,
-    city: a.city,
-    state: a.district ?? a.state ?? '',
-    division: a.division ?? undefined,
-    postalCode: a.postalCode ?? '',
+    addressLine: a.addressLine,
+    district: a.district ?? '',
+    upazila: a.upazila ?? undefined,
+    postalCode: a.postalCode ?? undefined,
     country: a.country ?? 'Bangladesh',
     zone: zone ? String(zone) : undefined,
   };

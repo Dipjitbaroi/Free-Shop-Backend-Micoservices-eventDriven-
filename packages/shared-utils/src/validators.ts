@@ -41,12 +41,12 @@ export const commonSchemas = {
 export const addressSchema = Joi.object({
   fullName: Joi.string().required().min(2).max(100),
   phone: commonSchemas.phone.required(),
-  addressLine1: Joi.string().required().min(5).max(200),
-  addressLine2: Joi.string().max(200).allow(''),
-  city: Joi.string().required().min(2).max(100),
-  state: Joi.string().required().min(2).max(100),
-  postalCode: Joi.string().required().min(4).max(10),
-  country: Joi.string().required().default('Bangladesh'),
+  addressLine: Joi.string().required().min(5).max(200),
+  upazila: Joi.string().max(100).allow('', null),
+  district: Joi.string().required().min(2).max(100),
+  postalCode: Joi.string().min(4).max(10).allow('', null),
+  zone: Joi.string().uuid({ version: 'uuidv4' }).required(),
+  country: Joi.string().default('Bangladesh'),
 });
 
 // Validate function
