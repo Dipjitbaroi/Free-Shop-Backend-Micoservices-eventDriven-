@@ -479,8 +479,7 @@ class NotificationService {
     if (type === 'PROMOTION' && !preference.promotions) return false;
 
     const vendorTypes: NotificationType[] = [
-      'VENDOR_VERIFIED', 'VENDOR_SUSPENDED', 
-      'WITHDRAWAL_COMPLETED', 'WITHDRAWAL_REJECTED'
+      'VENDOR_VERIFIED', 'VENDOR_SUSPENDED'
     ];
     if (vendorTypes.includes(type) && !preference.vendorUpdates) return false;
 

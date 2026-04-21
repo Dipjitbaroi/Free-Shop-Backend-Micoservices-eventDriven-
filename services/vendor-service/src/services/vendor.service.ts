@@ -89,8 +89,6 @@ class VendorService {
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
         businessAddress: input.businessAddress as Prisma.InputJsonValue,
-        commissionRate: config.defaultCommissionRate,
-        minimumWithdrawal: config.defaultMinimumWithdrawal,
       },
     });
 
@@ -382,27 +380,7 @@ class VendorService {
       },
     });
 
-    const [pendingCommissions, availableBalance, pendingWithdrawals] = await Promise.all([
-      prisma.commission.aggregate({
-        where: { vendorId, status: 'PENDING' },
-        _sum: { netAmount: true },
-      }),
-      prisma.commission.aggregate({
-        where: { vendorId, status: 'SETTLED' },
-        _sum: { netAmount: true },
-      }),
-      prisma.withdrawal.aggregate({
-        where: { vendorId, status: { in: ['PENDING', 'PROCESSING'] } },
-        _sum: { amount: true },
-      }),
-    ]);
-
-    const stats = {
-      ...vendor,
-      pendingCommissions: (pendingCommissions._sum?.netAmount) || 0,
-      availableBalance: (availableBalance._sum?.netAmount) || 0,
-      pendingWithdrawals: (pendingWithdrawals._sum?.amount) || 0,
-    };
+    const stats = { ...vendor };
 
     await redis.setex(cacheKey, CACHE_TTL.Vendor_STATS, JSON.stringify(stats));
 

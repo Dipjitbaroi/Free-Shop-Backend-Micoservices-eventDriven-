@@ -53,8 +53,7 @@ export const Events = {
   VENDOR_APPROVED: 'vendor.approved',
   VENDOR_REJECTED: 'vendor.rejected',
   VENDOR_SUSPENDED: 'vendor.suspended',
-  WITHDRAWAL_REQUESTED: 'withdrawal.requested',
-  WITHDRAWAL_PROCESSED: 'withdrawal.processed',
+  
 
   // Notification Events
   NOTIFICATION_REQUESTED: 'notification.requested',
@@ -133,7 +132,6 @@ export const Queues = {
   NOTIFICATION_PAYMENT_RECEIVED: 'notification.payment_received',
   NOTIFICATION_PAYMENT_FAILED: 'notification.payment_failed',
   NOTIFICATION_VENDOR_VERIFIED: 'notification.vendor_verified',
-  NOTIFICATION_WITHDRAWAL_COMPLETED: 'notification.withdrawal_completed',
   NOTIFICATION_LOW_STOCK: 'notification.low_stock',
   
   // Vendor Service Cross-Domain Queues

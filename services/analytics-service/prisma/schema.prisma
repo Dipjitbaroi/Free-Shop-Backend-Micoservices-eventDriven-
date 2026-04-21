@@ -42,8 +42,7 @@ model VendorReport {
   totalOrders     Int      @default(0)
   totalRevenue    Decimal  @default(0) @db.Decimal(12, 2)
   totalItems      Int      @default(0)
-  commission      Decimal  @default(0) @db.Decimal(10, 2)
-  netRevenue      Decimal  @default(0) @db.Decimal(10, 2)
+  
   
   productViews    Int      @default(0)
   productClickRate Float   @default(0)

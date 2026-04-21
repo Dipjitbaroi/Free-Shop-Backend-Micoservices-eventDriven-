@@ -72,6 +72,7 @@ export interface IOrderCreatedPayload {
     vendorId: string;
     quantity: number;
     price: number;
+    supplierPrice?: number;
     freeItemId?: string;
   }>;
 }
