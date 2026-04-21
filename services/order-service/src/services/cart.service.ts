@@ -3,8 +3,8 @@ import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis.js';
 import config from '../config/index.js';
-import { zoneService } from './zone.service.js';
-import { fetchProduct } from '../lib/product-client.js';
+import { settingsService } from './settings.service.js';
+import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 
 type CartWithItems = Prisma.CartGetPayload<{
   include: { items: true };
@@ -37,7 +37,6 @@ interface AddToCartData {
   productId: string;
   quantity: number;
   freeItemIds?: string[];
-  price: number;
 }
 
 class CartService {
@@ -92,10 +91,13 @@ class CartService {
       })
     );
 
-    const { items: _items, ...cartWithoutItems } = cart;
-
     const enrichedCart: EnrichedCart = {
-      ...(cartWithoutItems as Omit<EnrichedCart, 'items'>),
+      id: cart.id,
+      userId: cart.userId,
+      guestId: cart.guestId,
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt,
+      expiresAt: cart.expiresAt,
       items: enrichedItems,
     };
 
@@ -123,7 +125,7 @@ class CartService {
     let cart = await this.getCart(userId, guestId);
 
     if (!cart) {
-      cart = await prisma.cart.create({
+      const newCart = await prisma.cart.create({
         data: {
           userId,
           guestId,
@@ -132,8 +134,18 @@ class CartService {
             : undefined,
         },
         include: { items: true },
-      }) as unknown as EnrichedCart;
-      // Since it's a new cart, items will be empty, so no need to enrich
+      });
+
+      // Build EnrichedCart explicitly (items will be empty)
+      cart = {
+        id: newCart.id,
+        userId: newCart.userId,
+        guestId: newCart.guestId,
+        createdAt: newCart.createdAt,
+        updatedAt: newCart.updatedAt,
+        expiresAt: newCart.expiresAt,
+        items: [],
+      };
     }
 
     return cart;
@@ -141,6 +153,16 @@ class CartService {
 
   async addToCart(userId: string | undefined, guestId: string | undefined, data: AddToCartData): Promise<EnrichedCart> {
     const cart = await this.getOrCreateCart(userId, guestId);
+
+    // Resolve authoritative product and price server-side
+    const product = await fetchProduct(data.productId);
+    if (product.status !== 'ACTIVE') {
+      throw new BadRequestError(`Product is not available for purchase (status: ${product.status})`);
+    }
+    if (product.stock < data.quantity) {
+      throw new BadRequestError(`Insufficient stock. Available: ${product.stock}`);
+    }
+    const price = resolveEffectivePrice(product);
 
     // Check if product already in cart
     const existingItem = cart.items.find(item => item.productId === data.productId);
@@ -151,7 +173,7 @@ class CartService {
         where: { id: existingItem.id },
         data: { 
           quantity: existingItem.quantity + data.quantity,
-          price: data.price,
+          price,
           freeItemIds: data && (data as any).freeItemIds
             ? ((data as any).freeItemIds as string[]).slice(0, 1)
             : (Array.isArray((existingItem as any).freeItemIds) ? (existingItem as any).freeItemIds : ((existingItem as any).freeItemId ? [(existingItem as any).freeItemId] : undefined)),
@@ -164,7 +186,7 @@ class CartService {
           cartId: cart.id,
           productId: data.productId,
           quantity: data.quantity,
-          price: data.price,
+          price,
           freeItemIds: data && (data as any).freeItemIds ? ((data as any).freeItemIds as string[]).slice(0,1) : undefined,
         },
       });
@@ -289,14 +311,24 @@ class CartService {
 
     const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    // Determine shipping fee by zone using Zone table
-    let shippingFee = 0;
-    if (shippingZone) {
-      const z = await zoneService.get(shippingZone);
-      if (!z) {
-        throw new BadRequestError(`Unknown shipping zone: ${shippingZone}`);
+    // Get deliveryCharges from settings
+    let deliveryCharges: Record<string, number> = {};
+    try {
+      const charges = await settingsService.get('deliveryCharges');
+      if (charges && typeof charges === 'object') {
+        deliveryCharges = charges;
       }
-      shippingFee = z.price;
+    } catch {}
+
+    // Determine shipping fee by zone
+    let shippingFee = 0;
+    if (shippingZone && deliveryCharges[shippingZone] !== undefined) {
+      shippingFee = deliveryCharges[shippingZone];
+    } else if (deliveryCharges['default'] !== undefined) {
+      shippingFee = deliveryCharges['default'];
+    } else {
+      // fallback to 0 if no deliveryCharges set
+      shippingFee = 0;
     }
 
     return {

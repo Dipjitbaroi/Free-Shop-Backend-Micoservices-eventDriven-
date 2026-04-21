@@ -24,12 +24,17 @@ const createOrderValidation = [
     }
     return true;
   }),
-  // If inline shippingAddress is provided, require a non-empty 'zone' property
+  // If inline shippingAddress is provided, require a non-empty `zoneId` (accept legacy `zone`)
   body().custom((value: Record<string, unknown>) => {
     if (value.shippingAddress) {
       const addr = value.shippingAddress as Record<string, unknown>;
-      if (!addr || typeof addr !== 'object' || !('zone' in addr) || !String((addr as any).zone).trim()) {
-        throw new Error('shippingAddress.zone is required when providing an inline shippingAddress');
+      const zoneVal = (addr && typeof addr === 'object') ? (addr.zoneId ?? addr.zone) : undefined;
+      if (!addr || typeof addr !== 'object' || zoneVal === undefined || !String(zoneVal).trim()) {
+        throw new Error('shippingAddress.zoneId is required when providing an inline shippingAddress');
+      }
+      // Normalize legacy `zone` -> `zoneId` so downstream code can rely on `zoneId`
+      if (!('zoneId' in addr) && 'zone' in addr) {
+        (addr as any).zoneId = String((addr as any).zone);
       }
     }
     return true;

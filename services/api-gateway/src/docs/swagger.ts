@@ -531,17 +531,17 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   type: 'object',
                   properties: {
                     success: { type: 'boolean' },
+                    message: { type: 'string' },
                     data: {
                       type: 'object',
                       properties: {
-                        ROLE_CREATE: { type: 'number' },
-                        ROLE_READ: { type: 'number' },
-                        ROLE_DELETE: { type: 'number' },
-                        PERMISSION_CREATE: { type: 'number' },
-                        PERMISSION_READ: { type: 'number' },
-                        PERMISSION_DELETE: { type: 'number' },
+                        permissionCodes: {
+                          type: 'object',
+                          additionalProperties: { type: 'number' },
+                        },
                       },
                     },
+                    timestamp: { type: 'string', format: 'date-time' },
                   },
                 },
               },
@@ -568,19 +568,35 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   type: 'object',
                   properties: {
                     success: { type: 'boolean' },
+                    message: { type: 'string' },
                     data: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          id: { type: 'string', format: 'uuid' },
-                          name: { type: 'string', example: 'ADMIN' },
-                          description: { type: 'string' },
-                          permissions: { type: 'array', items: { type: 'string' } },
-                          createdAt: { type: 'string', format: 'date-time' },
+                      type: 'object',
+                      properties: {
+                        roles: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              name: { type: 'string', example: 'ADMIN' },
+                              description: { type: 'string' },
+                              permissions: { type: 'array', items: { type: 'string' } },
+                              createdAt: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            pages: { type: 'integer' },
+                          },
                         },
                       },
                     },
+                    timestamp: { type: 'string', format: 'date-time' },
                   },
                 },
               },
@@ -611,7 +627,31 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
         },
         responses: {
-          201: { description: 'Role created' },
+          201: {
+            description: 'Role created',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        name: { type: 'string' },
+                        description: { type: 'string' },
+                        permissions: { type: 'array', items: { type: 'string' } },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
@@ -627,7 +667,31 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Role details' },
+          200: {
+            description: 'Role details',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        name: { type: 'string' },
+                        description: { type: 'string' },
+                        permissions: { type: 'array', items: { type: 'string' } },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
           404: { $ref: '#/components/responses/NotFound' },
         },
@@ -656,7 +720,22 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
         },
         responses: {
-          200: { description: 'Permission added to role' },
+          200: {
+            description: 'Permission added to role',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: { type: 'object', properties: { /* role object */ } },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
@@ -673,7 +752,22 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           { name: 'permissionId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Permission removed from role' },
+          200: {
+            description: 'Permission removed from role',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: { type: 'object', properties: { /* role object */ } },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
@@ -698,18 +792,34 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   type: 'object',
                   properties: {
                     success: { type: 'boolean' },
+                    message: { type: 'string' },
                     data: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          id: { type: 'string', format: 'uuid' },
-                          code: { type: 'string', example: 'USER_READ' },
-                          description: { type: 'string' },
-                          createdAt: { type: 'string', format: 'date-time' },
+                      type: 'object',
+                      properties: {
+                        permissions: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              code: { type: 'string', example: 'USER_READ' },
+                              description: { type: 'string' },
+                              createdAt: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            pages: { type: 'integer' },
+                          },
                         },
                       },
                     },
+                    timestamp: { type: 'string', format: 'date-time' },
                   },
                 },
               },
@@ -729,7 +839,30 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           { name: 'code', in: 'path', required: true, schema: { type: 'string', example: 'USER_READ' } },
         ],
         responses: {
-          200: { description: 'Permission details' },
+          200: {
+            description: 'Permission details',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        id: { type: 'string', format: 'uuid' },
+                        code: { type: 'string' },
+                        description: { type: 'string' },
+                        createdAt: { type: 'string', format: 'date-time' },
+                      },
+                    },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
           404: { $ref: '#/components/responses/NotFound' },
         },
@@ -752,14 +885,17 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   type: 'object',
                   properties: {
                     success: { type: 'boolean' },
+                    message: { type: 'string' },
                     data: {
                       type: 'object',
                       properties: {
                         userId: { type: 'string', format: 'uuid' },
                         roles: { type: 'array', items: { type: 'string' } },
-                        permissions: { type: 'array', items: { type: 'string' } },
+                        roleNames: { type: 'array', items: { type: 'string' } },
+                        permissionCodes: { type: 'array', items: { type: 'number' } },
                       },
                     },
+                    timestamp: { type: 'string', format: 'date-time' },
                   },
                 },
               },
@@ -791,7 +927,29 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
         },
         responses: {
-          200: { description: 'Role assigned to user' },
+          200: {
+            description: 'Role assigned to user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        roles: { type: 'array', items: { type: 'string' } },
+                        roleNames: { type: 'array', items: { type: 'string' } },
+                        permissionCodes: { type: 'array', items: { type: 'number' } },
+                      },
+                    },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
@@ -808,7 +966,29 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Role removed from user' },
+          200: {
+            description: 'Role removed from user',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        roles: { type: 'array', items: { type: 'string' } },
+                        roleNames: { type: 'array', items: { type: 'string' } },
+                        permissionCodes: { type: 'array', items: { type: 'number' } },
+                      },
+                    },
+                    timestamp: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
@@ -833,7 +1013,16 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   type: 'object',
                   properties: {
                     success: { type: 'boolean' },
-                    data: { type: 'object', properties: { hasPermission: { type: 'boolean' } } },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        userId: { type: 'string', format: 'uuid' },
+                        permissionCode: { type: 'number' },
+                        hasPermission: { type: 'boolean' },
+                      },
+                    },
+                    timestamp: { type: 'string', format: 'date-time' },
                   },
                 },
               },
@@ -861,7 +1050,16 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   type: 'object',
                   properties: {
                     success: { type: 'boolean' },
-                    data: { type: 'object', properties: { hasRole: { type: 'boolean' } } },
+                    message: { type: 'string' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        userId: { type: 'string', format: 'uuid' },
+                        roleName: { type: 'string' },
+                        hasRole: { type: 'boolean' },
+                      },
+                    },
+                    timestamp: { type: 'string', format: 'date-time' },
                   },
                 },
               },
@@ -894,21 +1092,37 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                   type: 'object',
                   properties: {
                     success: { type: 'boolean' },
+                    message: { type: 'string' },
                     data: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          id: { type: 'string', format: 'uuid' },
-                          userId: { type: 'string', format: 'uuid' },
-                          action: { type: 'string' },
-                          roleId: { type: 'string', format: 'uuid' },
-                          permissionId: { type: 'string', format: 'uuid' },
-                          timestamp: { type: 'string', format: 'date-time' },
-                          details: { type: 'string' },
+                      type: 'object',
+                      properties: {
+                        logs: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              userId: { type: 'string', format: 'uuid' },
+                              action: { type: 'string' },
+                              roleId: { type: 'string', format: 'uuid' },
+                              permissionId: { type: 'string', format: 'uuid' },
+                              timestamp: { type: 'string', format: 'date-time' },
+                              details: { type: 'string' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            pages: { type: 'integer' },
+                          },
                         },
                       },
                     },
+                    timestamp: { type: 'string', format: 'date-time' },
                   },
                 },
               },
@@ -972,6 +1186,21 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                     success: { type: 'boolean' },
                     data: { type: 'array', items: { $ref: '#/components/schemas/Address' } },
                   },
+                },
+                example: {
+                  success: true,
+                  data: [
+                    {
+                      fullName: 'string',
+                      phone: 'string',
+                      addressLine: 'string',
+                      district: 'string',
+                      upazila: 'string',
+                      zoneId: 'string',
+                      postalCode: 'string',
+                      country: 'BD',
+                    },
+                  ],
                 },
               },
             },
@@ -1477,10 +1706,8 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                     data: {
                       type: 'object',
                       properties: {
-                        zones: {
-                          type: 'array',
-                          items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, price: { type: 'number' } } },
-                        },
+                        deliveryCharges: { type: 'object', additionalProperties: { type: 'number' } },
+                        zones: { type: 'array', items: { type: 'string' } },
                       },
                     },
                   },
@@ -1494,80 +1721,25 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       put: {
         tags: ['Settings'],
-        summary: 'Update delivery zones (admin/manager) - accepts array of zone objects',
+        summary: 'Update delivery charges (admin/manager)',
         security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: { type: 'string', format: 'uuid', description: 'Optional existing zone id (for update) or omitted to create' },
-                    name: { type: 'string' },
-                    price: { type: 'number' },
-                  },
-                  required: ['name', 'price'],
-                },
-                example: [
-                  { name: 'Dhaka (in city)', price: 50 },
-                  { name: 'Feni', price: 60 },
-                  { name: 'Outside Dhaka', price: 120 },
-                ],
-              },
-            },
-          },
-        },
-        responses: {
-          200: { description: 'Delivery zones updated' },
-          400: { $ref: '#/components/responses/BadRequest' },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
-        },
-      },
-    },
-    '/settings/delivery/{id}': {
-      patch: {
-        tags: ['Settings'],
-        summary: 'Update a delivery zone by id (admin)',
-        security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
                 type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  price: { type: 'number' },
-                },
+                additionalProperties: { type: 'number' },
+                example: { in_feni: 60, in_dhaka: 50, outside_dhaka: 120 },
               },
-              example: { name: 'Dhaka (in city)', price: 55 },
             },
           },
         },
         responses: {
-          200: { description: 'Delivery zone updated' },
+          200: { description: 'Delivery charges updated' },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
-          404: { $ref: '#/components/responses/NotFound' },
-        },
-      },
-      delete: {
-        tags: ['Settings'],
-        summary: 'Delete a delivery zone by id (admin)',
-        security: [{ bearerAuth: [] }],
-        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
-        responses: {
-          200: { description: 'Delivery zone deleted' },
-          400: { $ref: '#/components/responses/BadRequest' },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
-          404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
@@ -2783,14 +2955,29 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           required: true,
           content: {
             'application/json': {
-              schema: {
+                schema: {
                 type: 'object',
                 required: ['productId', 'quantity'],
                 properties: {
                   productId: { type: 'string', format: 'uuid' },
                   quantity: { type: 'integer', minimum: 1 },
+                  freeItemIds: {
+                    type: 'array',
+                    items: { type: 'string', format: 'uuid' },
+                    description: 'Optional array of selected free item IDs. Server currently uses only the first entry (max 1).',
+                  },
                 },
                 description: 'Price is resolved server-side from the product-service; do not supply a price field.',
+                examples: {
+                  basic: {
+                    summary: 'Add item without free item',
+                    value: { productId: '550e8400-e29b-41d4-a716-446655440001', quantity: 1 },
+                  },
+                  withFreeItem: {
+                    summary: 'Add item with selected free item',
+                    value: { productId: '550e8400-e29b-41d4-a716-446655440001', quantity: 1, freeItemIds: ['550e8400-e29b-41d4-a716-446655440002'] },
+                  },
+                },
               },
             },
           },
@@ -4568,7 +4755,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           },
           shippingAddress: {
             allOf: [{ $ref: '#/components/schemas/Address' }],
-            description: 'Full shipping address object. Required when shippingAddressId is not provided. When providing an inline shippingAddress, include the `zone` property so the server can calculate delivery charges.',
+            description: 'Full shipping address object. Required when shippingAddressId is not provided. When providing an inline shippingAddress, include the `zoneId` property so the server can calculate delivery charges.',
           },
           // billingAddress is disabled — not currently used
           paymentMethod: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'] },
@@ -4580,11 +4767,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Basic order without free items',
             value: {
               shippingAddress: {
-                zoneId: '<zone-uuid>',
-                fullName: 'John Doe',
+                zoneId: 'in_dhaka',
+                name: 'John Doe',
                 phone: '+8801234567890',
-                addressLine: '123 Main Street, Dhaka',
-                district: 'Dhaka',
+                address: '123 Main Street, Dhaka',
+                city: 'Dhaka',
                 postalCode: '1200'
               },
               paymentMethod: 'COD',
@@ -4601,11 +4788,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Order with free item selected',
             value: {
               shippingAddress: {
-                zoneId: '<zone-uuid>',
-                fullName: 'John Doe',
+                zoneId: 'in_dhaka',
+                name: 'John Doe',
                 phone: '+8801234567890',
-                addressLine: '123 Main Street, Dhaka',
-                district: 'Dhaka',
+                address: '123 Main Street, Dhaka',
+                city: 'Dhaka',
                 postalCode: '1200'
               },
               paymentMethod: 'COD',
@@ -5238,8 +5425,8 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           addressLine: { type: 'string' },
           district: { type: 'string' },
           upazila: { type: 'string' },
-          // Canonical shipping zone identifier (UUID). Required for order creation when providing inline shippingAddress.
-          zoneId: { type: 'string', format: 'uuid' },
+          // Canonical shipping zone identifier. Required for order creation when providing inline shippingAddress.
+          zoneId: { type: 'string' },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
         },
