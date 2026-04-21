@@ -5,6 +5,7 @@ import { successResponse } from '@freeshop/shared-utils';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 import { fetchAddressById } from '../lib/user-client.js';
 import { settingsService } from '../services/settings.service.js';
+import { zoneService } from '../services/zone.service.js';
 import { BadRequestError } from '@freeshop/shared-utils';
 
 export const orderController = {
@@ -74,15 +75,18 @@ export const orderController = {
         throw new BadRequestError('shippingAddress.zone is required');
       }
 
-      // Validate zone exists in configured delivery charges
+      // Validate zone exists as a Zone record (preferred) and fall back to settings
       try {
-        const deliveryCharges = (await settingsService.get('deliveryCharges')) || {};
-        const zone = String((shippingAddress as any).zone);
-        if (!deliveryCharges || typeof deliveryCharges !== 'object' || deliveryCharges[zone] === undefined) {
-          throw new BadRequestError(`Unknown shipping zone: ${zone}`);
+        const zoneId = String((shippingAddress as any).zoneId);
+        const z = await zoneService.get(zoneId);
+        if (!z) {
+          // Fallback: check legacy deliveryCharges setting
+          const deliveryCharges = (await settingsService.get('deliveryCharges')) || {};
+          if (!deliveryCharges || typeof deliveryCharges !== 'object' || deliveryCharges[zoneId] === undefined) {
+            throw new BadRequestError(`Unknown shipping zone: ${zoneId}`);
+          }
         }
       } catch (err) {
-        // If settings fetch fails, surface a generic error
         if (err instanceof BadRequestError) throw err;
         throw new BadRequestError('Could not validate shipping zone');
       }

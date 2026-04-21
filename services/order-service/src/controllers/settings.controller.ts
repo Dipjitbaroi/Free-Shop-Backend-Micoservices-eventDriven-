@@ -49,4 +49,28 @@ export const settingsController = {
       next(error);
     }
   },
+  async updateDeliveryZone(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id || '');
+      const body = req.body || {};
+      if (!id) throw new Error('Zone id is required');
+      if (body.name !== undefined && typeof body.name !== 'string') throw new Error('`name` must be a string');
+      if (body.price !== undefined && typeof body.price !== 'number') throw new Error('`price` must be a number');
+
+      const updated = await zoneService.update(id, { name: body.name, price: body.price });
+      res.json(successResponse({ zone: updated }, 'Delivery zone updated'));
+    } catch (error) {
+      next(error);
+    }
+  },
+  async deleteDeliveryZone(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id || '');
+      if (!id) throw new Error('Zone id is required');
+      await zoneService.delete(id);
+      res.json(successResponse(null, 'Delivery zone deleted'));
+    } catch (error) {
+      next(error);
+    }
+  },
 };

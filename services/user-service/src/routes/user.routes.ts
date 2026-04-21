@@ -21,7 +21,7 @@ const addAddressValidation = [
   body('addressLine').isString().notEmpty().withMessage('Address line is required'),
   body('district').isString().notEmpty().withMessage('District is required'),
   body('upazila').optional().isString(),
-  body('zoneId').isString().notEmpty().withMessage('zoneId is required'),
+  body('zoneId').isUUID().notEmpty().withMessage('zoneId (UUID) is required'),
   body('label').optional().isString(),
   body('postalCode').optional().isString(),
   body('isDefault').optional().isBoolean(),

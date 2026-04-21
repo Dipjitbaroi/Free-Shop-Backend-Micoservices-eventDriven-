@@ -9,7 +9,7 @@ export interface AddressSnapshot {
   upazila?: string;
   postalCode?: string;
   country: string;
-  zone?: string;
+  zoneId?: string;
 }
 
 /**
@@ -59,6 +59,6 @@ export async function fetchAddressById(
     upazila: a.upazila ?? undefined,
     postalCode: a.postalCode ?? undefined,
     country: a.country ?? 'Bangladesh',
-    zone: zone ? String(zone) : undefined,
+    zoneId: zone ? String(zone) : undefined,
   };
 }

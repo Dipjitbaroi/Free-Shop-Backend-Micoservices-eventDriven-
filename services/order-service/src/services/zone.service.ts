@@ -27,6 +27,10 @@ class ZoneService {
   async delete(id: string) {
     await (prisma as any).zone.delete({ where: { id } });
   }
+
+  async update(id: string, data: { name?: string; price?: number }) {
+    return (prisma as any).zone.update({ where: { id }, data, select: { id: true, name: true, price: true } });
+  }
 }
 
 export const zoneService = new ZoneService();
