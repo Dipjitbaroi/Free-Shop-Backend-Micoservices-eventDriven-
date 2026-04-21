@@ -19,8 +19,7 @@ export interface IVendor {
   totalProducts: number;
   totalOrders: number;
   totalRevenue: number;
-  commissionRate: number;
-  minimumWithdrawal: number;
+  
   businessAddress?: Record<string, unknown>;
   shippingZones: string[];
   returnPolicy?: string;
@@ -74,8 +73,7 @@ export interface IVendorUpdate {
   shippingPolicy?: string;
   bankDetails?: Partial<Record<string, unknown>>;
   mobileWallet?: Partial<Record<string, unknown>>;
-  commissionRate?: number;
-  minimumWithdrawal?: number;
+  
 }
 
 export interface IVendorFilter {
@@ -96,8 +94,7 @@ export interface IVendorAnalytics {
   completedOrders: number;
   cancelledOrders: number;
   totalRevenue: number;
-  totalCommission: number;
-  netRevenue: number;
+  
   averageOrderValue: number;
   topProducts: Array<{
     productId: string;
@@ -111,40 +108,6 @@ export interface IVendorAnalytics {
     revenue: number;
     orders: number;
   }>;
-}
-
-export interface ICommission {
-  id: string;
-  vendorId: string;
-  orderId: string;
-  orderItemId?: string;
-  productId: string;
-  orderAmount: number;
-  commissionRate: number;
-  commissionAmount: number;
-  netAmount: number;
-  status: 'PENDING' | 'SETTLED' | 'WITHDRAWN' | 'CANCELLED';
-  settledAt?: Date;
-  withdrawalId?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface IWithdrawal {
-  id: string;
-  vendorId: string;
-  amount: number;
-  fee: number;
-  netAmount: number;
-  method: 'BANK_TRANSFER' | 'BKASH' | 'NAGAD' | 'ROCKET';
-  accountDetails: Record<string, unknown>;
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'REJECTED';
-  processedAt?: Date;
-  processedBy?: string;
-  transactionId?: string;
-  rejectionReason?: string;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface IVendorReview {

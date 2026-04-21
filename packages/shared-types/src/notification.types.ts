@@ -108,4 +108,4 @@ export type NotificationEvent =
   | 'PRODUCT_APPROVED'
   | 'PRODUCT_REJECTED'
   | 'LOW_STOCK_ALERT'
-  | 'WITHDRAWAL_PROCESSED';
+  ;

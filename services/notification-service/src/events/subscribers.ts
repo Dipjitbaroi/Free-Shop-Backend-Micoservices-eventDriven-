@@ -299,38 +299,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
     }
   );
 
-  await messageBroker.subscribe<WithdrawalPayload>(
-    EXCHANGES.VENDOR,
-    QUEUES.NOTIFICATION_WITHDRAWAL_COMPLETED,
-    getRoutingKey('Vendor', 'WITHDRAWAL_COMPLETED'),
-    async (payload) => {
-      try {
-        logger.info('Processing withdrawal completed event for notification', { 
-          withdrawalId: payload.withdrawalId 
-        });
-
-        await notificationService.sendNotification({
-          userId: payload.userId,
-          email: payload.email,
-          type: 'WITHDRAWAL_COMPLETED',
-          channel: 'EMAIL',
-          templateId: 'withdrawal-completed',
-          templateData: {
-            withdrawalId: payload.withdrawalId,
-            amount: payload.amount,
-            transactionId: payload.transactionId,
-          },
-        });
-
-        logger.info('Withdrawal completed notification sent', { withdrawalId: payload.withdrawalId });
-      } catch (error) {
-        logger.error('Error sending withdrawal completed notification', {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          withdrawalId: payload.withdrawalId,
-        });
-      }
-    }
-  );
+  // Withdrawal notifications are handled offline; no in-system subscriber.
 
   await messageBroker.subscribe<InventoryAlertPayload>(
     EXCHANGES.INVENTORY,

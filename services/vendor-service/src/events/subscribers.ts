@@ -1,6 +1,6 @@
 import { messageBroker } from '../lib/message-broker.js';
 import { vendorService } from '../services/vendor.service.js';
-import { commissionService } from '../services/commission.service.js';
+import { prisma } from '../lib/prisma.js';
 import { EXCHANGES, getRoutingKey, QUEUES } from '@freeshop/shared-events';
 import { createServiceLogger } from '@freeshop/shared-utils';
 
@@ -79,24 +79,23 @@ export const setupEventSubscribers = async (): Promise<void> => {
         }
 
         for (const [vendorId, items] of vendorItems) {
-          let totalVendorAmount = 0;
+          // Prefer using product.supplierPrice (vendor-visible) when available.
+            let totalVendorAmount = 0;
 
-          for (const item of items) {
-            const itemSubtotal = item.subtotal ?? item.price * item.quantity;
+            for (const item of items) {
+              // item may include supplierPrice published by order-service
+              const supplierPrice = (item as any).supplierPrice as number | undefined;
+              const itemSubtotal = supplierPrice !== undefined && supplierPrice !== null
+                ? supplierPrice * item.quantity
+                : (item.subtotal ?? item.price * item.quantity);
 
-            await commissionService.createCommission({
-              vendorId,
-              orderId: payload.orderId,
-              productId: item.productId,
-              orderAmount: itemSubtotal,
+              totalVendorAmount += itemSubtotal;
+            }
+
+            await vendorService.updateVendorStats(vendorId, {
+              ordersChange: 1,
+              revenueChange: totalVendorAmount,
             });
-            totalVendorAmount += itemSubtotal;
-          }
-
-          await vendorService.updateVendorStats(vendorId, {
-            ordersChange: 1,
-            revenueChange: totalVendorAmount,
-          });
         }
 
         logger.info('Commissions created for order', { orderId: payload.orderId });
@@ -119,24 +118,8 @@ export const setupEventSubscribers = async (): Promise<void> => {
         payload = unwrapEventData<OrderCancelledPayload>(rawPayload);
         logger.info('Processing order cancelled event for vendor', { orderId: payload.orderId });
 
-        const cancelledCommissions = await commissionService.cancelCommissionsForOrder(payload.orderId);
-
-        const vendorTotals = new Map<string, { orders: number; revenue: number }>();
-        for (const commission of cancelledCommissions) {
-          const existing = vendorTotals.get(commission.vendorId) || { orders: 0, revenue: 0 };
-          existing.orders += 1;
-          existing.revenue += Number(commission.orderAmount);
-          vendorTotals.set(commission.vendorId, existing);
-        }
-
-        for (const [vendorId, totals] of vendorTotals) {
-          await vendorService.updateVendorStats(vendorId, {
-            ordersChange: -totals.orders,
-            revenueChange: -totals.revenue,
-          });
-        }
-
-        logger.info('Commissions cancelled for order', { orderId: payload.orderId });
+        // Commissions are handled offline; no DB commission records to cancel.
+        logger.info('Order cancellation received; commissions handled offline', { orderId: payload.orderId });
       } catch (error) {
         logger.error('Error cancelling commissions for order', {
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -159,9 +142,8 @@ export const setupEventSubscribers = async (): Promise<void> => {
           orderId: payload.orderId 
         });
 
-        await commissionService.settleCommissionsForOrder(payload.orderId);
-
-        logger.info('Commissions settled for order', { orderId: payload.orderId });
+        // Commissions are handled offline; nothing to settle in-system.
+        logger.info('Payment received; commission settlement handled offline', { orderId: payload.orderId, paymentId: payload.paymentId });
       } catch (error) {
         logger.error('Error settling commissions for payment', {
           error: error instanceof Error ? error.message : 'Unknown error',

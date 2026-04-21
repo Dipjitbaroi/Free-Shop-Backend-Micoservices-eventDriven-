@@ -165,8 +165,6 @@ class AnalyticsService {
         totalRevenue: true,
         totalOrders: true,
         totalItems: true,
-        commission: true,
-        netRevenue: true,
         productViews: true,
         newReviews: true,
       },
@@ -461,8 +459,6 @@ class AnalyticsService {
     totalOrders: number;
     totalRevenue: number;
     totalItems: number;
-    commission: number;
-    netRevenue: number;
     productViews: number;
     newReviews: number;
   }>) {
@@ -484,12 +480,6 @@ class AnalyticsService {
           : undefined,
         totalItems: data.totalItems !== undefined 
           ? { increment: data.totalItems } 
-          : undefined,
-        commission: data.commission !== undefined 
-          ? { increment: data.commission } 
-          : undefined,
-        netRevenue: data.netRevenue !== undefined 
-          ? { increment: data.netRevenue } 
           : undefined,
         productViews: data.productViews !== undefined 
           ? { increment: data.productViews } 

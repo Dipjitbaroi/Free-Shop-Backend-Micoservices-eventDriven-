@@ -5,7 +5,6 @@ import compression from 'compression';
 import { errorHandler, requestLogger, notFoundHandler } from '@freeshop/shared-middleware';
 
 import vendorRoutes from './routes/vendor.routes.js';
-import commissionRoutes from './routes/commission.routes.js';
 import reviewRoutes from './routes/review.routes.js';
 import healthRoutes from './routes/health.routes.js';
 
@@ -21,7 +20,6 @@ app.use(requestLogger);
 
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/vendors', reviewRoutes);
-app.use('/api/vendors/finance', commissionRoutes);
 app.use('/', healthRoutes);
 
 app.use(notFoundHandler);

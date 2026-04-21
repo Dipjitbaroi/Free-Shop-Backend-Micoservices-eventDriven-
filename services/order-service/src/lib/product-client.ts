@@ -11,6 +11,7 @@ export interface ProductPriceInfo {
   unit: string;
   images: string[];
   price: number;
+  supplierPrice?: number;
   discountPrice: number | null;
   flashSalePrice: number | null;
   isFlashSale: boolean;
@@ -59,6 +60,7 @@ export async function fetchProduct(productId: string): Promise<ProductPriceInfo>
     discountPrice: p.discountPrice != null ? Number(p.discountPrice) : null,
     flashSalePrice: p.flashSalePrice != null ? Number(p.flashSalePrice) : null,
     isFlashSale: Boolean(p.isFlashSale),
+    supplierPrice: p.supplierPrice != null ? Number(p.supplierPrice) : undefined,
     freeItems: Array.isArray(p.freeItems) ? p.freeItems.map((fi: any) => ({ id: fi.id, name: fi.name, sku: fi.sku, image: fi.image })) : undefined,
   };
 }

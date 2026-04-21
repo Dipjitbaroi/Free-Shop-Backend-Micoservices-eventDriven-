@@ -154,6 +154,7 @@ class OrderService {
         vendorId: item.vendorId,
         quantity: item.quantity,
         price: item.price,
+        supplierPrice: (item as any).supplierPrice ?? undefined,
         freeItemId: (item as any).freeItemId || undefined,
       })),
     });
