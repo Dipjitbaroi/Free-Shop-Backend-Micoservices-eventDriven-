@@ -1477,8 +1477,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
                     data: {
                       type: 'object',
                       properties: {
-                        deliveryCharges: { type: 'object', additionalProperties: { type: 'number' } },
-                        zones: { type: 'array', items: { type: 'string' } },
+                        zones: {
+                          type: 'array',
+                          items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, price: { type: 'number' } } },
+                        },
                       },
                     },
                   },

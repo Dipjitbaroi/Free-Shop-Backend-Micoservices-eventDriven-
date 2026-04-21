@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import { settingsService } from '../services/settings.service.js';
 import { zoneService } from '../services/zone.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
@@ -8,16 +7,10 @@ export const settingsController = {
     try {
       // Return zones from Zone table (preferred) and fallback to settings if empty
       const zonesFromDb = await zoneService.getAll();
-      if (zonesFromDb && zonesFromDb.length > 0) {
-        const deliveryCharges: Record<string, number> = {};
-        for (const z of zonesFromDb) deliveryCharges[z.id] = z.price;
-        res.json(successResponse({ deliveryCharges, zones: zonesFromDb }, 'Delivery charges retrieved'));
-        return;
-      }
-
-      const deliveryCharges = (await settingsService.get('deliveryCharges')) || {};
-      const zones = Object.keys(deliveryCharges);
-      res.json(successResponse({ deliveryCharges, zones }, 'Delivery charges retrieved'));
+      // Always return canonical zones from DB (may be empty)
+      const deliveryCharges: Record<string, number> = {};
+      for (const z of zonesFromDb) deliveryCharges[z.id] = z.price;
+      res.json(successResponse({ deliveryCharges, zones: zonesFromDb }, 'Delivery charges retrieved'));
     } catch (error) {
       next(error);
     }
