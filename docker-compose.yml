@@ -1,7 +1,7 @@
 services:
   # Infrastructure Services
   postgres:
-    image: postgres:15-alpine
+    image: postgres:18.3-alpine
     container_name: freeshop-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -21,7 +21,7 @@ services:
       - freeshop-network
 
   redis:
-    image: redis:7-alpine
+    image: redis:8.6.2-alpine
     container_name: freeshop-redis
     command: redis-server --appendonly yes ${REDIS_PASSWORD:+--requirepass ${REDIS_PASSWORD}}
     volumes:
@@ -37,7 +37,7 @@ services:
       - freeshop-network
 
   rabbitmq:
-    image: rabbitmq:3.12-management-alpine
+    image: rabbitmq:4.2.5-management-alpine
     container_name: freeshop-rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
