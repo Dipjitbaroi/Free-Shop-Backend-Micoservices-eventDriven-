@@ -10,6 +10,7 @@ import {
   ICreatePermissionRequest,
   PERMISSION_CODES,
 } from '@freeshop/shared-types';
+import { successResponse } from '@freeshop/shared-utils';
 
 /**
  * Initialize default roles and permissions
@@ -29,16 +30,17 @@ export const initializeRBAC = async (req: Request, res: Response) => {
       const rolesCount = await (req as any).prisma?.role?.count?.() || 0;
       const permissionsCount = await (req as any).prisma?.permission?.count?.() || 0;
       
-      return res.status(200).json({
-        success: true,
-        message: 'RBAC system is already initialized',
-        status: 'already_initialized',
-        data: {
-          rolesCount,
-          permissionsCount,
-          timestamp: new Date().toISOString(),
-        },
-      });
+      return res.status(200).json(
+        successResponse(
+          {
+            rolesCount,
+            permissionsCount,
+            timestamp: new Date().toISOString(),
+            status: 'already_initialized',
+          },
+          'RBAC system is already initialized'
+        )
+      );
     }
     
     // Initialize RBAC
@@ -46,15 +48,12 @@ export const initializeRBAC = async (req: Request, res: Response) => {
     
     const duration = Date.now() - startTime;
     
-    return res.status(200).json({
-      success: true,
-      message: 'RBAC system initialized successfully',
-      status: 'initialized',
-      data: {
-        timestamp: new Date().toISOString(),
-        durationMs: duration,
-      },
-    });
+    return res.status(200).json(
+      successResponse(
+        { timestamp: new Date().toISOString(), durationMs: duration, status: 'initialized' },
+        'RBAC system initialized successfully'
+      )
+    );
   } catch (error: any) {
     console.error('RBAC initialization error:', error);
     return res.status(500).json({
@@ -88,10 +87,7 @@ export const createRole = async (req: Request, res: Response) => {
 
     const role = await RBACService.createRole({ name, description, permissionIds }, userId);
 
-    return res.status(201).json({
-      message: 'Role created successfully',
-      role,
-    });
+    return res.status(201).json(successResponse(role, 'Role created successfully'));
   } catch (error: any) {
     console.error('Role creation error:', error);
     return res.status(500).json({
@@ -114,15 +110,20 @@ export const getRoles = async (req: Request, res: Response) => {
 
     const { roles, total } = await RBACService.getAllRoles(page, limit);
 
-    return res.status(200).json({
-      roles,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
+    return res.status(200).json(
+      successResponse(
+        {
+          roles,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        'Roles retrieved'
+      )
+    );
   } catch (error: any) {
     console.error('Error fetching roles:', error);
     return res.status(500).json({
@@ -149,7 +150,7 @@ export const getRoleById = async (req: Request, res: Response) => {
       });
     }
 
-    return res.status(200).json(role);
+    return res.status(200).json(successResponse(role, 'Role retrieved'));
   } catch (error: any) {
     console.error('Error fetching role:', error);
     return res.status(500).json({
@@ -181,10 +182,9 @@ export const addPermissionToRole = async (req: Request, res: Response) => {
     }
 
     await RBACService.addPermissionToRole(roleId, permissionId, userId);
-
-    return res.status(200).json({
-      message: 'Permission added to role successfully',
-    });
+    // Return updated role with permissions
+    const updatedRole = await RBACService.getRoleById(roleId);
+    return res.status(200).json(successResponse(updatedRole, 'Permission added to role successfully'));
   } catch (error: any) {
     console.error('Error adding permission to role:', error);
     return res.status(500).json({
@@ -209,10 +209,9 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
     }
 
     await RBACService.removePermissionFromRole(roleId, permissionId, userId);
-
-    return res.status(200).json({
-      message: 'Permission removed from role successfully',
-    });
+    // Return updated role after removal
+    const updatedRole = await RBACService.getRoleById(roleId);
+    return res.status(200).json(successResponse(updatedRole, 'Permission removed from role successfully'));
   } catch (error: any) {
     console.error('Error removing permission from role:', error);
     return res.status(500).json({
@@ -235,15 +234,20 @@ export const getPermissions = async (req: Request, res: Response) => {
 
     const { permissions, total } = await RBACService.getAllPermissions(page, limit);
 
-    return res.status(200).json({
-      permissions,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
+    return res.status(200).json(
+      successResponse(
+        {
+          permissions,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        'Permissions retrieved'
+      )
+    );
   } catch (error: any) {
     console.error('Error fetching permissions:', error);
     return res.status(500).json({
@@ -271,7 +275,7 @@ export const getPermissionByCode = async (req: Request, res: Response) => {
       });
     }
 
-    return res.status(200).json(permission);
+    return res.status(200).json(successResponse(permission, 'Permission retrieved'));
   } catch (error: any) {
     console.error('Error fetching permission:', error);
     return res.status(500).json({
@@ -303,10 +307,14 @@ export const assignRoleToUser = async (req: Request, res: Response) => {
     }
 
     await RBACService.assignRoleToUser(userId, roleId, requesterId);
-
-    return res.status(200).json({
-      message: 'Role assigned to user successfully',
-    });
+    // Return the user's current roles and permission snapshot
+    const result = await RBACService.getUserRolesAndPermissions(userId);
+    return res.status(200).json(
+      successResponse(
+        { roles: result.roles, roleNames: result.roleNames, permissionCodes: result.permissionCodes },
+        'Role assigned to user successfully'
+      )
+    );
   } catch (error: any) {
     console.error('Error assigning role to user:', error);
     return res.status(500).json({
@@ -331,10 +339,14 @@ export const removeRoleFromUser = async (req: Request, res: Response) => {
     }
 
     await RBACService.removeRoleFromUser(userId, roleId, requesterId);
-
-    return res.status(200).json({
-      message: 'Role removed from user successfully',
-    });
+    // Return the user's updated roles and permission snapshot
+    const result = await RBACService.getUserRolesAndPermissions(userId);
+    return res.status(200).json(
+      successResponse(
+        { roles: result.roles, roleNames: result.roleNames, permissionCodes: result.permissionCodes },
+        'Role removed from user successfully'
+      )
+    );
   } catch (error: any) {
     console.error('Error removing role from user:', error);
     return res.status(500).json({
@@ -354,7 +366,7 @@ export const getUserRolesAndPermissions = async (req: Request, res: Response) =>
 
     const result = await RBACService.getUserRolesAndPermissions(userId);
 
-    return res.status(200).json(result);
+    return res.status(200).json(successResponse(result, "User's roles and permissions retrieved"));
   } catch (error: any) {
     console.error('Error fetching user roles and permissions:', error);
     return res.status(500).json({
@@ -376,11 +388,9 @@ export const checkUserPermission = async (req: Request, res: Response) => {
 
     const hasPermission = await RBACService.userHasPermission(userId, permissionCode);
 
-    return res.status(200).json({
-      userId,
-      permissionCode,
-      hasPermission,
-    });
+    return res.status(200).json(
+      successResponse({ userId, permissionCode, hasPermission }, 'Permission check result')
+    );
   } catch (error: any) {
     console.error('Error checking permission:', error);
     return res.status(500).json({
@@ -401,11 +411,7 @@ export const checkUserRole = async (req: Request, res: Response) => {
 
     const hasRole = await RBACService.userHasRole(userId, roleName);
 
-    return res.status(200).json({
-      userId,
-      roleName,
-      hasRole,
-    });
+    return res.status(200).json(successResponse({ userId, roleName, hasRole }, 'Role check result'));
   } catch (error: any) {
     console.error('Error checking role:', error);
     return res.status(500).json({
@@ -437,15 +443,20 @@ export const getAuditLogs = async (req: Request, res: Response) => {
 
     const { logs, total } = await RBACService.getAuditLogs(filters, page, limit);
 
-    return res.status(200).json({
-      logs,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    });
+    return res.status(200).json(
+      successResponse(
+        {
+          logs,
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
+          },
+        },
+        'Audit logs retrieved'
+      )
+    );
   } catch (error: any) {
     console.error('Error fetching audit logs:', error);
     return res.status(500).json({
@@ -460,10 +471,7 @@ export const getAuditLogs = async (req: Request, res: Response) => {
  * GET /rbac/permission-codes
  */
 export const getPermissionCodesReference = async (req: Request, res: Response) => {
-  return res.status(200).json({
-    message: 'Permission codes reference',
-    permissionCodes: PERMISSION_CODES,
-  });
+  return res.status(200).json(successResponse({ permissionCodes: PERMISSION_CODES }, 'Permission codes reference'));
 };
 
 export default {

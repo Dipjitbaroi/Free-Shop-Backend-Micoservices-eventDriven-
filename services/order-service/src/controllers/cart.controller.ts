@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { cartService } from '../services/cart.service.js';
 import { successResponse, BadRequestError } from '@freeshop/shared-utils';
-import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 
 export const cartController = {
   async getCart(req: Request, res: Response, next: NextFunction) {
@@ -24,21 +23,8 @@ export const cartController = {
       const guestId = req.headers['x-guest-id'] as string;
       const { productId, quantity, freeItemId, freeItemIds } = req.body;
 
-      // Fetch authoritative price from product-service — never trust client price
-      const product = await fetchProduct(productId);
-
-      if (product.status !== 'ACTIVE') {
-        throw new BadRequestError(`Product is not available for purchase (status: ${product.status})`);
-      }
-
-      if (product.stock < quantity) {
-        throw new BadRequestError(`Insufficient stock. Available: ${product.stock}`);
-      }
-
-      const price = resolveEffectivePrice(product);
-
       const freeIds = freeItemIds ?? (freeItemId ? [freeItemId] : undefined);
-      const cart = await cartService.addToCart(userId, guestId, { productId, quantity, price, freeItemIds: freeIds });
+      const cart = await cartService.addToCart(userId, guestId, { productId, quantity, freeItemIds: freeIds });
       const summary = await cartService.getCartSummary(userId, guestId);
 
       res.json(successResponse({ cart, summary }, 'Item added to cart'));
