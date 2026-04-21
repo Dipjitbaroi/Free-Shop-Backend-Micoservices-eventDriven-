@@ -1492,25 +1492,80 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       put: {
         tags: ['Settings'],
-        summary: 'Update delivery charges (admin/manager)',
+        summary: 'Update delivery zones (admin/manager) - accepts array of zone objects',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
-                type: 'object',
-                additionalProperties: { type: 'number' },
-                example: { in_feni: 60, in_dhaka: 50, outside_dhaka: 120 },
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid', description: 'Optional existing zone id (for update) or omitted to create' },
+                    name: { type: 'string' },
+                    price: { type: 'number' },
+                  },
+                  required: ['name', 'price'],
+                },
+                example: [
+                  { name: 'Dhaka (in city)', price: 50 },
+                  { name: 'Feni', price: 60 },
+                  { name: 'Outside Dhaka', price: 120 },
+                ],
               },
             },
           },
         },
         responses: {
-          200: { description: 'Delivery charges updated' },
+          200: { description: 'Delivery zones updated' },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/settings/delivery/{id}': {
+      patch: {
+        tags: ['Settings'],
+        summary: 'Update a delivery zone by id (admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  price: { type: 'number' },
+                },
+              },
+              example: { name: 'Dhaka (in city)', price: 55 },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Delivery zone updated' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Settings'],
+        summary: 'Delete a delivery zone by id (admin)',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        responses: {
+          200: { description: 'Delivery zone deleted' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
