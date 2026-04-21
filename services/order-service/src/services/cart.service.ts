@@ -26,6 +26,7 @@ interface EnrichedCartItem {
     sku?: string;
     image?: string;
   }>;
+  
 }
 
 interface EnrichedCart extends Omit<CartWithItems, 'items'> {
@@ -35,6 +36,7 @@ interface EnrichedCart extends Omit<CartWithItems, 'items'> {
 interface AddToCartData {
   productId: string;
   quantity: number;
+  freeItemIds?: string[];
   price: number;
 }
 
@@ -148,6 +150,9 @@ class CartService {
         data: { 
           quantity: existingItem.quantity + data.quantity,
           price: data.price,
+          freeItemIds: data && (data as any).freeItemIds
+            ? ((data as any).freeItemIds as string[]).slice(0, 1)
+            : (Array.isArray((existingItem as any).freeItemIds) ? (existingItem as any).freeItemIds : ((existingItem as any).freeItemId ? [(existingItem as any).freeItemId] : undefined)),
         },
       });
     } else {
@@ -158,6 +163,7 @@ class CartService {
           productId: data.productId,
           quantity: data.quantity,
           price: data.price,
+          freeItemIds: data && (data as any).freeItemIds ? ((data as any).freeItemIds as string[]).slice(0,1) : undefined,
         },
       });
     }

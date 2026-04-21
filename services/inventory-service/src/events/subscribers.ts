@@ -8,7 +8,8 @@ const logger = createServiceLogger('inventory-service');
 interface OrderItem {
   productId: string;
   variantId?: string;
-  freeItemId?: string;
+   freeItemId?: string;
+   freeItemIds?: string[];
   quantity: number;
   price?: number;
 }
@@ -47,8 +48,9 @@ export const setupEventSubscribers = async (): Promise<void> => {
         logger.info('Processing order created event for inventory', { orderId: payload.orderId });
 
         for (const item of payload.items) {
-          const inventoryKey = item.freeItemId
-            ? `${item.productId}:free:${item.freeItemId}`
+          const chosenFreeId = Array.isArray(item.freeItemIds) && item.freeItemIds.length ? item.freeItemIds[0] : item.freeItemId;
+          const inventoryKey = chosenFreeId
+            ? `${item.productId}:free:${chosenFreeId}`
             : item.variantId
             ? `${item.productId}:${item.variantId}`
             : item.productId;
@@ -89,6 +91,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
               productId: item.productId,
               variantId: item.variantId,
               freeItemId: item.freeItemId,
+                freeItemIds: item.freeItemIds,
               quantity: item.quantity,
             })),
           }

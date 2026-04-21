@@ -14,7 +14,7 @@ export const orderController = {
       const guestId = req.headers['x-guest-id'] as string;
 
       // Resolve product details server-side — never trust client-supplied price/vendorId
-      const rawItems = req.body.items as { productId: string; quantity: number; freeItemId?: string }[];
+      const rawItems = req.body.items as { productId: string; quantity: number; freeItemId?: string; freeItemIds?: string[] }[];
       const resolvedItems = await Promise.all(
         rawItems.map(async (item) => {
           const product = await fetchProduct(item.productId);
@@ -24,9 +24,18 @@ export const orderController = {
           if (product.stock < item.quantity) {
             throw new BadRequestError(`Insufficient stock for "${product.name}". Available: ${product.stock}`);
           }
-          // Validate freeItemId if provided
-          if (item.freeItemId) {
-            const found = Array.isArray((product as any).freeItems) && (product as any).freeItems.find((fi: any) => fi.id === item.freeItemId);
+          // Validate freeItemIds if provided; limit to 1 for now
+          const incomingFreeIds: string[] | undefined = Array.isArray(item.freeItemIds)
+            ? item.freeItemIds
+            : item.freeItemId
+            ? [item.freeItemId]
+            : undefined;
+          if (incomingFreeIds && incomingFreeIds.length > 1) {
+            throw new BadRequestError('Only one freeItem is allowed for now');
+          }
+          if (incomingFreeIds && incomingFreeIds.length === 1) {
+            const fid = incomingFreeIds[0];
+            const found = Array.isArray((product as any).freeItems) && (product as any).freeItems.find((fi: any) => fi.id === fid);
             if (!found) {
               throw new BadRequestError(`Invalid freeItemId for product "${product.name}"`);
             }
@@ -39,7 +48,7 @@ export const orderController = {
             productImage: product.images[0] ?? undefined,
             unit: product.unit,
             quantity: item.quantity,
-            freeItemId: item.freeItemId,
+            freeItemIds: incomingFreeIds,
             price: resolveEffectivePrice(product),
           };
         })
