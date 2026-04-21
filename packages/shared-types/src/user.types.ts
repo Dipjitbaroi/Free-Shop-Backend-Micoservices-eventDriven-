@@ -56,7 +56,7 @@ export interface IAddress {
   postalCode?: string;
   country?: string;
   /** Canonical zone id (UUID) referencing delivery Zone */
-  zone: string;
+  zoneId: string;
   isDefault: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -71,7 +71,7 @@ export interface IAddressCreate {
   district: string;
   postalCode?: string;
   country?: string;
-  zone: string;
+  zoneId: string;
   isDefault?: boolean;
 }
 

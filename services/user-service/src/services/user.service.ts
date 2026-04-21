@@ -31,7 +31,7 @@ interface AddressData {
   upazila?: string; // upazila/thana
   postalCode?: string;
   country?: string;
-  zoneId: string; // required canonical zone reference (delivery charge lookup)
+  zoneId: string; // required canonical zone id (UUID) referencing delivery Zone
   isDefault?: boolean;
   type?: AddressType;
 }

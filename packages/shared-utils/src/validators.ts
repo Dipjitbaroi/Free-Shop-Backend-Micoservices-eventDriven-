@@ -45,7 +45,7 @@ export const addressSchema = Joi.object({
   upazila: Joi.string().max(100).allow('', null),
   district: Joi.string().required().min(2).max(100),
   postalCode: Joi.string().min(4).max(10).allow('', null),
-  zone: Joi.string().uuid({ version: 'uuidv4' }).required(),
+  zoneId: Joi.string().uuid({ version: 'uuidv4' }).required(),
   country: Joi.string().default('Bangladesh'),
 });
 

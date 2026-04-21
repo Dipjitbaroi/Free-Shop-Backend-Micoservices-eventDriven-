@@ -4523,7 +4523,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Basic order without free items',
             value: {
               shippingAddress: {
-                zone: '<zone-uuid>',
+                zoneId: '<zone-uuid>',
                 fullName: 'John Doe',
                 phone: '+8801234567890',
                 addressLine: '123 Main Street, Dhaka',
@@ -4544,7 +4544,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Order with free item selected',
             value: {
               shippingAddress: {
-                zone: '<zone-uuid>',
+                zoneId: '<zone-uuid>',
                 fullName: 'John Doe',
                 phone: '+8801234567890',
                 addressLine: '123 Main Street, Dhaka',
@@ -5174,15 +5174,15 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       // ── Shared sub-schemas ─────────────────────────────────────────────────
       Address: {
         type: 'object',
-        required: ['fullName', 'phone', 'addressLine', 'district', 'zone'],
+        required: ['fullName', 'phone', 'addressLine', 'district', 'zoneId'],
         properties: {
           fullName: { type: 'string' },
           phone: { type: 'string' },
           addressLine: { type: 'string' },
           district: { type: 'string' },
           upazila: { type: 'string' },
-          // Canonical shipping zone identifier. Required for order creation when providing inline shippingAddress.
-          zone: { type: 'string' },
+          // Canonical shipping zone identifier (UUID). Required for order creation when providing inline shippingAddress.
+          zoneId: { type: 'string', format: 'uuid' },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
         },
