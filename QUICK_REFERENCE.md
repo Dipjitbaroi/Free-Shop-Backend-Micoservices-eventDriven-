@@ -147,8 +147,8 @@ curl -X POST http://localhost:3004/orders \
     "shippingAddress": {
       "fullName": "Customer Name",
       "phone": "+8801234567890",
-      "addressLine1": "123 Main Street",
-      "city": "Dhaka"
+      "addressLine": "123 Main Street",
+      "district": "Dhaka"
     },
     "paymentMethod": "COD"
   }'

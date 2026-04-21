@@ -39,6 +39,7 @@ model CartItem {
   @@unique([cartId, productId])
   @@index([cartId])
   @@index([productId])
+  freeItemIds String[]
 }
 
 model Order {
@@ -175,7 +176,7 @@ model OrderItem {
   price       Float     // Price at time of order
   discount    Float     @default(0)
   total       Float
-  freeItemId  String?
+  freeItemIds String[]
   
   // Item status (for partial fulfillment)
   status      OrderItemStatus @default(PENDING)
@@ -241,6 +242,15 @@ model Setting {
   value     Json
   updatedBy String?
   updatedAt DateTime?
+}
+
+// Delivery zones stored as first-class records. Keep minimal fields: key, name, price
+model Zone {
+  id        String   @id @default(uuid())
+  name      String   // human readable name or code
+  price     Float    // delivery charge for this zone
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum OrderStatus {

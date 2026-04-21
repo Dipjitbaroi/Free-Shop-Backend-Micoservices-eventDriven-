@@ -344,7 +344,7 @@ class InventoryService {
         const rawId = r.inventory.productId;
         if (rawId.includes(':free:')) {
           const [base, freeId] = rawId.split(':free:');
-          return { productId: base, freeItemId: freeId, quantity: r.quantity };
+          return { productId: base, freeItemId: freeId, freeItemIds: [freeId], quantity: r.quantity };
         }
         if (rawId.includes(':')) {
           const [base, variant] = rawId.split(':');
@@ -410,7 +410,7 @@ class InventoryService {
         const rawId = r.inventory.productId;
         if (rawId.includes(':free:')) {
           const [base, freeId] = rawId.split(':free:');
-          return { productId: base, freeItemId: freeId, quantity: r.quantity };
+          return { productId: base, freeItemId: freeId, freeItemIds: [freeId], quantity: r.quantity };
         }
         if (rawId.includes(':')) {
           const [base, variant] = rawId.split(':');

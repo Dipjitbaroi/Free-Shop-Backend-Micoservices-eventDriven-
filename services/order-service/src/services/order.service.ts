@@ -29,7 +29,7 @@ interface CreateOrderData {
   paymentMethod: PaymentMethod;
   customerNote?: string;
   couponCode?: string;
-  items: {
+    items: {
     productId: string;
     vendorId: string;
     productName: string;
@@ -37,7 +37,7 @@ interface CreateOrderData {
     productImage?: string;
     unit?: string;
     quantity: number;
-    freeItemId?: string;
+      freeItemIds?: string[];
     price: number;
     discount?: number;
   }[];
@@ -124,7 +124,7 @@ class OrderService {
             productImage: item.productImage,
             unit: item.unit,
             quantity: item.quantity,
-            freeItemId: item.freeItemId || null,
+            freeItemIds: item.freeItemIds && item.freeItemIds.length ? item.freeItemIds.slice(0,1) : undefined,
             price: item.price,
             discount: item.discount || 0,
             total: (item.price * item.quantity) - (item.discount || 0),
@@ -143,20 +143,20 @@ class OrderService {
     }
 
     // Publish order created event
-    await eventPublisher.publish(Events.ORDER_CREATED, {
+      await eventPublisher.publish(Events.ORDER_CREATED, {
       orderId: order.id,
       orderNumber: order.orderNumber,
       userId: order.userId,
       total: order.total,
       paymentMethod: order.paymentMethod,
-      items: order.items.map(item => ({
-        productId: item.productId,
-        vendorId: item.vendorId,
-        quantity: item.quantity,
-        price: item.price,
-        supplierPrice: (item as any).supplierPrice ?? undefined,
-        freeItemId: (item as any).freeItemId || undefined,
-      })),
+        items: order.items.map(item => ({
+          productId: item.productId,
+          vendorId: item.vendorId,
+          quantity: item.quantity,
+          price: item.price,
+          supplierPrice: (item as any).supplierPrice ?? undefined,
+          freeItemIds: (item as any).freeItemIds && (item as any).freeItemIds.length ? (item as any).freeItemIds : ((item as any).freeItemId ? [(item as any).freeItemId] : undefined),
+        })),
     });
 
     return order;

@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis.js';
 import config from '../config/index.js';
 import { settingsService } from './settings.service.js';
+import { zoneService } from './zone.service.js';
 import { fetchProduct } from '../lib/product-client.js';
 
 type CartWithItems = Prisma.CartGetPayload<{
@@ -26,6 +27,7 @@ interface EnrichedCartItem {
     sku?: string;
     image?: string;
   }>;
+  
 }
 
 interface EnrichedCart extends Omit<CartWithItems, 'items'> {
@@ -35,6 +37,7 @@ interface EnrichedCart extends Omit<CartWithItems, 'items'> {
 interface AddToCartData {
   productId: string;
   quantity: number;
+  freeItemIds?: string[];
   price: number;
 }
 
@@ -90,8 +93,10 @@ class CartService {
       })
     );
 
+    const { items: _items, ...cartWithoutItems } = cart;
+
     const enrichedCart: EnrichedCart = {
-      ...cart,
+      ...(cartWithoutItems as Omit<EnrichedCart, 'items'>),
       items: enrichedItems,
     };
 
@@ -128,7 +133,7 @@ class CartService {
             : undefined,
         },
         include: { items: true },
-      }) as EnrichedCart;
+      }) as unknown as EnrichedCart;
       // Since it's a new cart, items will be empty, so no need to enrich
     }
 
@@ -148,6 +153,9 @@ class CartService {
         data: { 
           quantity: existingItem.quantity + data.quantity,
           price: data.price,
+          freeItemIds: data && (data as any).freeItemIds
+            ? ((data as any).freeItemIds as string[]).slice(0, 1)
+            : (Array.isArray((existingItem as any).freeItemIds) ? (existingItem as any).freeItemIds : ((existingItem as any).freeItemId ? [(existingItem as any).freeItemId] : undefined)),
         },
       });
     } else {
@@ -158,6 +166,7 @@ class CartService {
           productId: data.productId,
           quantity: data.quantity,
           price: data.price,
+          freeItemIds: data && (data as any).freeItemIds ? ((data as any).freeItemIds as string[]).slice(0,1) : undefined,
         },
       });
     }
@@ -281,24 +290,28 @@ class CartService {
 
     const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    // Get deliveryCharges from settings
-    let deliveryCharges: Record<string, number> = {};
-    try {
-      const charges = await settingsService.get('deliveryCharges');
-      if (charges && typeof charges === 'object') {
-        deliveryCharges = charges;
-      }
-    } catch {}
-
-    // Determine shipping fee by zone
+    // Determine shipping fee by zone using Zone table (preferred)
     let shippingFee = 0;
-    if (shippingZone && deliveryCharges[shippingZone] !== undefined) {
-      shippingFee = deliveryCharges[shippingZone];
-    } else if (deliveryCharges['default'] !== undefined) {
-      shippingFee = deliveryCharges['default'];
-    } else {
-      // fallback to 0 if no deliveryCharges set
-      shippingFee = 0;
+    try {
+      if (shippingZone) {
+        const z = await zoneService.get(shippingZone);
+        if (z && typeof z.price === 'number') {
+          shippingFee = z.price;
+        }
+      }
+    } catch {
+      // ignore DB errors and fallback
+    }
+
+    // Fallback: check settings 'deliveryCharges' for backward compatibility
+    if (shippingFee === 0) {
+      try {
+        const charges = await settingsService.get('deliveryCharges');
+        if (charges && typeof charges === 'object') {
+          if (shippingZone && charges[shippingZone] !== undefined) shippingFee = charges[shippingZone];
+          else if (charges['default'] !== undefined) shippingFee = charges['default'];
+        }
+      } catch {}
     }
 
     return {

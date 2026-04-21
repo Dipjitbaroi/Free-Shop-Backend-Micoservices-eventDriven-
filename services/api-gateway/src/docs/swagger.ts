@@ -4491,10 +4491,15 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
               properties: {
                 productId: { type: 'string', format: 'uuid' },
                 quantity: { type: 'integer', minimum: 1 },
-                freeItemId: { 
-                  type: 'string', 
+                freeItemId: {
+                  type: 'string',
                   format: 'uuid',
-                  description: 'Optional ID of a free item to select for this product'
+                  description: 'Optional legacy single free item ID (deprecated; prefer `freeItemIds`).',
+                },
+                freeItemIds: {
+                  type: 'array',
+                  items: { type: 'string', format: 'uuid' },
+                  description: 'Optional array of selected free item IDs. Currently only the first item is used (max 1).',
                 },
               },
             },
@@ -4518,11 +4523,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Basic order without free items',
             value: {
               shippingAddress: {
-                zone: 'in_dhaka',
-                name: 'John Doe',
+                zone: '<zone-uuid>',
+                fullName: 'John Doe',
                 phone: '+8801234567890',
-                address: '123 Main Street, Dhaka',
-                city: 'Dhaka',
+                addressLine: '123 Main Street, Dhaka',
+                district: 'Dhaka',
                 postalCode: '1200'
               },
               paymentMethod: 'COD',
@@ -4539,19 +4544,19 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             summary: 'Order with free item selected',
             value: {
               shippingAddress: {
-                zone: 'in_dhaka',
-                name: 'John Doe',
+                zone: '<zone-uuid>',
+                fullName: 'John Doe',
                 phone: '+8801234567890',
-                address: '123 Main Street, Dhaka',
-                city: 'Dhaka',
+                addressLine: '123 Main Street, Dhaka',
+                district: 'Dhaka',
                 postalCode: '1200'
               },
               paymentMethod: 'COD',
-              items: [
+                items: [
                 {
                   productId: '550e8400-e29b-41d4-a716-446655440001',
                   quantity: 1,
-                  freeItemId: '550e8400-e29b-41d4-a716-446655440002'
+                  freeItemIds: ['550e8400-e29b-41d4-a716-446655440002']
                 }
               ],
               notes: 'Handle with care'
@@ -4562,11 +4567,11 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             value: {
               shippingAddressId: '550e8400-e29b-41d4-a716-446655440003',
               paymentMethod: 'ONLINE',
-              items: [
+                items: [
                 {
                   productId: '550e8400-e29b-41d4-a716-446655440001',
                   quantity: 1,
-                  freeItemId: '550e8400-e29b-41d4-a716-446655440002'
+                  freeItemIds: ['550e8400-e29b-41d4-a716-446655440002']
                 },
                 {
                   productId: '550e8400-e29b-41d4-a716-446655440004',
@@ -4856,12 +4861,18 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           productImage: { type: 'string', format: 'uri' },
           sku: { type: 'string' },
           quantity: { type: 'integer' },
-          freeItemId: { 
-            type: 'string', 
-            format: 'uuid',
-            nullable: true,
-            description: 'ID of the selected free item, if any'
-          },
+              freeItemId: {
+                type: 'string',
+                format: 'uuid',
+                nullable: true,
+                description: 'Legacy single free item ID (nullable). Prefer `freeItemIds`.'
+              },
+              freeItemIds: {
+                type: 'array',
+                items: { type: 'string', format: 'uuid' },
+                nullable: true,
+                description: 'Array of selected free item IDs (currently limited to 1).',
+              },
           unitPrice: { type: 'number' },
           discountAmount: { type: 'number' },
           totalPrice: { type: 'number' },
@@ -5163,15 +5174,14 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       // ── Shared sub-schemas ─────────────────────────────────────────────────
       Address: {
         type: 'object',
-        required: ['fullName', 'phone', 'addressLine1', 'city', 'state', 'postalCode', 'country'],
+        required: ['fullName', 'phone', 'addressLine', 'district', 'zone'],
         properties: {
           fullName: { type: 'string' },
           phone: { type: 'string' },
-          addressLine1: { type: 'string' },
-          addressLine2: { type: 'string' },
-          city: { type: 'string' },
-          state: { type: 'string' },
-          // Optional shipping zone identifier. Required for order creation when providing inline shippingAddress.
+          addressLine: { type: 'string' },
+          district: { type: 'string' },
+          upazila: { type: 'string' },
+          // Canonical shipping zone identifier. Required for order creation when providing inline shippingAddress.
           zone: { type: 'string' },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
@@ -5179,12 +5189,10 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       VendorAddress: {
         type: 'object',
-        required: ['addressLine1', 'city', 'state', 'postalCode', 'country'],
+        required: ['addressLine', 'district', 'postalCode', 'country'],
         properties: {
-          addressLine1: { type: 'string' },
-          addressLine2: { type: 'string' },
-          city: { type: 'string' },
-          state: { type: 'string' },
+          addressLine: { type: 'string' },
+          district: { type: 'string' },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
         },

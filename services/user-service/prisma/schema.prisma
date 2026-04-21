@@ -35,12 +35,13 @@ model Address {
   label         String?     // Home, Office, etc.
   fullName      String
   phone         String
-  addressLine1  String
-  addressLine2  String?
-  city          String
-  district      String?  // Also accepts state/province via service mapping
-  division      String?
+  // Minimal Bangladesh address fields (following local e-commerce patterns)
+  addressLine   String      // Detailed address: house/flat/road/block
+  district      String      // District or City (required)
+  upazila       String?     // Thana/Upazila
   postalCode    String?
+  // Canonical delivery zone reference (used to look up delivery charges)
+  zoneId        String      // required zone reference used for delivery charge lookup
   country       String      @default("Bangladesh")
   isDefault     Boolean     @default(false)
   type          AddressType @default(SHIPPING)

@@ -22,7 +22,7 @@ export const cartController = {
     try {
       const userId = req.user?.id;
       const guestId = req.headers['x-guest-id'] as string;
-      const { productId, quantity } = req.body;
+      const { productId, quantity, freeItemId, freeItemIds } = req.body;
 
       // Fetch authoritative price from product-service — never trust client price
       const product = await fetchProduct(productId);
@@ -37,7 +37,8 @@ export const cartController = {
 
       const price = resolveEffectivePrice(product);
 
-      const cart = await cartService.addToCart(userId, guestId, { productId, quantity, price });
+      const freeIds = freeItemIds ?? (freeItemId ? [freeItemId] : undefined);
+      const cart = await cartService.addToCart(userId, guestId, { productId, quantity, price, freeItemIds: freeIds });
       const summary = await cartService.getCartSummary(userId, guestId);
 
       res.json(successResponse({ cart, summary }, 'Item added to cart'));
