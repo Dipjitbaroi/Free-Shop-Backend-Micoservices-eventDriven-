@@ -1,9 +1,18 @@
-import { PrismaClient } from '../../generated/client';
+import { PrismaClient } from '../generated/client/client';
+import { PrismaPg } from '@prisma/adapter-pg';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
+
+// Load service .env using process.cwd() to avoid generated client overriding __dirname
+const envPath = path.resolve(process.cwd(), '.env');
+dotenv.config({ path: envPath });
+console.log('.env path used:', envPath, 'exists=', fs.existsSync(envPath));
 
 async function main() {
-  const prisma = new PrismaClient();
+  const adapter = new PrismaPg({ connectionString: process.env.ORDER_DATABASE_URL });
+  console.log('ORDER_DATABASE_URL=', process.env.ORDER_DATABASE_URL?.slice(0, 80));
+  const prisma = new PrismaClient({ adapter });
 
   const setting = await prisma.setting.findUnique({ where: { key: 'deliveryCharges' } });
   if (!setting) {

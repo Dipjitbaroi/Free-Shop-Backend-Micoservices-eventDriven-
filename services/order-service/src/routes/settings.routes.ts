@@ -19,7 +19,7 @@ router.get(
 router.get('/delivery/zones', settingsController.getDeliveryZones);
 
 
-// Accepts a JSON object: { in_feni: 60, in_dhaka: 50, outside_dhaka: 120, ... }
+// Accepts a JSON array of zone objects: [{ id?, name, price }, ... ]
 router.put(
   '/delivery',
   authenticate,

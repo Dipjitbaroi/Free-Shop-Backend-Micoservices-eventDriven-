@@ -7,7 +7,16 @@ try {
   Write-Host "Token len: $($token.Length) GuestId: $guestId"
 
   $headers = @{ Authorization = "Bearer $token"; 'X-Guest-Id' = $guestId }
-  $orderBody = @{ shippingAddress = @{ zone = 'in_dhaka'; address = '123 Test St'; name = 'Debug Guest' }; paymentMethod = 'COD'; items = @(@{ productId = '550e8400-e29b-41d4-a716-446655440000'; quantity = 1 }) } | ConvertTo-Json
+  $orderBody = @{ 
+    shippingAddress = @{ 
+      zoneId = '<zone-uuid-placeholder>'; 
+      addressLine = '123 Test St'; 
+      fullName = 'Debug Guest'; 
+      phone = '+8801712345678';
+    }; 
+    paymentMethod = 'COD'; 
+    items = @(@{ productId = '550e8400-e29b-41d4-a716-446655440000'; quantity = 1 }) 
+  } | ConvertTo-Json
   Write-Host "Posting order..."
   try {
     $r = Invoke-RestMethod -Method Post -Uri "$base/orders" -Headers $headers -Body $orderBody -ContentType 'application/json' -ErrorAction Stop

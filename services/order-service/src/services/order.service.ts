@@ -8,6 +8,7 @@ import {
   IPaginatedResult,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
+import { zoneService } from './zone.service.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
 import { cacheDelete, orderCacheKey } from '../lib/redis.js';
@@ -62,36 +63,25 @@ class OrderService {
       return sum + itemTotal;
     }, 0);
 
-    // Get deliveryCharges from settings
-    let deliveryCharges: Record<string, number> = {};
-    try {
-      const charges = await settingsService.get('deliveryCharges');
-      if (charges && typeof charges === 'object') {
-        deliveryCharges = charges;
-      }
-    } catch {}
-
-    // Determine shipping zone from shippingAddress (expects a 'zone' property)
-    let shippingZone = '';
-    if (data.shippingAddress && typeof data.shippingAddress === 'object' && 'zone' in data.shippingAddress) {
-      shippingZone = String((data.shippingAddress as any).zone);
+    // Determine shipping zone from shippingAddress (expects a 'zoneId' property)
+    let zoneId = '';
+    if (data.shippingAddress && typeof data.shippingAddress === 'object' && 'zoneId' in data.shippingAddress) {
+      zoneId = String((data.shippingAddress as any).zoneId);
     }
 
-    // shipping zone must be provided and must exist in deliveryCharges
-    if (!shippingZone) {
-      throw new BadRequestError('shippingAddress.zone is required');
+    if (!zoneId) {
+      throw new BadRequestError('shippingAddress.zoneId is required');
     }
 
-    if (!deliveryCharges || typeof deliveryCharges !== 'object' || deliveryCharges[shippingZone] === undefined) {
-      throw new BadRequestError(`Unknown shipping zone: ${shippingZone}`);
-    }
+    const z = await zoneService.get(zoneId);
+    if (!z) throw new BadRequestError(`Unknown shipping zone: ${zoneId}`);
 
-    const shippingFee = deliveryCharges[shippingZone];
+    const shippingFee = z.price;
 
-    // Apply coupon if provided
+    // Apply coupon if provided (coupon logic may use shippingFee for FREE_SHIPPING)
     let couponDiscount = 0;
     if (data.couponCode) {
-      const couponResult = await this.applyCoupon(data.couponCode, subtotal, data.userId);
+      const couponResult = await this.applyCoupon(data.couponCode, subtotal, data.userId, shippingFee);
       couponDiscount = couponResult.discount;
     }
 
@@ -341,7 +331,7 @@ class OrderService {
   }
 
   // Coupon methods
-  async validateCoupon(code: string, subtotal: number, userId?: string): Promise<{
+  async validateCoupon(code: string, subtotal: number, userId?: string, shippingFee?: number): Promise<{
     valid: boolean;
     discount: number;
     message?: string;
@@ -401,29 +391,18 @@ class OrderService {
       case 'FIXED':
         discount = Math.min(coupon.value, subtotal);
         break;
-      case 'FREE_SHIPPING': {
-        // Try to use deliveryCharges['default'] if available, else fallback
-        let deliveryCharges: Record<string, number> = {};
-        try {
-          const charges = await settingsService.get('deliveryCharges');
-          if (charges && typeof charges === 'object') {
-            deliveryCharges = charges;
-          }
-        } catch {}
-        if (deliveryCharges['default'] !== undefined) {
-          discount = deliveryCharges['default'];
-        } else {
-          discount = 0;
+        case 'FREE_SHIPPING': {
+          // If shippingFee provided, grant free shipping equal to shippingFee; otherwise none
+          discount = shippingFee ?? 0;
+          break;
         }
-        break;
-      }
     }
 
     return { valid: true, discount };
   }
 
-  private async applyCoupon(code: string, subtotal: number, userId?: string): Promise<{ discount: number }> {
-    const result = await this.validateCoupon(code, subtotal, userId);
+  private async applyCoupon(code: string, subtotal: number, userId?: string, shippingFee?: number): Promise<{ discount: number }> {
+    const result = await this.validateCoupon(code, subtotal, userId, shippingFee);
     if (!result.valid) {
       throw new BadRequestError(result.message || 'Invalid coupon');
     }

@@ -3,7 +3,6 @@ import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis.js';
 import config from '../config/index.js';
-import { settingsService } from './settings.service.js';
 import { zoneService } from './zone.service.js';
 import { fetchProduct } from '../lib/product-client.js';
 
@@ -290,28 +289,14 @@ class CartService {
 
     const subtotal = cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    // Determine shipping fee by zone using Zone table (preferred)
+    // Determine shipping fee by zone using Zone table
     let shippingFee = 0;
-    try {
-      if (shippingZone) {
-        const z = await zoneService.get(shippingZone);
-        if (z && typeof z.price === 'number') {
-          shippingFee = z.price;
-        }
+    if (shippingZone) {
+      const z = await zoneService.get(shippingZone);
+      if (!z) {
+        throw new BadRequestError(`Unknown shipping zone: ${shippingZone}`);
       }
-    } catch {
-      // ignore DB errors and fallback
-    }
-
-    // Fallback: check settings 'deliveryCharges' for backward compatibility
-    if (shippingFee === 0) {
-      try {
-        const charges = await settingsService.get('deliveryCharges');
-        if (charges && typeof charges === 'object') {
-          if (shippingZone && charges[shippingZone] !== undefined) shippingFee = charges[shippingZone];
-          else if (charges['default'] !== undefined) shippingFee = charges['default'];
-        }
-      } catch {}
+      shippingFee = z.price;
     }
 
     return {

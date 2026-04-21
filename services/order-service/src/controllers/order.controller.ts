@@ -4,7 +4,6 @@ import { cartService } from '../services/cart.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 import { fetchAddressById } from '../lib/user-client.js';
-import { settingsService } from '../services/settings.service.js';
 import { zoneService } from '../services/zone.service.js';
 import { BadRequestError } from '@freeshop/shared-utils';
 
@@ -70,22 +69,16 @@ export const orderController = {
         shippingAddress = inlineShippingAddress as Record<string, unknown>;
       }
 
-      // Require shipping zone to be present on resolved address
-      if (!shippingAddress || typeof shippingAddress !== 'object' || !('zone' in shippingAddress) || !String((shippingAddress as any).zone).trim()) {
-        throw new BadRequestError('shippingAddress.zone is required');
+      // Require shipping zone to be present on resolved address (`zoneId`)
+      if (!shippingAddress || typeof shippingAddress !== 'object' || !('zoneId' in shippingAddress) || !String((shippingAddress as any).zoneId).trim()) {
+        throw new BadRequestError('shippingAddress.zoneId is required');
       }
 
-      // Validate zone exists as a Zone record (preferred) and fall back to settings
+      // Validate zone exists as a Zone record
+      const zoneId = String((shippingAddress as any).zoneId);
       try {
-        const zoneId = String((shippingAddress as any).zoneId);
         const z = await zoneService.get(zoneId);
-        if (!z) {
-          // Fallback: check legacy deliveryCharges setting
-          const deliveryCharges = (await settingsService.get('deliveryCharges')) || {};
-          if (!deliveryCharges || typeof deliveryCharges !== 'object' || deliveryCharges[zoneId] === undefined) {
-            throw new BadRequestError(`Unknown shipping zone: ${zoneId}`);
-          }
-        }
+        if (!z) throw new BadRequestError(`Unknown shipping zone: ${zoneId}`);
       } catch (err) {
         if (err instanceof BadRequestError) throw err;
         throw new BadRequestError('Could not validate shipping zone');
