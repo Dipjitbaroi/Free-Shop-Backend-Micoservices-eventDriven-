@@ -554,7 +554,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get all roles (ROLE_READ permission required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -609,7 +609,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       post: {
         tags: ['RBAC'],
         summary: 'Create a new role (ROLE_CREATE permission required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         requestBody: {
           required: true,
           content: {
@@ -701,7 +701,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       post: {
         tags: ['RBAC'],
         summary: 'Add permission to role (PERMISSION_CREATE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -872,7 +872,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: "Get user's roles and permissions",
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -908,7 +908,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       post: {
         tags: ['RBAC'],
         summary: 'Assign role to user (ROLE_CREATE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -4543,6 +4543,12 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         bearerFormat: 'JWT',
         description: 'JWT access token obtained from /auth/firebase (customers/Vendors) or /auth/admin/login (ADMIN/MANAGER).',
       },
+        AdminSecret: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-admin-secret',
+          description: 'Server-side admin secret key. Can be provided via header `x-admin-secret`. (The auth-service also accepts `admin-secret` header, request body `adminSecretKey` or query `adminSecretKey`.)',
+        },
     },
     schemas: {
       // ── Request schemas ────────────────────────────────────────────────────
