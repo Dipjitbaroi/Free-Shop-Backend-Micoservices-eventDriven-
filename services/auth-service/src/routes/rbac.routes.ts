@@ -7,6 +7,7 @@ import { Router } from 'express';
 import { authenticate, authorize, auditPermissionLog } from '@freeshop/shared-middleware';
 import * as rbacController from '../controllers/rbac.controller.js';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
+import RBACService from '../services/rbac.service.js';
 
 const router: Router = Router();
 
@@ -280,9 +281,11 @@ router.get(
  */
 async function checkIfSuperadmin(userId: string): Promise<boolean> {
   try {
-    // In a real implementation, this would check against the database
-    // For now, we'll rely on the permission system
-    return true; // Implement proper check
+    if (!userId) return false;
+    
+    // Check if user has the SUPERADMIN role
+    const { roleNames } = await RBACService.getUserRolesAndPermissions(userId);
+    return roleNames.includes('SUPERADMIN');
   } catch (error) {
     console.error('Error checking superadmin status:', error);
     return false;
@@ -294,10 +297,11 @@ async function checkIfSuperadmin(userId: string): Promise<boolean> {
  */
 async function checkPermission(userId: string, permissionCode: number): Promise<boolean> {
   try {
-    // In a real implementation, this would query the database
-    // For now, we'll return true to allow the middleware to work
-    // This should be replaced with actual permission check
-    return true;
+    if (!userId || !permissionCode) return false;
+    
+    // Check if user has the required permission code
+    const { permissionCodes } = await RBACService.getUserRolesAndPermissions(userId);
+    return permissionCodes.includes(permissionCode);
   } catch (error) {
     console.error('Error checking permission:', error);
     return false;

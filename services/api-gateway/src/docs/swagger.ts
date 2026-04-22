@@ -5586,6 +5586,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           fullName: { type: 'string' },
           phone: { type: 'string' },
           addressLine: { type: 'string' },
+          area: { type: 'string', description: 'Specific area or neighborhood within the district (optional)' },
           district: { type: 'string' },
           upazila: { type: 'string' },
           // Canonical shipping zone identifier. Required for order creation when providing inline shippingAddress.

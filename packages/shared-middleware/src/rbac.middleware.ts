@@ -114,7 +114,7 @@ export const requireRole = (...roleNames: string[]) => {
             },
           }
         );
-        userRoles = rolesResponse.data.roleNames || [];
+        userRoles = rolesResponse.data?.data?.roleNames || [];
       } catch (error) {
         console.error('Failed to fetch user roles:', error);
         return res.status(403).json({
