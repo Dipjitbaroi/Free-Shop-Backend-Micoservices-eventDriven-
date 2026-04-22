@@ -303,11 +303,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Auth'],
         summary: 'Create an ADMIN or MANAGER account',
-        description: `Create a new **ADMIN** or **MANAGER** account protected by a server-side secret key.
+        description: `Create a new **ADMIN** or **MANAGER** account.
 
-The \`secretKey\` field in the request body must match the \`ADMIN_SECRET_KEY\` environment variable configured on the auth-service. Any mismatch returns \`403 Invalid admin secret key\` — no information about existing accounts is leaked.
-
-The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGER\` are accepted values.`,
+        The request must include the \`ADMIN_SECRET_KEY\` value in the \`secretKey\` field. The value must match the \`ADMIN_SECRET_KEY\` environment variable configured on the auth-service. The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGER\` are accepted values.`,
         requestBody: {
           required: true,
           content: {
@@ -351,7 +349,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/ErrorResponse' },
-                example: { success: false, error: { code: 'FORBIDDEN', message: 'Invalid admin secret key' } },
+                example: { success: false, error: { code: 'FORBIDDEN', message: 'Invalid ADMIN_SECRET_KEY' } },
               },
             },
           },
@@ -485,7 +483,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         tags: ['RBAC'],
         summary: 'Initialize default roles and permissions (superadmin only)',
         description: 'Manually initialize or check the status of the RBAC system. Creates default roles (SUPERADMIN, ADMIN, MANAGER, VENDOR, SELLER, CUSTOMER, DELIVERY_MAN) and their corresponding permissions. By default requires superadmin role. Can be set to allow all authenticated users by setting `RBAC_INIT_OPEN=true` environment variable (dev/testing only).',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         responses: {
           200: {
             description: 'RBAC initialization status (successful or already initialized)',
@@ -554,7 +552,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get all roles (ROLE_READ permission required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -609,7 +607,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       post: {
         tags: ['RBAC'],
         summary: 'Create a new role (ROLE_CREATE permission required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         requestBody: {
           required: true,
           content: {
@@ -662,7 +660,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get role by ID',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -701,7 +699,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       post: {
         tags: ['RBAC'],
         summary: 'Add permission to role (PERMISSION_CREATE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -746,7 +744,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       delete: {
         tags: ['RBAC'],
         summary: 'Remove permission from role (PERMISSION_DELETE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'permissionId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -778,7 +776,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get all permissions (PERMISSION_READ required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -834,7 +832,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get permission by code',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'code', in: 'path', required: true, schema: { type: 'string', example: 'USER_READ' } },
         ],
@@ -872,7 +870,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: "Get user's roles and permissions",
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -908,7 +906,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       post: {
         tags: ['RBAC'],
         summary: 'Assign role to user (ROLE_CREATE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -960,7 +958,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       delete: {
         tags: ['RBAC'],
         summary: 'Remove role from user (ROLE_DELETE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -999,7 +997,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Check if user has permission',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'code', in: 'path', required: true, schema: { type: 'string', example: 'USER_READ' } },
@@ -1692,24 +1690,45 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
     '/settings/delivery': {
       get: {
         tags: ['Settings'],
-        summary: 'Get delivery charges (admin/manager)',
+        summary: 'Get all delivery zones with charges (admin/manager)',
+        description: 'Returns all delivery zones and a map of zone IDs to prices',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
-            description: 'Delivery charges object and zones',
+            description: 'Delivery zones and charges retrieved',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean' },
+                    success: { type: 'boolean', example: true },
                     data: {
                       type: 'object',
                       properties: {
-                        deliveryCharges: { type: 'object', additionalProperties: { type: 'number' } },
-                        zones: { type: 'array', items: { type: 'string' } },
+                        deliveryCharges: {
+                          type: 'object',
+                          description: 'Map of zone ID to delivery price',
+                          example: { 'zone-uuid-1': 60, 'zone-uuid-2': 50 },
+                        },
+                        zones: {
+                          type: 'array',
+                          description: 'All delivery zones',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              name: { type: 'string' },
+                              price: { type: 'number' },
+                            },
+                          },
+                          example: [
+                            { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
+                            { id: 'zone-uuid-2', name: 'In Dhaka', price: 50 },
+                          ],
+                        },
                       },
                     },
+                    message: { type: 'string', example: 'Delivery charges retrieved' },
                   },
                 },
               },
@@ -1721,25 +1740,140 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       },
       put: {
         tags: ['Settings'],
-        summary: 'Update delivery charges (admin/manager)',
+        summary: 'Create or update delivery zones (bulk)',
+        description: 'Upsert multiple zones. If id is provided, updates existing zone; otherwise creates new zone.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
-                type: 'object',
-                additionalProperties: { type: 'number' },
-                example: { in_feni: 60, in_dhaka: 50, outside_dhaka: 120 },
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid', description: 'Zone ID (optional - if not provided, creates new)' },
+                    name: { type: 'string', description: 'Zone name' },
+                    price: { type: 'number', description: 'Delivery price for this zone' },
+                  },
+                  required: ['name', 'price'],
+                },
               },
+              example: [
+                { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
+                { name: 'Outside Dhaka', price: 120 },
+              ],
             },
           },
         },
         responses: {
-          200: { description: 'Delivery charges updated' },
+          200: {
+            description: 'Delivery zones updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'null' },
+                    message: { type: 'string', example: 'Delivery zones updated' },
+                  },
+                },
+              },
+            },
+          },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/settings/delivery/{id}': {
+      patch: {
+        tags: ['Settings'],
+        summary: 'Update a single delivery zone',
+        description: 'Update name and/or price of a specific delivery zone',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Zone ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Zone name (optional)' },
+                  price: { type: 'number', description: 'Delivery price (optional)' },
+                },
+              },
+              example: { name: 'In Feni', price: 65 },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Delivery zone updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        zone: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            price: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Delivery zone updated' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Settings'],
+        summary: 'Delete a delivery zone',
+        description: 'Remove a delivery zone by ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Zone ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Delivery zone deleted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'null' },
+                    message: { type: 'string', example: 'Delivery zone deleted' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
@@ -1747,16 +1881,39 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['Settings'],
         summary: 'List available delivery zones (public)',
+        description: 'Get all delivery zones without authentication. Useful for displaying zone options to customers.',
         responses: {
           200: {
-            description: 'Available delivery zones',
+            description: 'All available delivery zones',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean' },
-                    data: { type: 'object', properties: { zones: { type: 'array', items: { type: 'string' } } } },
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        zones: {
+                          type: 'array',
+                          description: 'List of all delivery zones',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              name: { type: 'string' },
+                              price: { type: 'number' },
+                            },
+                          },
+                          example: [
+                            { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
+                            { id: 'zone-uuid-2', name: 'In Dhaka', price: 50 },
+                            { id: 'zone-uuid-3', name: 'Outside Dhaka', price: 120 },
+                          ],
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Delivery zones retrieved' },
                   },
                 },
               },
@@ -4543,6 +4700,12 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         bearerFormat: 'JWT',
         description: 'JWT access token obtained from /auth/firebase (customers/Vendors) or /auth/admin/login (ADMIN/MANAGER).',
       },
+        AdminSecret: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'x-admin-secret',
+          description: 'Server-side ADMIN_SECRET_KEY. Can be provided via header `x-admin-secret`. (The auth-service also accepts `admin-secret` header, request body `adminSecretKey` or query `adminSecretKey`.)',
+        },
     },
     schemas: {
       // ── Request schemas ────────────────────────────────────────────────────
@@ -4593,7 +4756,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         properties: {
           secretKey: {
             type: 'string',
-            description: 'Server-side admin secret key. Must match the ADMIN_SECRET_KEY environment variable on the auth-service.',
+            description: 'Server-side ADMIN_SECRET_KEY. Must match the ADMIN_SECRET_KEY environment variable on the auth-service.',
             example: 'super-secret-key',
           },
           email: {

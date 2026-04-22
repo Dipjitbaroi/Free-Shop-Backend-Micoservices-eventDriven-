@@ -36,7 +36,7 @@ export const requirePermission = (
       // Fetch user roles and permissions from auth service
       try {
         const userRolesResponse = await axios.get(
-          `${process.env.AUTH_SERVICE_URL}/auth/users/${user.id}/roles`,
+          `${process.env.AUTH_SERVICE_URL}/rbac/users/${user.id}/roles`,
           {
             headers: {
               Authorization: `Bearer ${req.headers.authorization?.split(' ')[1]}`,
@@ -107,7 +107,7 @@ export const requireRole = (...roleNames: string[]) => {
       let userRoles: string[] = [];
       try {
         const rolesResponse = await axios.get(
-          `${process.env.AUTH_SERVICE_URL}/auth/users/${user.id}/roles`,
+          `${process.env.AUTH_SERVICE_URL}/rbac/users/${user.id}/roles`,
           {
             headers: {
               Authorization: `Bearer ${req.headers.authorization?.split(' ')[1]}`,

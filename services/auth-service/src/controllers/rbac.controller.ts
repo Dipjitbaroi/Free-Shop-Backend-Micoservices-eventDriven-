@@ -12,6 +12,17 @@ import {
 } from '@freeshop/shared-types';
 import { successResponse } from '@freeshop/shared-utils';
 
+// Helper: validate ADMIN_SECRET_KEY from header/body/query
+const isValidAdminSecret = (req: Request) => {
+  const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
+  if (!ADMIN_SECRET_KEY) return false;
+  const headerKey = (req.headers['x-admin-secret'] ?? req.headers['admin-secret']) as string | string[] | undefined;
+  const bodyKey = (req as any).body?.adminSecretKey ?? (req as any).body?.ADMIN_SECRET_KEY;
+  const queryKey = (req.query as any)?.adminSecretKey;
+  const providedKey = Array.isArray(headerKey) ? headerKey[0] : headerKey ?? bodyKey ?? queryKey;
+  return providedKey && String(providedKey) === String(ADMIN_SECRET_KEY);
+};
+
 /**
  * Initialize default roles and permissions
  * POST /auth/rbac/init
@@ -21,7 +32,21 @@ import { successResponse } from '@freeshop/shared-utils';
 export const initializeRBAC = async (req: Request, res: Response) => {
   try {
     const startTime = Date.now();
-    
+    // Require ADMIN_SECRET_KEY (header `x-admin-secret` or `admin-secret`, body or query)
+    const ADMIN_SECRET_KEY = process.env.ADMIN_SECRET_KEY;
+    const headerKey = (req.headers['x-admin-secret'] ?? req.headers['admin-secret']) as string | string[] | undefined;
+    const bodyKey = (req as any).body?.adminSecretKey ?? (req as any).body?.ADMIN_SECRET_KEY;
+    const queryKey = (req.query as any)?.adminSecretKey;
+    const providedKey = Array.isArray(headerKey) ? headerKey[0] : headerKey ?? bodyKey ?? queryKey;
+
+    if (!ADMIN_SECRET_KEY || !providedKey || String(providedKey) !== String(ADMIN_SECRET_KEY)) {
+      return res.status(401).json({
+        success: false,
+        error: 'UNAUTHORIZED',
+        message: 'Missing or invalid ADMIN_SECRET_KEY',
+      });
+    }
+
     // Count existing roles before initialization
     const existingRolesCount = await (req as any).prisma?.role?.count?.() || 0;
     
@@ -73,8 +98,9 @@ export const createRole = async (req: Request, res: Response) => {
   try {
     const { name, description, permissionIds } = req.body as ICreateRoleRequest;
     const userId = (req as any).user?.id;
+    const adminSecret = isValidAdminSecret(req);
 
-    if (!userId) {
+    if (!userId && !adminSecret) {
       return res.status(401).json({ error: 'UNAUTHORIZED' });
     }
 
@@ -85,7 +111,8 @@ export const createRole = async (req: Request, res: Response) => {
       });
     }
 
-    const role = await RBACService.createRole({ name, description, permissionIds }, userId);
+    const actorId = userId ?? (adminSecret ? 'admin-secret' : undefined);
+    const role = await RBACService.createRole({ name, description, permissionIds }, actorId as any);
 
     return res.status(201).json(successResponse(role, 'Role created successfully'));
   } catch (error: any) {
@@ -169,8 +196,9 @@ export const addPermissionToRole = async (req: Request, res: Response) => {
     const roleId = Array.isArray(req.params.roleId) ? req.params.roleId[0] : req.params.roleId;
     const { permissionId } = req.body;
     const userId = (req as any).user?.id;
+    const adminSecret = isValidAdminSecret(req);
 
-    if (!userId) {
+    if (!userId && !adminSecret) {
       return res.status(401).json({ error: 'UNAUTHORIZED' });
     }
 
@@ -181,7 +209,8 @@ export const addPermissionToRole = async (req: Request, res: Response) => {
       });
     }
 
-    await RBACService.addPermissionToRole(roleId, permissionId, userId);
+    const actorId = userId ?? (adminSecret ? 'admin-secret' : undefined);
+    await RBACService.addPermissionToRole(roleId, permissionId, actorId as any);
     // Return updated role with permissions
     const updatedRole = await RBACService.getRoleById(roleId);
     return res.status(200).json(successResponse(updatedRole, 'Permission added to role successfully'));
@@ -203,12 +232,14 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
     const roleId = Array.isArray(req.params.roleId) ? req.params.roleId[0] : req.params.roleId;
     const permissionId = Array.isArray(req.params.permissionId) ? req.params.permissionId[0] : req.params.permissionId;
     const userId = (req as any).user?.id;
+        const adminSecret = isValidAdminSecret(req);
 
-    if (!userId) {
-      return res.status(401).json({ error: 'UNAUTHORIZED' });
-    }
+        if (!userId && !adminSecret) {
+          return res.status(401).json({ error: 'UNAUTHORIZED' });
+        }
 
-    await RBACService.removePermissionFromRole(roleId, permissionId, userId);
+        const actorId = userId ?? (adminSecret ? 'admin-secret' : undefined);
+        await RBACService.removePermissionFromRole(roleId, permissionId, actorId as any);
     // Return updated role after removal
     const updatedRole = await RBACService.getRoleById(roleId);
     return res.status(200).json(successResponse(updatedRole, 'Permission removed from role successfully'));
@@ -294,8 +325,9 @@ export const assignRoleToUser = async (req: Request, res: Response) => {
     const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
     const { roleId } = req.body;
     const requesterId = (req as any).user?.id;
+    const adminSecret = isValidAdminSecret(req);
 
-    if (!requesterId) {
+    if (!requesterId && !adminSecret) {
       return res.status(401).json({ error: 'UNAUTHORIZED' });
     }
 
@@ -306,7 +338,8 @@ export const assignRoleToUser = async (req: Request, res: Response) => {
       });
     }
 
-    await RBACService.assignRoleToUser(userId, roleId, requesterId);
+    const actorId = requesterId ?? (adminSecret ? 'admin-secret' : undefined);
+    await RBACService.assignRoleToUser(userId, roleId, actorId as any);
     // Return the user's current roles and permission snapshot
     const result = await RBACService.getUserRolesAndPermissions(userId);
     return res.status(200).json(
@@ -333,12 +366,14 @@ export const removeRoleFromUser = async (req: Request, res: Response) => {
     const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
     const roleId = Array.isArray(req.params.roleId) ? req.params.roleId[0] : req.params.roleId;
     const requesterId = (req as any).user?.id;
+    const adminSecret = isValidAdminSecret(req);
 
-    if (!requesterId) {
+    if (!requesterId && !adminSecret) {
       return res.status(401).json({ error: 'UNAUTHORIZED' });
     }
 
-    await RBACService.removeRoleFromUser(userId, roleId, requesterId);
+    const actorId = requesterId ?? (adminSecret ? 'admin-secret' : undefined);
+    await RBACService.removeRoleFromUser(userId, roleId, actorId as any);
     // Return the user's updated roles and permission snapshot
     const result = await RBACService.getUserRolesAndPermissions(userId);
     return res.status(200).json(
