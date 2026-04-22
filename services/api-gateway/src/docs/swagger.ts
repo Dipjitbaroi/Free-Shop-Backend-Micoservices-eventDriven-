@@ -481,8 +481,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/auth/rbac/init': {
       post: {
         tags: ['RBAC'],
-        summary: 'Initialize default roles and permissions (superadmin only)',
-        description: 'Manually initialize or check the status of the RBAC system. Creates default roles (SUPERADMIN, ADMIN, MANAGER, VENDOR, SELLER, CUSTOMER, DELIVERY_MAN) and their corresponding permissions. By default requires superadmin role. Can be set to allow all authenticated users by setting `RBAC_INIT_OPEN=true` environment variable (dev/testing only).',
+        summary: 'Initialize default roles and permissions',
+        description: 'Manually initialize or check the status of the RBAC system. Creates default roles (SUPERADMIN, ADMIN, MANAGER, VENDOR, SELLER, CUSTOMER, DELIVERY_MAN) and their corresponding permissions. Requires: SUPERADMIN role, ROLE_CREATE permission, or valid Admin Secret Key. Or set `RBAC_INIT_OPEN=true` environment variable for dev/testing mode.',
         security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         responses: {
           200: {
@@ -4704,7 +4704,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           type: 'apiKey',
           in: 'header',
           name: 'x-admin-secret',
-          description: 'Server-side ADMIN_SECRET_KEY. Can be provided via header `x-admin-secret`. (The auth-service also accepts `admin-secret` header, request body `adminSecretKey` or query `adminSecretKey`.)',
+          description: 'Server-side ADMIN_SECRET_KEY. Provide via header (x-admin-secret or admin-secret), request body (adminSecretKey), or query param (adminSecretKey) to bypass permission checks on RBAC endpoints.',
         },
     },
     schemas: {
