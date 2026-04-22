@@ -45,6 +45,7 @@ export interface IOrderItem {
   discountAmount: number;
   totalPrice: number;
   status: OrderStatus;
+  freeItems?: IFreeItem[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +54,7 @@ export interface IShippingAddress {
   fullName: string;
   phone: string;
   addressLine: string;
+  area?: string;
   upazila?: string;
   district: string;
   /** Canonical zone id (UUID) used to calculate delivery charges */
@@ -125,12 +127,7 @@ export interface ICartItem {
   totalPrice: number;
   productName?: string;
   productImage?: string;
-  freeItems?: Array<{
-    id: string;
-    name: string;
-    sku?: string;
-    image?: string;
-  }>;
+  freeItems?: IFreeItem[];
 }
 
 export interface ICartItemAdd {

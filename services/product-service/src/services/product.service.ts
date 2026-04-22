@@ -3,6 +3,7 @@ import {
   IProductCreate, 
   IProductUpdate, 
   IProductFilter,
+  IFreeItemCreate,
   IPaginatedResult,
 } from '@freeshop/shared-types';
 import { 
@@ -25,8 +26,347 @@ import {
 import { eventPublisher } from '../lib/message-broker.js';
 import config from '../config/index.js';
 
+interface ProductActorContext {
+  userId?: string;
+  actorUserId?: string;
+  canUpdateAny?: boolean;
+  canDeleteAny?: boolean;
+  canUpdatePrice?: boolean;
+}
+
+type FreeItemRow = {
+  id: string;
+  name: string;
+  description?: string | null;
+  sku?: string | null;
+  image?: string | null;
+  createdBy?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+interface FreeItemFilters {
+  userId?: string;
+  canReadAny?: boolean;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+type FreeItemUpdateInput = {
+  name?: string;
+  description?: string;
+  sku?: string;
+  image?: string;
+};
+
 class ProductService {
-  async createProduct(data: IProductCreate): Promise<Product> {
+  private async attachLastUpdatedBy<T extends { id: string }>(product: T): Promise<T & { lastUpdatedBy?: string | null }> {
+    const rows = await prisma.$queryRaw<Array<{ lastUpdatedBy: string | null }>>`
+      SELECT "lastUpdatedBy"
+      FROM "products"
+      WHERE "id" = ${product.id}
+    `;
+
+    return {
+      ...product,
+      lastUpdatedBy: rows[0]?.lastUpdatedBy ?? null,
+    };
+  }
+
+  private async attachLastUpdatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { lastUpdatedBy?: string | null }>> {
+    if (products.length === 0) {
+      return [];
+    }
+
+    const ids = products.map((product) => product.id);
+    const rows = await prisma.$queryRaw<Array<{ id: string; lastUpdatedBy: string | null }>>`
+      SELECT "id", "lastUpdatedBy"
+      FROM "products"
+      WHERE "id" IN (${Prisma.join(ids)})
+    `;
+
+    const lastUpdatedByMap = new Map(rows.map((row) => [row.id, row.lastUpdatedBy]));
+
+    return products.map((product) => ({
+      ...product,
+      lastUpdatedBy: lastUpdatedByMap.get(product.id) ?? null,
+    }));
+  }
+
+  private async loadFreeItemsForProducts(productIds: string[]): Promise<Map<string, FreeItemRow[]>> {
+    const result = new Map<string, FreeItemRow[]>();
+    if (productIds.length === 0) {
+      return result;
+    }
+
+    const rows = await prisma.$queryRaw<Array<{
+      productId: string;
+      id: string;
+      name: string;
+      description: string | null;
+      sku: string | null;
+      image: string | null;
+      createdBy: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    }>>`
+      SELECT
+        pfi."productId",
+        fi."id",
+        fi."name",
+        fi."description",
+        fi."sku",
+        fi."image",
+        fi."createdBy",
+        fi."createdAt",
+        fi."updatedAt"
+      FROM "product_free_items" pfi
+      INNER JOIN "free_items" fi ON fi."id" = pfi."freeItemId"
+      WHERE pfi."productId" IN (${Prisma.join(productIds)})
+      ORDER BY pfi."assignedAt" ASC
+    `;
+
+    for (const row of rows) {
+      const items = result.get(row.productId) || [];
+      items.push({
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        sku: row.sku,
+        image: row.image,
+        createdBy: row.createdBy,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+      });
+      result.set(row.productId, items);
+    }
+
+    return result;
+  }
+
+  private async loadFreeItemsForProduct(productId: string): Promise<FreeItemRow[]> {
+    const map = await this.loadFreeItemsForProducts([productId]);
+    return map.get(productId) || [];
+  }
+
+  private async loadFreeItemById(id: string): Promise<FreeItemRow | null> {
+    const item = await prisma.freeItem.findUnique({
+      where: { id },
+    } as any);
+
+    return item as FreeItemRow | null;
+  }
+
+  private async loadVisibleFreeItems(filters: FreeItemFilters): Promise<{ items: FreeItemRow[]; total: number }> {
+    const page = filters.page || 1;
+    const limit = Math.min(filters.limit || config.pagination.defaultLimit, config.pagination.maxLimit);
+    const offset = calculateOffset(page, limit);
+
+    const where: Record<string, unknown> = {};
+    if (!filters.canReadAny && filters.userId) {
+      where.createdBy = filters.userId;
+    }
+    if (filters.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { sku: { contains: filters.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.freeItem.findMany({
+        where: where as any,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      } as any),
+      prisma.freeItem.count({ where: where as any } as any),
+    ]);
+
+    return {
+      items: items as FreeItemRow[],
+      total,
+    };
+  }
+
+  private async upsertProductFreeItems(
+    tx: typeof prisma,
+    productId: string,
+    data: { freeItems?: Array<{ name: string; description?: string; sku?: string; image?: string }>; freeItemIds?: string[] },
+    creatorId?: string
+  ): Promise<void> {
+    const hasFreeItems = data.freeItems !== undefined;
+    const hasFreeItemIds = data.freeItemIds !== undefined;
+
+    if (!hasFreeItems && !hasFreeItemIds) {
+      return;
+    }
+
+    await tx.$executeRaw`
+      DELETE FROM "product_free_items"
+      WHERE "productId" = ${productId}
+    `;
+
+    const freeItemIds = new Set<string>((data.freeItemIds || []).filter(Boolean));
+
+    if (data.freeItems && data.freeItems.length > 0) {
+      const created = await Promise.all(
+        data.freeItems.map((item) =>
+          tx.freeItem.create({
+            data: {
+              name: item.name,
+              description: item.description ?? null,
+              sku: item.sku ?? null,
+              image: item.image ?? null,
+              createdBy: creatorId || productId,
+            } as any,
+          } as any)
+        )
+      );
+
+      created.forEach((item) => freeItemIds.add(item.id));
+    }
+
+    if (freeItemIds.size === 0) {
+      return;
+    }
+
+    const existing = await tx.freeItem.findMany({
+      where: { id: { in: Array.from(freeItemIds) } },
+      select: { id: true },
+    } as any);
+
+    if (existing.length !== freeItemIds.size) {
+      throw new BadRequestError('One or more free item IDs are invalid');
+    }
+
+    const values = Array.from(freeItemIds);
+    await Promise.all(
+      values.map((freeItemId) =>
+        tx.$executeRaw`
+          INSERT INTO "product_free_items" ("id", "productId", "freeItemId", "assignedAt")
+          VALUES (${`${productId}:${freeItemId}`}, ${productId}, ${freeItemId}, NOW())
+          ON CONFLICT ("productId", "freeItemId") DO NOTHING
+        `
+      )
+    );
+  }
+
+  private async hydrateProduct<T extends { id: string }>(product: T): Promise<T & { freeItems: FreeItemRow[] }> {
+    return {
+      ...product,
+      freeItems: await this.loadFreeItemsForProduct(product.id),
+    };
+  }
+
+  private async hydrateProducts<T extends { id: string }>(products: T[]): Promise<Array<T & { freeItems: FreeItemRow[] }>> {
+    const freeItemMap = await this.loadFreeItemsForProducts(products.map((product) => product.id));
+    return products.map((product) => ({
+      ...product,
+      freeItems: freeItemMap.get(product.id) || [],
+    }));
+  }
+
+  private async hydrateFreeItem<T extends FreeItemRow>(freeItem: T): Promise<T> {
+    return freeItem;
+  }
+
+  private async invalidateProductsForFreeItem(freeItemId: string): Promise<void> {
+    const rows = await prisma.$queryRaw<Array<{ id: string; slug: string }>>`
+      SELECT p."id", p."slug"
+      FROM "product_free_items" pfi
+      INNER JOIN "products" p ON p."id" = pfi."productId"
+      WHERE pfi."freeItemId" = ${freeItemId}
+    `;
+
+    if (rows.length === 0) return;
+
+    await Promise.all(
+      rows.flatMap((row) => [
+        cacheDelete(productCacheKey(row.id)),
+        cacheDelete(productSlugCacheKey(row.slug)),
+      ])
+    );
+  }
+
+  async createFreeItem(data: IFreeItemCreate, creatorId: string): Promise<FreeItemRow> {
+    const item = await prisma.freeItem.create({
+      data: {
+        name: data.name,
+        description: data.description ?? null,
+        sku: data.sku ?? null,
+        image: data.image ?? null,
+        createdBy: creatorId,
+      } as any,
+    } as any);
+
+    return this.hydrateFreeItem(item as FreeItemRow);
+  }
+
+  async getFreeItemById(id: string, userId?: string, canReadAny: boolean = false): Promise<FreeItemRow> {
+    const item = await this.loadFreeItemById(id);
+    if (!item) {
+      throw new NotFoundError('Free item not found');
+    }
+
+    if (!canReadAny && item.createdBy !== userId) {
+      throw new ForbiddenError('You can only view your own free items unless you have free item read permission');
+    }
+
+    return this.hydrateFreeItem(item);
+  }
+
+  async getFreeItems(filters: FreeItemFilters): Promise<IPaginatedResult<FreeItemRow>> {
+    const { items, total } = await this.loadVisibleFreeItems(filters);
+    const page = filters.page || 1;
+    const limit = Math.min(filters.limit || config.pagination.defaultLimit, config.pagination.maxLimit);
+    return createPaginatedResponse(items, total, { page, limit });
+  }
+
+  async updateFreeItem(id: string, data: FreeItemUpdateInput, userId: string, canUpdateAny: boolean = false): Promise<FreeItemRow> {
+    const existing = await this.loadFreeItemById(id);
+    if (!existing) {
+      throw new NotFoundError('Free item not found');
+    }
+
+    if (!canUpdateAny && existing.createdBy !== userId) {
+      throw new ForbiddenError('You can only update your own free items unless you have free item update permission');
+    }
+
+    const updated = await prisma.freeItem.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.sku !== undefined ? { sku: data.sku } : {}),
+        ...(data.image !== undefined ? { image: data.image } : {}),
+      } as any,
+    } as any);
+
+    await this.invalidateProductsForFreeItem(id);
+
+    return this.hydrateFreeItem(updated as FreeItemRow);
+  }
+
+  async deleteFreeItem(id: string, userId: string, canDeleteAny: boolean = false): Promise<void> {
+    const existing = await this.loadFreeItemById(id);
+    if (!existing) {
+      throw new NotFoundError('Free item not found');
+    }
+
+    if (!canDeleteAny && existing.createdBy !== userId) {
+      throw new ForbiddenError('You can only delete your own free items unless you have free item delete permission');
+    }
+
+    await this.invalidateProductsForFreeItem(id);
+    await prisma.freeItem.delete({
+      where: { id },
+    } as any);
+  }
+
+  async createProduct(data: IProductCreate & { freeItemIds?: string[]; actorUserId?: string }): Promise<Product> {
     const slug = generateSlug(data.name);
     const sku = data.sku || generateSku('PRD');
 
@@ -64,19 +404,10 @@ class ProductService {
         isFeatured: data.isFeatured || false,
         status: ProductStatus.PENDING_APPROVAL,
         metadata: data.metadata as Prisma.JsonObject || {},
-        freeItems: data.freeItems
-          ? { create: data.freeItems.map(fi => ({
-              name: fi.name,
-              description: fi.description,
-              sku: fi.sku,
-              image: fi.image,
-            })) }
-          : undefined,
       },
       include: {
         category: true,
-        freeItems: true,
-      },
+      } as any,
     });
 
     // Update category product count
@@ -84,6 +415,11 @@ class ProductService {
       where: { id: data.categoryId },
       data: { productCount: { increment: 1 } },
     });
+
+    await this.upsertProductFreeItems(prisma as any, product.id, {
+      freeItems: data.freeItems,
+      freeItemIds: data.freeItemIds,
+    }, data.actorUserId || data.vendorId);
 
     // Publish event
     await eventPublisher.productCreated({
@@ -94,7 +430,7 @@ class ProductService {
       categoryId: product.categoryId,
     });
 
-    return product;
+    return this.hydrateProduct(await this.attachLastUpdatedBy(product)) as Promise<Product>;
   }
 
   async getProductById(id: string): Promise<Product> {
@@ -111,7 +447,6 @@ class ProductService {
           take: 5,
           orderBy: { createdAt: 'desc' },
         },
-        freeItems: true,
       },
     });
 
@@ -119,10 +454,12 @@ class ProductService {
       throw new NotFoundError('Product not found');
     }
 
-    // Cache the result
-    await cacheSet(productCacheKey(id), product, config.cache.productTTL);
+    const enrichedProduct = await this.hydrateProduct(await this.attachLastUpdatedBy(product));
 
-    return product;
+    // Cache the result
+    await cacheSet(productCacheKey(id), enrichedProduct, config.cache.productTTL);
+
+    return enrichedProduct as Product;
   }
 
   async getProductBySlug(slug: string): Promise<Product> {
@@ -138,7 +475,6 @@ class ProductService {
           take: 5,
           orderBy: { createdAt: 'desc' },
         },
-        freeItems: true,
       },
     });
 
@@ -152,9 +488,11 @@ class ProductService {
       data: { viewCount: { increment: 1 } },
     });
 
-    await cacheSet(productSlugCacheKey(slug), product, config.cache.productTTL);
+    const enrichedProduct = await this.hydrateProduct(await this.attachLastUpdatedBy(product));
 
-    return product;
+    await cacheSet(productSlugCacheKey(slug), enrichedProduct, config.cache.productTTL);
+
+    return enrichedProduct as Product;
   }
 
   async getProducts(filter: IProductFilter): Promise<IPaginatedResult<Product>> {
@@ -219,7 +557,6 @@ class ProductService {
           category: {
             select: { id: true, name: true, slug: true },
           },
-          freeItems: true,
         },
         orderBy,
         skip: offset,
@@ -228,10 +565,12 @@ class ProductService {
       prisma.product.count({ where }),
     ]);
 
-    return createPaginatedResponse(products, totalItems, { page, limit });
+    const enrichedProducts = await this.hydrateProducts(await this.attachLastUpdatedByMany(products));
+
+    return createPaginatedResponse(enrichedProducts, totalItems, { page, limit });
   }
 
-  async updateProduct(id: string, data: IProductUpdate, userRole?: string, userId?: string): Promise<Product> {
+  async updateProduct(id: string, data: IProductUpdate & { freeItemIds?: string[]; actorUserId?: string }, actor: ProductActorContext = {}): Promise<Product> {
     const product = await prisma.product.findUnique({
       where: { id },
     });
@@ -240,18 +579,13 @@ class ProductService {
       throw new NotFoundError('Product not found');
     }
 
-    // Authorization: Only ADMIN/MANAGER can update price
-    // Vendors can only update supplierPrice
-    // Note: userRole may be undefined - rely on middleware authorization instead
-    const isVendor = userRole === 'VENDOR' || userRole === 'Vendor';
-    if (isVendor && data.price !== undefined) {
-      throw new ForbiddenError('Vendors cannot update the retail price. Contact admin/manager to update pricing.');
+    const isOwner = !!actor.userId && product.vendorId === actor.userId;
+    if (!isOwner && !actor.canUpdateAny) {
+      throw new ForbiddenError('You can only update your own products unless you have product update permission');
     }
 
-    // If userRole is not provided, we still enforce ownership by userId
-    // (vendor must be updating their own product)
-    if (userId && product.vendorId !== userId && !isVendor) {
-      throw new ForbiddenError('You can only update your own products');
+    if (data.price !== undefined && !actor.canUpdatePrice) {
+      throw new ForbiddenError('You are not allowed to update the retail price');
     }
 
     // Handle category change
@@ -305,23 +639,25 @@ class ProductService {
     if (data.tags !== undefined) updateData.tags = data.tags;
     if (data.isFeatured !== undefined) updateData.isFeatured = data.isFeatured;
     if (data.metadata !== undefined) updateData.metadata = data.metadata as Prisma.JsonObject;
-    if (data.freeItems !== undefined) {
-      updateData.freeItems = {
-        deleteMany: {},
-        create: data.freeItems.map(fi => ({
-          name: fi.name,
-          description: fi.description,
-          sku: fi.sku,
-          image: fi.image,
-        })),
-      };
-    }
 
     const updatedProduct = await prisma.product.update({
       where: { id },
       data: updateData,
-      include: { category: true, freeItems: true },
+      include: { category: true } as any,
     });
+
+    await this.upsertProductFreeItems(prisma as any, id, {
+      freeItems: data.freeItems,
+      freeItemIds: data.freeItemIds,
+    }, data.actorUserId || actor.userId);
+
+    if (actor.userId) {
+      await prisma.$executeRaw`
+        UPDATE "products"
+        SET "lastUpdatedBy" = ${actor.userId}
+        WHERE "id" = ${id}
+      `;
+    }
 
     // Clear cache
     await Promise.all([
@@ -337,16 +673,21 @@ class ProductService {
       changes: data as Record<string, unknown>,
     });
 
-    return updatedProduct;
+    return this.hydrateProduct(await this.attachLastUpdatedBy(updatedProduct)) as Promise<Product>;
   }
 
-  async deleteProduct(id: string): Promise<void> {
+  async deleteProduct(id: string, actor: ProductActorContext = {}): Promise<void> {
     const product = await prisma.product.findUnique({
       where: { id },
     });
 
     if (!product) {
       throw new NotFoundError('Product not found');
+    }
+
+    const isOwner = !!actor.userId && product.vendorId === actor.userId;
+    if (!isOwner && !actor.canDeleteAny) {
+      throw new ForbiddenError('You can only delete your own products unless you have product delete permission');
     }
 
     await prisma.product.delete({
@@ -373,6 +714,7 @@ class ProductService {
     reason?: string,
     price?: number,  // Admin can set retail price during approval
     priceAuthorized?: boolean,
+    actorUserId?: string,
   ): Promise<Product> {
     const product = await prisma.product.findUnique({ where: { id }, include: { category: true } });
     if (!product) throw new NotFoundError('Product not found');
@@ -420,6 +762,14 @@ class ProductService {
       include: { category: true },
     });
 
+    if (actorUserId) {
+      await prisma.$executeRaw`
+        UPDATE "products"
+        SET "lastUpdatedBy" = ${actorUserId}
+        WHERE "id" = ${id}
+      `;
+    }
+
     await eventPublisher.productStatusChanged({
       productId: id,
       vendorId: updated.vendorId,
@@ -430,7 +780,7 @@ class ProductService {
 
     await cacheDelete(productCacheKey(id));
 
-    return updated;
+    return this.hydrateProduct(await this.attachLastUpdatedBy(updated)) as Promise<Product>;
   }
 
   async getVendorProducts(vendorId: string, filter: IProductFilter): Promise<IPaginatedResult<Product>> {
@@ -438,7 +788,7 @@ class ProductService {
   }
 
   async getFeaturedProducts(limit: number = 10): Promise<Product[]> {
-    return prisma.product.findMany({
+    const products = await prisma.product.findMany({
       where: {
         status: ProductStatus.ACTIVE,
         isFeatured: true,
@@ -451,11 +801,13 @@ class ProductService {
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
+
+    return this.hydrateProducts(await this.attachLastUpdatedByMany(products)) as Promise<Product[]>;
   }
 
   async getFlashSaleProducts(limit: number = 10): Promise<Product[]> {
     const now = new Date();
-    return prisma.product.findMany({
+    const products = await prisma.product.findMany({
       where: {
         status: ProductStatus.ACTIVE,
         isFlashSale: true,
@@ -470,6 +822,8 @@ class ProductService {
       orderBy: { flashSaleEndDate: 'asc' },
       take: limit,
     });
+
+    return this.hydrateProducts(await this.attachLastUpdatedByMany(products)) as Promise<Product[]>;
   }
 
   async updateProductRating(productId: string): Promise<void> {

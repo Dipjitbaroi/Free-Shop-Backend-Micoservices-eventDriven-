@@ -5,6 +5,31 @@ import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { ProductStatus } from '@freeshop/shared-types';
 import { successResponse } from '@freeshop/shared-utils';
 
+const FREE_ITEM_PERMISSION_CODES = {
+  CREATE: 12001,
+  READ: 12002,
+  UPDATE: 12003,
+  DELETE: 12004,
+} as const;
+
+const getUserRbacSnapshot = async (req: Request) => {
+  const userId = req.user?.id || req.user?.userId;
+  if (!userId) {
+    return { roleNames: [] as string[], permissionCodes: [] as number[] };
+  }
+
+  const token = (req.headers.authorization || '').replace('Bearer ', '');
+  const resp = await axios.get(
+    `${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}/rbac/users/${userId}/roles`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  return {
+    roleNames: resp.data?.data?.roleNames || [],
+    permissionCodes: resp.data?.data?.permissionCodes || [],
+  };
+};
+
 export const productController = {
   async createProduct(req: Request, res: Response, next: NextFunction) {
     try {
@@ -12,6 +37,7 @@ export const productController = {
       const product = await productService.createProduct({
         ...req.body,
         vendorId,
+        actorUserId: req.user?.userId,
       });
       // Filter price field for vendors (disabled - role not available, service layer enforces rules)
       res.status(201).json(successResponse(product, 'Product created successfully'));
@@ -81,9 +107,20 @@ export const productController = {
     try {
       const { id } = req.params;
       const userId = req.user?.userId;
-      // Note: userRole cannot be determined here without extra auth service call
-      // Service will check if updating price is allowed based on the update data
-      const product = await productService.updateProduct(id as string, req.body, undefined, userId);
+      const { permissionCodes, roleNames } = await getUserRbacSnapshot(req);
+      const canUpdateAny = permissionCodes.includes(PERMISSION_CODES.PRODUCT_UPDATE);
+      const canUpdatePrice =
+        permissionCodes.includes(PERMISSION_CODES.PRODUCT_UPDATE_PRICE) ||
+        roleNames.includes('SUPERADMIN') ||
+        roleNames.includes('ADMIN') ||
+        roleNames.includes('MANAGER');
+
+      const product = await productService.updateProduct(id as string, req.body, {
+        userId,
+        canUpdateAny,
+        canUpdatePrice,
+        actorUserId: userId,
+      });
       // Filter price field for vendors (disabled - role not available, service layer enforces rules)
       res.json(successResponse(product, 'Product updated successfully'));
     } catch (error) {
@@ -91,9 +128,90 @@ export const productController = {
     }
   },
 
+  async getFreeItems(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { permissionCodes } = await getUserRbacSnapshot(req);
+      const userId = req.user?.id || req.user?.userId;
+      const canReadAny = permissionCodes.includes(FREE_ITEM_PERMISSION_CODES.READ);
+      const { search, page, limit } = req.query;
+      const items = await productService.getFreeItems({
+        userId,
+        canReadAny,
+        search: search as string | undefined,
+        page: page ? parseInt(page as string) : 1,
+        limit: limit ? parseInt(limit as string) : 20,
+      });
+      res.json(successResponse(items, 'Free items retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getFreeItemById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { permissionCodes } = await getUserRbacSnapshot(req);
+      const userId = req.user?.id || req.user?.userId;
+      const canReadAny = permissionCodes.includes(FREE_ITEM_PERMISSION_CODES.READ);
+      const item = await productService.getFreeItemById(req.params.id as string, userId, canReadAny);
+      res.json(successResponse(item, 'Free item retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async createFreeItem(req: Request, res: Response, next: NextFunction) {
+    try {
+      const creatorId = req.user?.id || req.user?.userId;
+      if (!creatorId) {
+        throw new Error('Authenticated user ID is required');
+      }
+      const item = await productService.createFreeItem(req.body, String(creatorId));
+      res.status(201).json(successResponse(item, 'Free item created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateFreeItem(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { permissionCodes } = await getUserRbacSnapshot(req);
+      const userId = req.user?.id || req.user?.userId;
+      if (!userId) {
+        throw new Error('Authenticated user ID is required');
+      }
+      const canUpdateAny = permissionCodes.includes(FREE_ITEM_PERMISSION_CODES.UPDATE);
+      const item = await productService.updateFreeItem(req.params.id as string, req.body, String(userId), canUpdateAny);
+      res.json(successResponse(item, 'Free item updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async deleteFreeItem(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { permissionCodes } = await getUserRbacSnapshot(req);
+      const userId = req.user?.id || req.user?.userId;
+      if (!userId) {
+        throw new Error('Authenticated user ID is required');
+      }
+      const canDeleteAny = permissionCodes.includes(FREE_ITEM_PERMISSION_CODES.DELETE);
+      await productService.deleteFreeItem(req.params.id as string, String(userId), canDeleteAny);
+      res.json(successResponse(null, 'Free item deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async deleteProduct(req: Request, res: Response, next: NextFunction) {
     try {
-      await productService.deleteProduct(req.params.id as string);
+      const userId = req.user?.userId;
+      const { permissionCodes } = await getUserRbacSnapshot(req);
+
+      await productService.deleteProduct(req.params.id as string, {
+        userId,
+        canDeleteAny: permissionCodes.includes(PERMISSION_CODES.PRODUCT_DELETE),
+      });
+
       res.json(successResponse(null, 'Product deleted successfully'));
     } catch (error) {
       next(error);
@@ -109,13 +227,7 @@ export const productController = {
       let actorRole: string | undefined = undefined;
       let priceAuthorized = false;
       try {
-        const token = (req.headers.authorization || '').replace('Bearer ', '');
-        const resp = await axios.get(
-          `${process.env.AUTH_SERVICE_URL || 'http://auth-service:3001'}/rbac/users/${req.user?.id || req.user?.userId}/roles`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const roleNames: string[] = resp.data?.roleNames || [];
-        const permissionCodes: number[] = resp.data?.permissionCodes || [];
+        const { roleNames, permissionCodes } = await getUserRbacSnapshot(req);
         if (roleNames.includes('SUPERADMIN') || roleNames.includes('ADMIN')) actorRole = 'ADMIN';
         else if (roleNames.includes('MANAGER')) actorRole = 'MANAGER';
 
@@ -130,7 +242,15 @@ export const productController = {
         console.debug('Failed to resolve actor role from auth-service', (err as any)?.message || err);
       }
 
-      const product = await productService.updateProductStatus(id as string, status, actorRole, reason, price, priceAuthorized);
+      const product = await productService.updateProductStatus(
+        id as string,
+        status,
+        actorRole,
+        reason,
+        price,
+        priceAuthorized,
+        req.user?.userId
+      );
       res.json(successResponse(product, 'Product status updated successfully'));
     } catch (error) {
       next(error);

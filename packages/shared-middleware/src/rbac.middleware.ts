@@ -36,7 +36,7 @@ export const requirePermission = (
       // Fetch user roles and permissions from auth service
       try {
         const userRolesResponse = await axios.get(
-          `${process.env.AUTH_SERVICE_URL}/auth/users/${user.id}/roles`,
+          `${process.env.AUTH_SERVICE_URL}/rbac/users/${user.id}/roles`,
           {
             headers: {
               Authorization: `Bearer ${req.headers.authorization?.split(' ')[1]}`,
@@ -107,14 +107,14 @@ export const requireRole = (...roleNames: string[]) => {
       let userRoles: string[] = [];
       try {
         const rolesResponse = await axios.get(
-          `${process.env.AUTH_SERVICE_URL}/auth/users/${user.id}/roles`,
+          `${process.env.AUTH_SERVICE_URL}/rbac/users/${user.id}/roles`,
           {
             headers: {
               Authorization: `Bearer ${req.headers.authorization?.split(' ')[1]}`,
             },
           }
         );
-        userRoles = rolesResponse.data.roleNames || [];
+        userRoles = rolesResponse.data?.data?.roleNames || [];
       } catch (error) {
         console.error('Failed to fetch user roles:', error);
         return res.status(403).json({
@@ -323,6 +323,7 @@ function generatePermissionCode(resource: PermissionResource, action: Permission
     [PermissionResource.ORDER]: 40,
     [PermissionResource.PRODUCT]: 50,
     [PermissionResource.REVIEW]: 51,
+    [PermissionResource.FREE_ITEM]: 120,
     [PermissionResource.DELIVERY]: 60,
     [PermissionResource.INVENTORY]: 61,
     [PermissionResource.SELLER]: 70,

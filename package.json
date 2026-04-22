@@ -18,7 +18,8 @@
     "lint": "npm run lint --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
     "db:migrate": "npm run db:migrate --workspaces --if-present",
-    "db:seed": "npm run db:seed --workspaces --if-present"
+    "db:seed": "npm run db:seed --workspaces --if-present",
+    "migrate:deploy:all": "bash ./scripts/migrate-deploy-all.sh || powershell -File ./scripts/migrate-deploy-all.ps1"
   },
   "keywords": [
     "ecommerce",

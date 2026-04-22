@@ -39,6 +39,19 @@ const sanitizeRoles = (roles: any[] = []) =>
       })) || [],
   }));
 
+const ensureUserHasRole = async (userId: string, roleName: string, assignedBy = 'SYSTEM') => {
+  const role = await prisma.role.findUnique({
+    where: { name: roleName },
+    select: { id: true },
+  });
+
+  if (!role) {
+    throw new NotFoundError(`Role "${roleName}" not found`);
+  }
+
+  await RBACService.assignRoleToUser(userId, role.id, assignedBy);
+};
+
 class AuthService {
   private generateTokens(user: { id: string; email: string; role?: string }): IAuthTokens {
     const payload: Omit<ITokenPayload, 'iat' | 'exp'> = {
@@ -179,6 +192,8 @@ class AuthService {
           },
         });
 
+        await ensureUserHasRole(user.id, 'CUSTOMER');
+
         // Publish user.created event (fire-and-forget)
         eventPublisher.userCreated({
           userId: user.id,
@@ -236,14 +251,6 @@ class AuthService {
 
     // Fetch roles & permissions for frontend convenience
     const rbac = await RBACService.getUserRolesAndPermissions(user.id);
-    // Sanitize roles: remove audit/metadata fields before returning to clients
-    const sanitizeRoles = (roles: any[]) =>
-      roles.map((r) => ({
-        id: r.id,
-        name: r.name,
-        permissionCount: r.permissionCount ?? (r.permissions?.length ?? undefined),
-        permissions: r.permissions?.map((p: any) => ({ id: p.permission?.id ?? p.id, permissionCode: p.permission?.permissionCode ?? p.permissionCode, action: p.permission?.action ?? p.action, resource: p.permission?.resource ?? p.resource })) || [],
-      }));
 
     return {
       user: {
@@ -502,12 +509,12 @@ class AuthService {
   ): Promise<IAuthResponse> {
     logger.debug('createAdminAccount → enter', { email: data.email });
 
-    const configuredSecret = config.security.adminSecretKey;
-    if (!configuredSecret) {
-      throw new ForbiddenError('Admin account creation is disabled (ADMIN_SECRET_KEY not configured)');
+    // Validate admin secret key before performing any DB operations
+    if (!config.security.adminSecretKey) {
+      throw new ForbiddenError('ADMIN_SECRET_KEY is not configured');
     }
-    if (secretKey !== configuredSecret) {
-      throw new ForbiddenError('Invalid admin secret key');
+    if (secretKey !== config.security.adminSecretKey) {
+      throw new ForbiddenError('Invalid ADMIN_SECRET_KEY');
     }
 
     const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });
@@ -612,7 +619,16 @@ class AuthService {
     const skip = (page - 1) * limit;
     const where: any = {};
 
-    if (role) where.role = role;
+    if (role) {
+      where.userRoles = {
+        some: {
+          revokedAt: null,
+          role: {
+            name: role,
+          },
+        },
+      };
+    }
     if (status) where.status = status;
     if (search) {
       const s = search.trim();
@@ -646,6 +662,9 @@ class AuthService {
           updatedAt: true,
           // Include roles via userRoles relation
           userRoles: {
+            where: {
+              revokedAt: null,
+            },
             select: {
               role: {
                 select: { id: true, name: true },

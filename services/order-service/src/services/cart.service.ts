@@ -20,13 +20,7 @@ interface EnrichedCartItem {
   updatedAt: Date;
   productName?: string;
   productImage?: string;
-  freeItems: Array<{
-    id: string;
-    name: string;
-    sku?: string;
-    image?: string;
-  }>;
-  
+  freeItems?: Array<{ id: string; name: string; sku?: string; image?: string }>;
 }
 
 interface EnrichedCart extends Omit<CartWithItems, 'items'> {
@@ -58,6 +52,7 @@ class CartService {
     if (!cart) return null;
 
     // Enrich items with product data
+    const itemFreeItems = await this.loadCartItemFreeItems(cart.items.map((item) => item.id));
     const enrichedItems: EnrichedCartItem[] = await Promise.all(
       cart.items.map(async (item) => {
         try {
@@ -72,7 +67,7 @@ class CartService {
             updatedAt: item.updatedAt,
             productName: product.name,
             productImage: product.images?.[0],
-            freeItems: product.freeItems || [],
+            freeItems: itemFreeItems.get(item.id) || [],
           };
         } catch (error) {
           // If product fetch fails, return item without product data
@@ -85,7 +80,7 @@ class CartService {
             price: item.price,
             createdAt: item.createdAt,
             updatedAt: item.updatedAt,
-            freeItems: [],
+            freeItems: itemFreeItems.get(item.id) || [],
           };
         }
       })
@@ -111,9 +106,7 @@ class CartService {
 
     return cart.items.every((item) => {
       const hasLegacyProductObject = Object.prototype.hasOwnProperty.call(item, 'product');
-      const hasFreeItemsField = Object.prototype.hasOwnProperty.call(item, 'freeItems');
-
-      return !hasLegacyProductObject && hasFreeItemsField;
+      return !hasLegacyProductObject;
     });
   }
 
@@ -163,6 +156,7 @@ class CartService {
       throw new BadRequestError(`Insufficient stock. Available: ${product.stock}`);
     }
     const price = resolveEffectivePrice(product);
+    const selectedFreeItems = this.resolveSelectedFreeItems(product.freeItems || [], data.freeItemIds);
 
     // Check if product already in cart
     const existingItem = cart.items.find(item => item.productId === data.productId);
@@ -174,22 +168,26 @@ class CartService {
         data: { 
           quantity: existingItem.quantity + data.quantity,
           price,
-          freeItemIds: data && (data as any).freeItemIds
-            ? ((data as any).freeItemIds as string[]).slice(0, 1)
-            : (Array.isArray((existingItem as any).freeItemIds) ? (existingItem as any).freeItemIds : ((existingItem as any).freeItemId ? [(existingItem as any).freeItemId] : undefined)),
         },
       });
+
+      if (data.freeItemIds !== undefined) {
+        await this.replaceCartItemFreeItems(existingItem.id, selectedFreeItems);
+      }
     } else {
       // Add new item
-      await prisma.cartItem.create({
+      const createdItem = await prisma.cartItem.create({
         data: {
           cartId: cart.id,
           productId: data.productId,
           quantity: data.quantity,
           price,
-          freeItemIds: data && (data as any).freeItemIds ? ((data as any).freeItemIds as string[]).slice(0,1) : undefined,
         },
       });
+
+      if (selectedFreeItems.length > 0) {
+        await this.replaceCartItemFreeItems(createdItem.id, selectedFreeItems);
+      }
     }
 
     await this.invalidateCache(userId, guestId);
@@ -270,9 +268,13 @@ class CartService {
           where: { id: existingItem.id },
           data: { quantity: existingItem.quantity + guestItem.quantity },
         });
+
+        if (guestItem.freeItems && guestItem.freeItems.length > 0) {
+          await this.replaceCartItemFreeItems(existingItem.id, guestItem.freeItems);
+        }
       } else {
         // Move item to user cart
-        await prisma.cartItem.create({
+        const createdItem = await prisma.cartItem.create({
           data: {
             cartId: userCart.id,
             productId: guestItem.productId,
@@ -280,6 +282,10 @@ class CartService {
             price: guestItem.price,
           },
         });
+
+        if (guestItem.freeItems && guestItem.freeItems.length > 0) {
+          await this.replaceCartItemFreeItems(createdItem.id, guestItem.freeItems);
+        }
       }
     }
 
@@ -348,6 +354,84 @@ class CartService {
   private async invalidateCache(userId?: string, guestId?: string): Promise<void> {
     if (userId) await cacheDelete(cartCacheKey(userId));
     if (guestId) await cacheDelete(cartCacheKey(guestId));
+  }
+
+  private resolveSelectedFreeItems(
+    available: Array<{ id: string; name: string; sku?: string; image?: string }>,
+    selectedIds?: string[]
+  ): Array<{ id: string; name: string; sku?: string; image?: string }> {
+    if (!selectedIds || selectedIds.length === 0) {
+      return [];
+    }
+
+    if (selectedIds.length > 1) {
+      throw new BadRequestError('Only one free item is allowed for now');
+    }
+
+    const selected = available.filter((item) => selectedIds.includes(item.id));
+    if (selected.length !== selectedIds.length) {
+      throw new BadRequestError('Invalid free item selection');
+    }
+
+    return selected;
+  }
+
+  private async loadCartItemFreeItems(cartItemIds: string[]): Promise<Map<string, Array<{ id: string; name: string; sku?: string; image?: string }>>> {
+    const result = new Map<string, Array<{ id: string; name: string; sku?: string; image?: string }>>();
+    if (cartItemIds.length === 0) return result;
+
+    const rows = await prisma.$queryRaw<Array<{
+      cartItemId: string;
+      freeItemId: string;
+      freeItemName: string;
+      sku: string | null;
+      image: string | null;
+    }>>`
+      SELECT
+        "cartItemId",
+        "freeItemId",
+        "freeItemName",
+        "sku",
+        "image"
+      FROM "CartItemFreeItem"
+      WHERE "cartItemId" IN (${Prisma.join(cartItemIds)})
+      ORDER BY "assignedAt" ASC
+    `;
+
+    for (const row of rows) {
+      const items = result.get(row.cartItemId) || [];
+      items.push({
+        id: row.freeItemId,
+        name: row.freeItemName,
+        sku: row.sku ?? undefined,
+        image: row.image ?? undefined,
+      });
+      result.set(row.cartItemId, items);
+    }
+
+    return result;
+  }
+
+  private async replaceCartItemFreeItems(
+    cartItemId: string,
+    freeItems: Array<{ id: string; name: string; sku?: string; image?: string }>
+  ): Promise<void> {
+    await prisma.$executeRaw`
+      DELETE FROM "CartItemFreeItem"
+      WHERE "cartItemId" = ${cartItemId}
+    `;
+
+    if (freeItems.length === 0) return;
+
+    await Promise.all(
+      freeItems.map((item) =>
+        prisma.$executeRaw`
+          INSERT INTO "CartItemFreeItem" ("id", "cartItemId", "freeItemId", "freeItemName", "sku", "image", "assignedAt")
+          VALUES (${`${cartItemId}:${item.id}`}, ${cartItemId}, ${item.id}, ${item.name}, ${item.sku ?? null}, ${item.image ?? null}, NOW())
+          ON CONFLICT ("cartItemId", "freeItemId") DO NOTHING
+        `
+      )
+    );
   }
 }
 

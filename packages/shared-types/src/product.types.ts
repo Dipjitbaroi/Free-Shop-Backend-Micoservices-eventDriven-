@@ -33,6 +33,7 @@ export interface IProduct {
   averageRating: number;
   totalReviews: number;
   totalSold: number;
+  lastUpdatedBy?: string;
   metadata?: Record<string, unknown>;
   freeItems?: IFreeItem[];
   createdAt: Date;
@@ -62,21 +63,29 @@ export interface IProductCreate {
   isFeatured?: boolean;
   metadata?: Record<string, unknown>;
   freeItems?: IFreeItemCreate[];
+  freeItemIds?: string[];
 }
 
 export interface IFreeItem {
   id: string;
-  productId: string;
   name: string;
   description?: string;
   sku?: string;
   image?: string;
+  createdBy?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface IFreeItemCreate {
   name: string;
+  description?: string;
+  sku?: string;
+  image?: string;
+}
+
+export interface IFreeItemUpdate {
+  name?: string;
   description?: string;
   sku?: string;
   image?: string;
@@ -103,6 +112,7 @@ export interface IProductUpdate {
   isFeatured?: boolean;
   metadata?: Record<string, unknown>;
   freeItems?: IFreeItemCreate[];
+  freeItemIds?: string[];
 }
 
 // Admin approval interface - admins set the retail price during approval
