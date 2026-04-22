@@ -502,12 +502,12 @@ class AuthService {
   ): Promise<IAuthResponse> {
     logger.debug('createAdminAccount → enter', { email: data.email });
 
-    const configuredSecret = config.security.adminSecretKey;
-    if (!configuredSecret) {
-      throw new ForbiddenError('Admin account creation is disabled (ADMIN_SECRET_KEY not configured)');
+    // Validate admin secret key before performing any DB operations
+    if (!config.security.adminSecretKey) {
+      throw new ForbiddenError('ADMIN_SECRET_KEY is not configured');
     }
-    if (secretKey !== configuredSecret) {
-      throw new ForbiddenError('Invalid admin secret key');
+    if (secretKey !== config.security.adminSecretKey) {
+      throw new ForbiddenError('Invalid ADMIN_SECRET_KEY');
     }
 
     const existing = await prisma.user.findUnique({ where: { email: data.email.toLowerCase() } });

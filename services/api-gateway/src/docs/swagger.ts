@@ -303,11 +303,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Auth'],
         summary: 'Create an ADMIN or MANAGER account',
-        description: `Create a new **ADMIN** or **MANAGER** account protected by a server-side secret key.
+        description: `Create a new **ADMIN** or **MANAGER** account.
 
-The \`secretKey\` field in the request body must match the \`ADMIN_SECRET_KEY\` environment variable configured on the auth-service. Any mismatch returns \`403 Invalid admin secret key\` — no information about existing accounts is leaked.
-
-The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGER\` are accepted values.`,
+        The request must include the \`ADMIN_SECRET_KEY\` value in the \`secretKey\` field. The value must match the \`ADMIN_SECRET_KEY\` environment variable configured on the auth-service. The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGER\` are accepted values.`,
         requestBody: {
           required: true,
           content: {
@@ -351,7 +349,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
             content: {
               'application/json': {
                 schema: { $ref: '#/components/schemas/ErrorResponse' },
-                example: { success: false, error: { code: 'FORBIDDEN', message: 'Invalid admin secret key' } },
+                example: { success: false, error: { code: 'FORBIDDEN', message: 'Invalid ADMIN_SECRET_KEY' } },
               },
             },
           },
@@ -485,7 +483,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         tags: ['RBAC'],
         summary: 'Initialize default roles and permissions (superadmin only)',
         description: 'Manually initialize or check the status of the RBAC system. Creates default roles (SUPERADMIN, ADMIN, MANAGER, VENDOR, SELLER, CUSTOMER, DELIVERY_MAN) and their corresponding permissions. By default requires superadmin role. Can be set to allow all authenticated users by setting `RBAC_INIT_OPEN=true` environment variable (dev/testing only).',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         responses: {
           200: {
             description: 'RBAC initialization status (successful or already initialized)',
@@ -662,7 +660,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get role by ID',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
@@ -746,7 +744,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       delete: {
         tags: ['RBAC'],
         summary: 'Remove permission from role (PERMISSION_DELETE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'permissionId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -778,7 +776,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get all permissions (PERMISSION_READ required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -834,7 +832,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Get permission by code',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'code', in: 'path', required: true, schema: { type: 'string', example: 'USER_READ' } },
         ],
@@ -960,7 +958,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       delete: {
         tags: ['RBAC'],
         summary: 'Remove role from user (ROLE_DELETE required)',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'roleId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -999,7 +997,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
       get: {
         tags: ['RBAC'],
         summary: 'Check if user has permission',
-        security: [{ bearerAuth: [] }],
+        security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'code', in: 'path', required: true, schema: { type: 'string', example: 'USER_READ' } },
@@ -4547,7 +4545,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
           type: 'apiKey',
           in: 'header',
           name: 'x-admin-secret',
-          description: 'Server-side admin secret key. Can be provided via header `x-admin-secret`. (The auth-service also accepts `admin-secret` header, request body `adminSecretKey` or query `adminSecretKey`.)',
+          description: 'Server-side ADMIN_SECRET_KEY. Can be provided via header `x-admin-secret`. (The auth-service also accepts `admin-secret` header, request body `adminSecretKey` or query `adminSecretKey`.)',
         },
     },
     schemas: {
@@ -4599,7 +4597,7 @@ The \`role\` field defaults to \`ADMIN\` if omitted. Only \`ADMIN\` and \`MANAGE
         properties: {
           secretKey: {
             type: 'string',
-            description: 'Server-side admin secret key. Must match the ADMIN_SECRET_KEY environment variable on the auth-service.',
+            description: 'Server-side ADMIN_SECRET_KEY. Must match the ADMIN_SECRET_KEY environment variable on the auth-service.',
             example: 'super-secret-key',
           },
           email: {

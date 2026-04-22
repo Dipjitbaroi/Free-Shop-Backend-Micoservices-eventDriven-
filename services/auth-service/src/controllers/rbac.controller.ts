@@ -232,12 +232,14 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
     const roleId = Array.isArray(req.params.roleId) ? req.params.roleId[0] : req.params.roleId;
     const permissionId = Array.isArray(req.params.permissionId) ? req.params.permissionId[0] : req.params.permissionId;
     const userId = (req as any).user?.id;
+        const adminSecret = isValidAdminSecret(req);
 
-    if (!userId) {
-      return res.status(401).json({ error: 'UNAUTHORIZED' });
-    }
+        if (!userId && !adminSecret) {
+          return res.status(401).json({ error: 'UNAUTHORIZED' });
+        }
 
-    await RBACService.removePermissionFromRole(roleId, permissionId, userId);
+        const actorId = userId ?? (adminSecret ? 'admin-secret' : undefined);
+        await RBACService.removePermissionFromRole(roleId, permissionId, actorId as any);
     // Return updated role after removal
     const updatedRole = await RBACService.getRoleById(roleId);
     return res.status(200).json(successResponse(updatedRole, 'Permission removed from role successfully'));
@@ -364,12 +366,14 @@ export const removeRoleFromUser = async (req: Request, res: Response) => {
     const userId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
     const roleId = Array.isArray(req.params.roleId) ? req.params.roleId[0] : req.params.roleId;
     const requesterId = (req as any).user?.id;
+    const adminSecret = isValidAdminSecret(req);
 
-    if (!requesterId) {
+    if (!requesterId && !adminSecret) {
       return res.status(401).json({ error: 'UNAUTHORIZED' });
     }
 
-    await RBACService.removeRoleFromUser(userId, roleId, requesterId);
+    const actorId = requesterId ?? (adminSecret ? 'admin-secret' : undefined);
+    await RBACService.removeRoleFromUser(userId, roleId, actorId as any);
     // Return the user's updated roles and permission snapshot
     const result = await RBACService.getUserRolesAndPermissions(userId);
     return res.status(200).json(
