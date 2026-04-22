@@ -1690,24 +1690,45 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/settings/delivery': {
       get: {
         tags: ['Settings'],
-        summary: 'Get delivery charges (admin/manager)',
+        summary: 'Get all delivery zones with charges (admin/manager)',
+        description: 'Returns all delivery zones and a map of zone IDs to prices',
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
-            description: 'Delivery charges object and zones',
+            description: 'Delivery zones and charges retrieved',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean' },
+                    success: { type: 'boolean', example: true },
                     data: {
                       type: 'object',
                       properties: {
-                        deliveryCharges: { type: 'object', additionalProperties: { type: 'number' } },
-                        zones: { type: 'array', items: { type: 'string' } },
+                        deliveryCharges: {
+                          type: 'object',
+                          description: 'Map of zone ID to delivery price',
+                          example: { 'zone-uuid-1': 60, 'zone-uuid-2': 50 },
+                        },
+                        zones: {
+                          type: 'array',
+                          description: 'All delivery zones',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              name: { type: 'string' },
+                              price: { type: 'number' },
+                            },
+                          },
+                          example: [
+                            { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
+                            { id: 'zone-uuid-2', name: 'In Dhaka', price: 50 },
+                          ],
+                        },
                       },
                     },
+                    message: { type: 'string', example: 'Delivery charges retrieved' },
                   },
                 },
               },
@@ -1719,25 +1740,140 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       put: {
         tags: ['Settings'],
-        summary: 'Update delivery charges (admin/manager)',
+        summary: 'Create or update delivery zones (bulk)',
+        description: 'Upsert multiple zones. If id is provided, updates existing zone; otherwise creates new zone.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
             'application/json': {
               schema: {
-                type: 'object',
-                additionalProperties: { type: 'number' },
-                example: { in_feni: 60, in_dhaka: 50, outside_dhaka: 120 },
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid', description: 'Zone ID (optional - if not provided, creates new)' },
+                    name: { type: 'string', description: 'Zone name' },
+                    price: { type: 'number', description: 'Delivery price for this zone' },
+                  },
+                  required: ['name', 'price'],
+                },
               },
+              example: [
+                { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
+                { name: 'Outside Dhaka', price: 120 },
+              ],
             },
           },
         },
         responses: {
-          200: { description: 'Delivery charges updated' },
+          200: {
+            description: 'Delivery zones updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'null' },
+                    message: { type: 'string', example: 'Delivery zones updated' },
+                  },
+                },
+              },
+            },
+          },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/settings/delivery/{id}': {
+      patch: {
+        tags: ['Settings'],
+        summary: 'Update a single delivery zone',
+        description: 'Update name and/or price of a specific delivery zone',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Zone ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Zone name (optional)' },
+                  price: { type: 'number', description: 'Delivery price (optional)' },
+                },
+              },
+              example: { name: 'In Feni', price: 65 },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Delivery zone updated successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        zone: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            price: { type: 'number' },
+                          },
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Delivery zone updated' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Settings'],
+        summary: 'Delete a delivery zone',
+        description: 'Remove a delivery zone by ID',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Zone ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Delivery zone deleted successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: { type: 'null' },
+                    message: { type: 'string', example: 'Delivery zone deleted' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
@@ -1745,16 +1881,39 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Settings'],
         summary: 'List available delivery zones (public)',
+        description: 'Get all delivery zones without authentication. Useful for displaying zone options to customers.',
         responses: {
           200: {
-            description: 'Available delivery zones',
+            description: 'All available delivery zones',
             content: {
               'application/json': {
                 schema: {
                   type: 'object',
                   properties: {
-                    success: { type: 'boolean' },
-                    data: { type: 'object', properties: { zones: { type: 'array', items: { type: 'string' } } } },
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        zones: {
+                          type: 'array',
+                          description: 'List of all delivery zones',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              name: { type: 'string' },
+                              price: { type: 'number' },
+                            },
+                          },
+                          example: [
+                            { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
+                            { id: 'zone-uuid-2', name: 'In Dhaka', price: 50 },
+                            { id: 'zone-uuid-3', name: 'Outside Dhaka', price: 120 },
+                          ],
+                        },
+                      },
+                    },
+                    message: { type: 'string', example: 'Delivery zones retrieved' },
                   },
                 },
               },
