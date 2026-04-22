@@ -21,6 +21,13 @@ interface OrderWithItems extends Order {
   items: OrderItem[];
 }
 
+type FreeItemSnapshot = {
+  id: string;
+  name: string;
+  sku?: string;
+  image?: string;
+};
+
 interface CreateOrderData {
   userId?: string;
   guestEmail?: string;
@@ -38,7 +45,7 @@ interface CreateOrderData {
     productImage?: string;
     unit?: string;
     quantity: number;
-      freeItemIds?: string[];
+    freeItems?: FreeItemSnapshot[];
     price: number;
     discount?: number;
   }[];
@@ -55,6 +62,74 @@ interface OrderFilters {
 }
 
 class OrderService {
+  private async loadOrderItemFreeItems(orderItemIds: string[]): Promise<Map<string, FreeItemSnapshot[]>> {
+    const result = new Map<string, FreeItemSnapshot[]>();
+    if (orderItemIds.length === 0) return result;
+
+    const rows = await prisma.$queryRaw<Array<{
+      orderItemId: string;
+      freeItemId: string;
+      freeItemName: string;
+      sku: string | null;
+      image: string | null;
+    }>>`
+      SELECT
+        "orderItemId",
+        "freeItemId",
+        "freeItemName",
+        "sku",
+        "image"
+      FROM "OrderItemFreeItem"
+      WHERE "orderItemId" IN (${Prisma.join(orderItemIds)})
+      ORDER BY "assignedAt" ASC
+    `;
+
+    for (const row of rows) {
+      const items = result.get(row.orderItemId) || [];
+      items.push({
+        id: row.freeItemId,
+        name: row.freeItemName,
+        sku: row.sku ?? undefined,
+        image: row.image ?? undefined,
+      });
+      result.set(row.orderItemId, items);
+    }
+
+    return result;
+  }
+
+  private async hydrateOrder(order: OrderWithItems): Promise<OrderWithItems & { items: Array<OrderItem & { freeItems: FreeItemSnapshot[] }> }> {
+    const freeItemMap = await this.loadOrderItemFreeItems(order.items.map((item) => item.id));
+    return {
+      ...order,
+      items: order.items.map((item) => ({
+        ...item,
+        freeItems: freeItemMap.get(item.id) || [],
+      })),
+    };
+  }
+
+  private async replaceOrderItemFreeItems(
+    orderItemId: string,
+    freeItems: FreeItemSnapshot[]
+  ): Promise<void> {
+    await prisma.$executeRaw`
+      DELETE FROM "OrderItemFreeItem"
+      WHERE "orderItemId" = ${orderItemId}
+    `;
+
+    if (freeItems.length === 0) return;
+
+    await Promise.all(
+      freeItems.map((item) =>
+        prisma.$executeRaw`
+          INSERT INTO "OrderItemFreeItem" ("id", "orderItemId", "freeItemId", "freeItemName", "sku", "image", "assignedAt")
+          VALUES (${`${orderItemId}:${item.id}`}, ${orderItemId}, ${item.id}, ${item.name}, ${item.sku ?? null}, ${item.image ?? null}, NOW())
+          ON CONFLICT ("orderItemId", "freeItemId") DO NOTHING
+        `
+      )
+    );
+  }
 
   async createOrder(data: CreateOrderData): Promise<OrderWithItems> {
     // Calculate totals
@@ -114,7 +189,6 @@ class OrderService {
             productImage: item.productImage,
             unit: item.unit,
             quantity: item.quantity,
-            freeItemIds: item.freeItemIds && item.freeItemIds.length ? item.freeItemIds.slice(0,1) : undefined,
             price: item.price,
             discount: item.discount || 0,
             total: (item.price * item.quantity) - (item.discount || 0),
@@ -123,6 +197,13 @@ class OrderService {
       },
       include: { items: true },
     });
+
+    for (let i = 0; i < data.items.length; i += 1) {
+      const freeItems = data.items[i].freeItems || [];
+      if (freeItems.length > 0) {
+        await this.replaceOrderItemFreeItems(order.items[i].id, freeItems);
+      }
+    }
 
     // Clear cart after order
     // Note: Cart clearing should happen in the controller after successful order
@@ -133,23 +214,25 @@ class OrderService {
     }
 
     // Publish order created event
-      await eventPublisher.publish(Events.ORDER_CREATED, {
+    await eventPublisher.publish(Events.ORDER_CREATED, {
       orderId: order.id,
       orderNumber: order.orderNumber,
       userId: order.userId,
       total: order.total,
       paymentMethod: order.paymentMethod,
-        items: order.items.map(item => ({
+      items: order.items.map((item, index) => ({
           productId: item.productId,
           vendorId: item.vendorId,
           quantity: item.quantity,
           price: item.price,
           supplierPrice: (item as any).supplierPrice ?? undefined,
-          freeItemIds: (item as any).freeItemIds && (item as any).freeItemIds.length ? (item as any).freeItemIds : ((item as any).freeItemId ? [(item as any).freeItemId] : undefined),
+          freeItemIds: data.items[index]?.freeItems?.length
+            ? data.items[index].freeItems.map((fi) => fi.id)
+            : undefined,
         })),
     });
 
-    return order;
+    return this.hydrateOrder(order) as Promise<OrderWithItems>;
   }
 
   async getOrderById(orderId: string): Promise<OrderWithItems> {
@@ -162,7 +245,7 @@ class OrderService {
       throw new NotFoundError('Order not found');
     }
 
-    return order;
+    return this.hydrateOrder(order) as Promise<OrderWithItems>;
   }
 
   async getOrderByNumber(orderNumber: string): Promise<OrderWithItems> {
@@ -175,7 +258,7 @@ class OrderService {
       throw new NotFoundError('Order not found');
     }
 
-    return order;
+    return this.hydrateOrder(order) as Promise<OrderWithItems>;
   }
 
   async getOrders(filters: OrderFilters): Promise<IPaginatedResult<OrderWithItems>> {
@@ -203,7 +286,8 @@ class OrderService {
       prisma.order.count({ where }),
     ]);
 
-    return createPaginatedResponse(orders, total, page, limit);
+    const hydrated = await Promise.all(orders.map((order) => this.hydrateOrder(order as OrderWithItems)));
+    return createPaginatedResponse(hydrated as any, total, page, limit);
   }
 
   async getUserOrders(userId: string, page: number = 1, limit: number = 20): Promise<IPaginatedResult<OrderWithItems>> {
@@ -270,7 +354,7 @@ class OrderService {
       });
     }
 
-    return updatedOrder;
+    return this.hydrateOrder(updatedOrder) as Promise<OrderWithItems>;
   }
 
   async updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus, transactionId?: string): Promise<OrderWithItems> {
@@ -298,7 +382,7 @@ class OrderService {
       transactionId,
     });
 
-    return order;
+    return this.hydrateOrder(order) as Promise<OrderWithItems>;
   }
 
   async cancelOrder(orderId: string, userId: string, reason: string): Promise<OrderWithItems> {
@@ -327,7 +411,7 @@ class OrderService {
 
     await cacheDelete(orderCacheKey(orderId));
 
-    return order;
+    return this.hydrateOrder(order) as Promise<OrderWithItems>;
   }
 
   // Coupon methods

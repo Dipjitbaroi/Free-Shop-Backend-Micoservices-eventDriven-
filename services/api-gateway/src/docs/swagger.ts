@@ -481,8 +481,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/auth/rbac/init': {
       post: {
         tags: ['RBAC'],
-        summary: 'Initialize default roles and permissions (superadmin only)',
-        description: 'Manually initialize or check the status of the RBAC system. Creates default roles (SUPERADMIN, ADMIN, MANAGER, VENDOR, SELLER, CUSTOMER, DELIVERY_MAN) and their corresponding permissions. By default requires superadmin role. Can be set to allow all authenticated users by setting `RBAC_INIT_OPEN=true` environment variable (dev/testing only).',
+        summary: 'Initialize default roles and permissions',
+        description: 'Manually initialize or check the status of the RBAC system. Creates default roles (SUPERADMIN, ADMIN, MANAGER, VENDOR, SELLER, CUSTOMER, DELIVERY_MAN) and their corresponding permissions. Requires: SUPERADMIN role, ROLE_CREATE permission, or valid Admin Secret Key. Or set `RBAC_INIT_OPEN=true` environment variable for dev/testing mode.',
         security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         responses: {
           200: {
@@ -1932,7 +1932,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'categoryId', in: 'query', schema: { type: 'string' }, description: 'Filter by category ID' },
-          { name: 'VendorId', in: 'query', schema: { type: 'string' }, description: 'Filter by Vendor ID' },
+          { name: 'vendorId', in: 'query', schema: { type: 'string' }, description: 'Filter by Vendor ID' },
           { name: 'minPrice', in: 'query', schema: { type: 'number' } },
           { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
           { name: 'isOrganic', in: 'query', schema: { type: 'boolean' } },
@@ -2017,7 +2017,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         summary: "List a Vendor's own products (Vendor / admin / manager)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Omit to default to the authenticated Vendor' },
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Omit to default to the authenticated Vendor' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED', 'INACTIVE'] } },
@@ -2049,7 +2049,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       patch: {
         tags: ['Products'],
-        summary: 'Update a product (Vendor / admin / manager)',
+        summary: 'Update a product (owner or permission)',
+        description: 'A product can be updated by its owner, or by a user with PRODUCT_UPDATE permission. Retail price updates still require PRODUCT_UPDATE_PRICE or an admin/manager role.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2073,7 +2074,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       delete: {
         tags: ['Products'],
-        summary: 'Delete a product (Vendor / admin)',
+        summary: 'Delete a product (owner or permission)',
+        description: 'A product can be deleted by its owner, or by a user with PRODUCT_DELETE permission.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2121,6 +2123,116 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
     },
     // ─── REVIEWS ─────────────────────────────────────────────────────────────
+    '/free-items': {
+      get: {
+        tags: ['Products'],
+        summary: 'List free items',
+        description: 'Returns free items created by the current user, unless the caller has FREE_ITEM_READ permission, in which case all free items are returned.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by name, description, or SKU' },
+        ],
+        responses: {
+          200: { description: 'Free items retrieved successfully' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+      post: {
+        tags: ['Products'],
+        summary: 'Create a free item',
+        description: 'Creates a reusable free item catalog entry. Requires FREE_ITEM_CREATE permission.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                  name: { type: 'string' },
+                  description: { type: 'string' },
+                  sku: { type: 'string' },
+                  image: { type: 'string', format: 'uri' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Free item created successfully' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/free-items/{id}': {
+      get: {
+        tags: ['Products'],
+        summary: 'Get a free item by ID',
+        description: 'Returns the free item if the caller created it, or if the caller has FREE_ITEM_READ permission.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Free item retrieved successfully' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      patch: {
+        tags: ['Products'],
+        summary: 'Update a free item',
+        description: 'Updates a free item if the caller created it, or if the caller has FREE_ITEM_UPDATE permission.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  description: { type: 'string' },
+                  sku: { type: 'string' },
+                  image: { type: 'string', format: 'uri' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Free item updated successfully' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Products'],
+        summary: 'Delete a free item',
+        description: 'Deletes a free item if the caller created it, or if the caller has FREE_ITEM_DELETE permission.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Free item deleted successfully' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
     '/reviews': {
       get: {
         tags: ['Products'],
@@ -2556,7 +2668,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         summary: "List a Vendor's orders (Vendor / admin / manager)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
         ],
@@ -3680,7 +3792,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         tags: ['Vendors'],
         summary: 'Get reviews for a Vendor',
         parameters: [
-          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'rating', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 5 } },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -3695,7 +3807,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         summary: 'Write a review for a Vendor',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         requestBody: {
           required: true,
@@ -3913,10 +4025,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['productId', 'VendorId'],
+                required: ['productId', 'vendorId'],
                 properties: {
                   productId: { type: 'string', format: 'uuid' },
-                  VendorId: { type: 'string', format: 'uuid' },
+                  vendorId: { type: 'string', format: 'uuid' },
                   initialStock: { type: 'integer', minimum: 0, default: 0 },
                   lowStockThreshold: { type: 'integer', minimum: 0, default: 10 },
                 },
@@ -4010,13 +4122,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
-    '/inventory/Vendor/{vendorId}': {
+    '/inventory/vendor/{vendorId}': {
       get: {
         tags: ['Inventory'],
         summary: "Get a Vendor's full inventory (Vendor / admin / manager)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'lowStockOnly', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Return only low-stock or out-of-stock items' },
@@ -4583,7 +4695,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         summary: 'Get analytics report for a specific Vendor',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'VendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
@@ -4704,7 +4816,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           type: 'apiKey',
           in: 'header',
           name: 'x-admin-secret',
-          description: 'Server-side ADMIN_SECRET_KEY. Can be provided via header `x-admin-secret`. (The auth-service also accepts `admin-secret` header, request body `adminSecretKey` or query `adminSecretKey`.)',
+          description: 'Server-side ADMIN_SECRET_KEY. Provide via header (x-admin-secret or admin-secret), request body (adminSecretKey), or query param (adminSecretKey) to bypass permission checks on RBAC endpoints.',
         },
     },
     schemas: {
@@ -4822,6 +4934,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           isFeatured: { type: 'boolean' },
           metadata: { type: 'object', additionalProperties: true },
           freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItemCreate' } },
+          freeItemIds: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'Attach existing reusable free items to this product' },
         },
       },
       UpdateProductRequest: {
@@ -4844,11 +4957,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           tags: { type: 'array', items: { type: 'string' } },
           isFeatured: { type: 'boolean' },
           freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItemCreate' } },
+          freeItemIds: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'Replace the product free-item links with these reusable free item IDs' },
         },
       },
 
       FreeItemCreate: {
         type: 'object',
+        description: 'Reusable free-item catalog entry. Create one here, then link it to one or more products with freeItemIds.',
         properties: {
           name: { type: 'string' },
           description: { type: 'string' },
@@ -4860,11 +4975,11 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
-          productId: { type: 'string', format: 'uuid' },
           name: { type: 'string' },
           description: { type: 'string' },
           sku: { type: 'string' },
           image: { type: 'string', format: 'uri' },
+          createdBy: { type: 'string', format: 'uuid', nullable: true },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -5148,6 +5263,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           averageRating: { type: 'number', format: 'float' },
           totalReviews: { type: 'integer' },
           totalSold: { type: 'integer' },
+          lastUpdatedBy: { type: 'string', format: 'uuid', nullable: true },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -5268,18 +5384,11 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           productImage: { type: 'string', format: 'uri' },
           sku: { type: 'string' },
           quantity: { type: 'integer' },
-              freeItemId: {
-                type: 'string',
-                format: 'uuid',
-                nullable: true,
-                description: 'Legacy single free item ID (nullable). Prefer `freeItemIds`.'
-              },
-              freeItemIds: {
-                type: 'array',
-                items: { type: 'string', format: 'uuid' },
-                nullable: true,
-                description: 'Array of selected free item IDs (currently limited to 1).',
-              },
+          freeItems: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/FreeItem' },
+            description: 'Resolved free-item snapshots attached to this order item',
+          },
           unitPrice: { type: 'number' },
           discountAmount: { type: 'number' },
           totalPrice: { type: 'number' },
@@ -5323,15 +5432,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           productImage: { type: 'string', format: 'uri' },
           freeItems: {
             type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                id: { type: 'string', format: 'uuid' },
-                name: { type: 'string' },
-                sku: { type: 'string' },
-                image: { type: 'string', format: 'uri' },
-              },
-            },
+            items: { $ref: '#/components/schemas/FreeItem' },
+            description: 'Resolved free-item snapshots attached to this cart item',
           },
         },
       },

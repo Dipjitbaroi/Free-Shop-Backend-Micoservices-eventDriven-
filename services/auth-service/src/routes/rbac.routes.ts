@@ -16,32 +16,63 @@ const router: Router = Router();
  * Initialize default roles and permissions
  * POST /auth/rbac/init
  * 
- * By default, only superadmin can call this endpoint.
- * Can be disabled by setting RBAC_INIT_OPEN=true in environment (dev only)
+ * Authorization:
+ * 1. If X-Admin-Secret-Key is valid → ALLOW (bypass all checks)
+ * 2. If RBAC_INIT_OPEN=true → ALLOW any authenticated user (dev only)
+ * 3. Otherwise require: SUPERADMIN role OR ROLE_CREATE permission
+ * 
+ * Admin Secret Key can be provided via:
+ * - Header: `x-admin-secret` or `admin-secret`
+ * - Request body: `{"adminSecretKey": "..."}`
+ * - Query param: `?adminSecretKey=...`
  * 
  * Response:
  * - 200: Successfully initialized or already initialized
- * - 403: Forbidden (not superadmin, unless RBAC_INIT_OPEN=true)
+ * - 403: Forbidden (insufficient permissions or invalid secret key)
  * - 500: Initialization error
  */
 router.post('/init', authenticate, async (req, res, next) => {
-  // Check if RBAC init endpoint should be open (dev/testing only)
-  const isOpenInit = process.env.RBAC_INIT_OPEN === 'true';
-  
-  if (!isOpenInit) {
-    // Require superadmin
+  try {
+    // Check if admin secret key is provided and valid - if yes, allow
+    if (isValidAdminSecretKey(req)) {
+      return next();
+    }
+
+    // Check if RBAC init endpoint should be open (dev/testing only)
+    const isOpenInit = process.env.RBAC_INIT_OPEN === 'true';
+    
+    if (isOpenInit) {
+      // Development mode: allow any authenticated user
+      return next();
+    }
+
+    // Production mode: require superadmin role OR ROLE_CREATE permission
     const userId = (req as any).user?.id;
     const isSuperadmin = await checkIfSuperadmin(userId);
     
-    if (!isSuperadmin) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Only superadmin can initialize RBAC. Set RBAC_INIT_OPEN=true to allow all authenticated users (dev only).' 
-      });
+    if (isSuperadmin) {
+      return next();
     }
+
+    // Check if user has ROLE_CREATE permission
+    const hasRoleCreatePermission = await checkPermission(userId, PERMISSION_CODES.ROLE_CREATE);
+    
+    if (hasRoleCreatePermission) {
+      return next();
+    }
+
+    // User doesn't have required authorization
+    return res.status(403).json({ 
+      error: 'FORBIDDEN', 
+      message: 'Initialization requires: SUPERADMIN role, ROLE_CREATE permission, or valid Admin Secret Key (via header x-admin-secret, body adminSecretKey, or query param). Or set RBAC_INIT_OPEN=true for dev mode.' 
+    });
+  } catch (error) {
+    console.error('Error during RBAC init authorization:', error);
+    return res.status(500).json({
+      error: 'AUTHORIZATION_ERROR',
+      message: 'An error occurred during authorization'
+    });
   }
-  
-  next();
 }, rbacController.initializeRBAC);
 
 // Get permission codes reference (no auth needed for reference)
@@ -56,19 +87,7 @@ router.get('/permission-codes', rbacController.getPermissionCodesReference);
 router.post(
   '/roles',
   authenticate,
-  // Verify SUPERADMIN or ADMIN with ROLE_CREATE permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.ROLE_CREATE);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: ROLE_CREATE' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.ROLE_CREATE),
   auditPermissionLog('ROLE_CREATED'),
   rbacController.createRole
 );
@@ -80,19 +99,7 @@ router.post(
 router.get(
   '/roles',
   authenticate,
-  // Require ROLE_READ permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.ROLE_READ);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: ROLE_READ' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.ROLE_READ),
   rbacController.getRoles
 );
 
@@ -109,19 +116,7 @@ router.get('/roles/:roleId', authenticate, rbacController.getRoleById);
 router.post(
   '/roles/:roleId/permissions',
   authenticate,
-  // Require PERMISSION_CREATE permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.PERMISSION_CREATE);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: PERMISSION_CREATE' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.PERMISSION_CREATE),
   auditPermissionLog('PERMISSION_GRANTED_TO_ROLE'),
   rbacController.addPermissionToRole
 );
@@ -133,19 +128,7 @@ router.post(
 router.delete(
   '/roles/:roleId/permissions/:permissionId',
   authenticate,
-  // Require PERMISSION_DELETE permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.PERMISSION_DELETE);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: PERMISSION_DELETE' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.PERMISSION_DELETE),
   auditPermissionLog('PERMISSION_REVOKED_FROM_ROLE'),
   rbacController.removePermissionFromRole
 );
@@ -159,19 +142,7 @@ router.delete(
 router.get(
   '/permissions',
   authenticate,
-  // Require PERMISSION_READ permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.PERMISSION_READ);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: PERMISSION_READ' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.PERMISSION_READ),
   rbacController.getPermissions
 );
 
@@ -190,19 +161,7 @@ router.get('/permissions/:code', authenticate, rbacController.getPermissionByCod
 router.post(
   '/users/:userId/roles',
   authenticate,
-  // Require ROLE_CREATE permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.ROLE_CREATE);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: ROLE_CREATE' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.ROLE_CREATE),
   auditPermissionLog('ROLE_ASSIGNED_TO_USER'),
   rbacController.assignRoleToUser
 );
@@ -214,19 +173,7 @@ router.post(
 router.delete(
   '/users/:userId/roles/:roleId',
   authenticate,
-  // Require ROLE_DELETE permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.ROLE_DELETE);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: ROLE_DELETE' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.ROLE_DELETE),
   auditPermissionLog('ROLE_REVOKED_FROM_USER'),
   rbacController.removeRoleFromUser
 );
@@ -258,19 +205,7 @@ router.get('/users/:userId/roles/:roleName/check', authenticate, rbacController.
 router.get(
   '/audit-logs',
   authenticate,
-  // Require PERMISSION_READ permission
-  async (req, res, next) => {
-    const userId = (req as any).user?.id;
-    const hasPermission = await checkPermission(userId, PERMISSION_CODES.REPORT_READ);
-    
-    if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'FORBIDDEN', 
-        message: 'Permission required: REPORT_READ' 
-      });
-    }
-    next();
-  },
+  authorizeWithAdminSecret(PERMISSION_CODES.REPORT_READ),
   rbacController.getAuditLogs
 );
 
@@ -306,6 +241,67 @@ async function checkPermission(userId: string, permissionCode: number): Promise<
     console.error('Error checking permission:', error);
     return false;
   }
+}
+
+/**
+ * Check if admin secret key is valid
+ * Allows bypassing permission checks if admin secret key is provided and matches ENV variable
+ * Supports multiple formats: header `x-admin-secret` or `admin-secret`, body `adminSecretKey`, or query param `adminSecretKey`
+ */
+function isValidAdminSecretKey(req: any): boolean {
+  const secretKeyFromEnv = process.env.ADMIN_SECRET_KEY;
+  
+  // If no secret key in ENV, this feature is disabled
+  if (!secretKeyFromEnv) {
+    return false;
+  }
+  
+  // Check multiple sources for the secret key
+  const headerKey = (req.headers['x-admin-secret'] ?? req.headers['admin-secret']) as string | string[] | undefined;
+  const bodyKey = req.body?.adminSecretKey ?? req.body?.ADMIN_SECRET_KEY;
+  const queryKey = req.query?.adminSecretKey;
+  
+  // Get the actual value (handle array case for headers)
+  const providedKey = Array.isArray(headerKey) ? headerKey[0] : headerKey ?? bodyKey ?? queryKey;
+  
+  // Check if header secret key matches ENV secret key
+  return providedKey && String(providedKey) === String(secretKeyFromEnv);
+}
+
+/**
+ * Middleware factory: Authorize with admin secret key OR permission code
+ * If X-Admin-Secret-Key header is provided and valid, bypass permission check
+ * Otherwise, check if user has the required permission code
+ */
+function authorizeWithAdminSecret(permissionCode: number) {
+  return async (req: any, res: any, next: any) => {
+    try {
+      // Check if admin secret key is provided and valid
+      if (isValidAdminSecretKey(req)) {
+        // Admin secret key is valid, allow access
+        return next();
+      }
+
+      // Otherwise, check permission code
+      const userId = req.user?.id;
+      const hasPermission = await checkPermission(userId, permissionCode);
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          error: 'FORBIDDEN',
+          message: `Permission required: ${Object.entries(PERMISSION_CODES).find(([_, v]) => v === permissionCode)?.[0] || permissionCode}`,
+        });
+      }
+
+      next();
+    } catch (error) {
+      console.error('Authorization error:', error);
+      return res.status(500).json({
+        error: 'AUTHORIZATION_ERROR',
+        message: 'An error occurred during authorization',
+      });
+    }
+  };
 }
 
 export default router;

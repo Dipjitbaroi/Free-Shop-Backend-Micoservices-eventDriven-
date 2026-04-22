@@ -45,6 +45,10 @@ const PERMISSION_CODES = {
   PRODUCT_UPDATE: 5003,
   PRODUCT_DELETE: 5004,
   PRODUCT_UPDATE_PRICE: 5005,
+  FREE_ITEM_CREATE: 12001,
+  FREE_ITEM_READ: 12002,
+  FREE_ITEM_UPDATE: 12003,
+  FREE_ITEM_DELETE: 12004,
 
   // Delivery permissions
   DELIVERY_CREATE: 6001,
@@ -124,6 +128,12 @@ const permissionDefs: PermissionDef[] = [
   { code: 5003, resource: 'PRODUCT', action: 'UPDATE', description: 'Update products' },
   { code: 5004, resource: 'PRODUCT', action: 'DELETE', description: 'Delete products' },
   { code: 5005, resource: 'PRODUCT', action: 'UPDATE', description: 'Set or update product price' },
+
+  // Free item permissions
+  { code: 12001, resource: 'FREE_ITEM', action: 'CREATE', description: 'Create free items' },
+  { code: 12002, resource: 'FREE_ITEM', action: 'READ', description: 'View free items' },
+  { code: 12003, resource: 'FREE_ITEM', action: 'UPDATE', description: 'Update free items' },
+  { code: 12004, resource: 'FREE_ITEM', action: 'DELETE', description: 'Delete free items' },
 
   // Review permissions (managed under PRODUCT)
   // Note: Reviews are product-related, so they don't need separate resource
@@ -224,6 +234,10 @@ const defaultRoles: RoleDef[] = [
       PERMISSION_CODES.PRODUCT_CREATE,
       PERMISSION_CODES.PRODUCT_READ,
       PERMISSION_CODES.PRODUCT_UPDATE,
+      PERMISSION_CODES.FREE_ITEM_CREATE,
+      PERMISSION_CODES.FREE_ITEM_READ,
+      PERMISSION_CODES.FREE_ITEM_UPDATE,
+      PERMISSION_CODES.FREE_ITEM_DELETE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.PAYMENT_READ,
       PERMISSION_CODES.SELLER_READ,
@@ -238,6 +252,10 @@ const defaultRoles: RoleDef[] = [
       PERMISSION_CODES.PRODUCT_CREATE,
       PERMISSION_CODES.PRODUCT_READ,
       PERMISSION_CODES.PRODUCT_UPDATE,
+      PERMISSION_CODES.FREE_ITEM_CREATE,
+      PERMISSION_CODES.FREE_ITEM_READ,
+      PERMISSION_CODES.FREE_ITEM_UPDATE,
+      PERMISSION_CODES.FREE_ITEM_DELETE,
       PERMISSION_CODES.ORDER_READ,
       PERMISSION_CODES.PAYMENT_READ,
     ],

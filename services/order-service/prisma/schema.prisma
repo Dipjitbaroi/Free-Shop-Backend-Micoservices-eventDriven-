@@ -39,7 +39,23 @@ model CartItem {
   @@unique([cartId, productId])
   @@index([cartId])
   @@index([productId])
-  freeItemIds String[]
+  freeItems CartItemFreeItem[]
+}
+
+model CartItemFreeItem {
+  id          String   @id @default(uuid())
+  cartItemId  String
+  freeItemId  String
+  freeItemName String
+  sku         String?
+  image       String?
+  assignedAt  DateTime @default(now())
+
+  cartItem    CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+
+  @@unique([cartItemId, freeItemId])
+  @@index([cartItemId])
+  @@index([freeItemId])
 }
 
 model Order {
@@ -176,7 +192,7 @@ model OrderItem {
   price       Float     // Price at time of order
   discount    Float     @default(0)
   total       Float
-  freeItemIds String[]
+  freeItems   OrderItemFreeItem[]
   
   // Item status (for partial fulfillment)
   status      OrderItemStatus @default(PENDING)
@@ -187,6 +203,22 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@index([vendorId])
+}
+
+model OrderItemFreeItem {
+  id           String   @id @default(uuid())
+  orderItemId  String
+  freeItemId   String
+  freeItemName String
+  sku          String?
+  image        String?
+  assignedAt   DateTime @default(now())
+
+  orderItem    OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@unique([orderItemId, freeItemId])
+  @@index([orderItemId])
+  @@index([freeItemId])
 }
 
 model Coupon {

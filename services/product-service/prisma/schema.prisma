@@ -73,7 +73,7 @@ model Product {
   images              String[]
   thumbnail           String?
   tags                String[]
-  freeItems           FreeItem[]
+  productFreeItems    ProductFreeItem[]
   status              ProductStatus @default(PENDING_APPROVAL)
   rejectionReason     String?
   isFeatured          Boolean       @default(false)
@@ -85,6 +85,7 @@ model Product {
   totalReviews        Int           @default(0)
   totalSold           Int           @default(0)
   viewCount           Int           @default(0)
+  lastUpdatedBy       String?
   metadata            Json?
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
@@ -105,18 +106,32 @@ model Product {
 
 model FreeItem {
   id          String   @id @default(uuid())
-  productId   String
   name        String
   description String?
   sku         String?
   image       String?
+  createdBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productFreeItems ProductFreeItem[]
 
-  @@index([productId])
   @@map("free_items")
+}
+
+model ProductFreeItem {
+  id         String   @id @default(uuid())
+  productId  String
+  freeItemId String
+  assignedAt DateTime @default(now())
+
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  freeItem   FreeItem  @relation(fields: [freeItemId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, freeItemId])
+  @@index([productId])
+  @@index([freeItemId])
+  @@map("product_free_items")
 }
 
 model Review {

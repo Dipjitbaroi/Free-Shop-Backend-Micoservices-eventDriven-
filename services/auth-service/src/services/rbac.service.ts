@@ -13,7 +13,6 @@ import {
   ROLE_PERMISSIONS,
   PERMISSION_CODES,
   PermissionAction,
-  PermissionResource,
   IPermissionAuditLog,
 } from '@freeshop/shared-types';
 import { prisma } from '../lib/prisma.js';
@@ -36,19 +35,34 @@ export class RBACService {
         try {
           const permCode = Number(permCodeRaw as unknown as number);
 
-          // special-case user-management codes to ensure correct action/resource
-          if (code === 'USER_MANAGEMENT_UPDATE' || code === 'USER_MANAGEMENT_DELETE') {
-            const action: PermissionAction = code === 'USER_MANAGEMENT_UPDATE' ? PermissionAction.UPDATE : PermissionAction.DELETE;
-            const resource: PermissionResource = PermissionResource.USER;
+          const specialPermission =
+            code === 'USER_MANAGEMENT_UPDATE'
+              ? { resource: 'USER', action: PermissionAction.UPDATE, description: 'Permission to update user profiles' }
+              : code === 'USER_MANAGEMENT_DELETE'
+                ? { resource: 'USER', action: PermissionAction.DELETE, description: 'Permission to delete user accounts' }
+                : code === 'FREE_ITEM_CREATE'
+                  ? { resource: 'FREE_ITEM', action: PermissionAction.CREATE, description: 'Create free items' }
+                  : code === 'FREE_ITEM_READ'
+                    ? { resource: 'FREE_ITEM', action: PermissionAction.READ, description: 'View free items' }
+                    : code === 'FREE_ITEM_UPDATE'
+                      ? { resource: 'FREE_ITEM', action: PermissionAction.UPDATE, description: 'Update free items' }
+                      : code === 'FREE_ITEM_DELETE'
+                        ? { resource: 'FREE_ITEM', action: PermissionAction.DELETE, description: 'Delete free items' }
+                        : code === 'REPORT_EXPORT'
+                          ? { resource: 'REPORT', action: PermissionAction.REJECT, description: 'Export reports' }
+                          : code === 'ADMIN_PANEL_ACCESS'
+                            ? { resource: 'ADMIN_PANEL', action: PermissionAction.APPROVE, description: 'Access admin panel' }
+                            : null;
 
+          if (specialPermission) {
             let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
             if (permission) {
               await prisma.permission.update({
                 where: { id: permission.id },
                 data: {
-                  action,
-                  resource,
-                  description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
+                  action: specialPermission.action as any,
+                  resource: specialPermission.resource as any,
+                  description: specialPermission.description,
                   active: true,
                 },
               });
@@ -60,9 +74,9 @@ export class RBACService {
             permission = await prisma.permission.create({
               data: {
                 permissionCode: permCode,
-                action,
-                resource,
-                description: code === 'USER_MANAGEMENT_UPDATE' ? 'Permission to update user profiles' : 'Permission to delete user accounts',
+                action: specialPermission.action as any,
+                resource: specialPermission.resource as any,
+                description: specialPermission.description,
                 active: true,
               },
             });
@@ -83,8 +97,8 @@ export class RBACService {
           const actionStr = parts[2];
 
           // Map string to enum value
-          const resource = PermissionResource[resourceStr as keyof typeof PermissionResource];
-          const action = PermissionAction[actionStr as keyof typeof PermissionAction];
+          const resource = resourceStr as any;
+          const action = PermissionAction[actionStr as keyof typeof PermissionAction] as any;
 
           if (!action || !resource) {
             console.warn(`Unable to map ${code}: action=${actionStr}, resource=${resourceStr}`);
@@ -206,6 +220,7 @@ export class RBACService {
         },
         include: {
           permissions: {
+            where: { revokedAt: null },
             include: {
               permission: true,
             },
@@ -236,6 +251,7 @@ export class RBACService {
       const roles = await prisma.role.findMany({
         include: {
           permissions: {
+            where: { revokedAt: null },
             include: {
               permission: true,
             },
@@ -264,6 +280,7 @@ export class RBACService {
         where: { id: roleId },
         include: {
           permissions: {
+            where: { revokedAt: null },
             include: {
               permission: true,
             },
@@ -295,7 +312,7 @@ export class RBACService {
       });
 
       if (existing && !existing.revokedAt) {
-        throw new Error('Permission already assigned to this role');
+        return;
       }
 
       // Create or update
@@ -340,16 +357,21 @@ export class RBACService {
     revokedBy: string
   ): Promise<void> {
     try {
-      await prisma.rolePermission.updateMany({
+      const result = await prisma.rolePermission.updateMany({
         where: {
           roleId,
           permissionId,
+          revokedAt: null,
         },
         data: {
           revokedAt: new Date(),
           revokedBy,
         },
       });
+
+      if (result.count === 0) {
+        return;
+      }
 
       // Log audit
       await this.logAudit({
@@ -381,7 +403,7 @@ export class RBACService {
       });
 
       if (existing && !existing.revokedAt) {
-        throw new Error('User already has this role');
+        return;
       }
 
       if (existing && existing.revokedAt) {
@@ -425,16 +447,21 @@ export class RBACService {
     revokedBy: string
   ): Promise<void> {
     try {
-      await prisma.userRole.updateMany({
+      const result = await prisma.userRole.updateMany({
         where: {
           userId,
           roleId,
+          revokedAt: null,
         },
         data: {
           revokedAt: new Date(),
           revokedBy,
         },
       });
+
+      if (result.count === 0) {
+        return;
+      }
 
       // Log audit
       await this.logAudit({
