@@ -8,6 +8,13 @@ import config from '../config/index.js';
 
 const router: Router = Router();
 
+const FREE_ITEM_PERMISSION_CODES = {
+  CREATE: 12001,
+  READ: 12002,
+  UPDATE: 12003,
+  DELETE: 12004,
+} as const;
+
 // Validation schemas
 const createProductValidation = [
   body('name').isString().notEmpty().withMessage('Product name is required'),
@@ -27,6 +34,21 @@ const updateProductValidation = [
   body('categoryId').optional().isUUID(),
   body('supplierPrice').optional().isFloat({ min: 0 }),
   body('price').optional().isFloat({ min: 0 }),
+];
+
+const freeItemValidation = [
+  body('name').isString().notEmpty().withMessage('Free item name is required'),
+  body('description').optional().isString(),
+  body('sku').optional().isString(),
+  body('image').optional().isString(),
+];
+
+const freeItemUpdateValidation = [
+  param('id').isUUID().withMessage('Valid free item ID is required'),
+  body('name').optional().isString().notEmpty(),
+  body('description').optional().isString(),
+  body('sku').optional().isString(),
+  body('image').optional().isString(),
 ];
 
 const paginationValidation = [
@@ -58,6 +80,45 @@ router.get(
 
 router.get('/featured', productController.getFeaturedProducts);
 router.get('/flash-sale', productController.getFlashSaleProducts);
+
+router.get(
+  '/free-items',
+  authenticate,
+  productController.getFreeItems
+);
+
+router.get(
+  '/free-items/:id',
+  authenticate,
+  param('id').isUUID().withMessage('Valid free item ID is required'),
+  validate,
+  productController.getFreeItemById
+);
+
+router.post(
+  '/free-items',
+  authenticate,
+  authorizePermission(FREE_ITEM_PERMISSION_CODES.CREATE),
+  freeItemValidation,
+  validate,
+  productController.createFreeItem
+);
+
+router.patch(
+  '/free-items/:id',
+  authenticate,
+  freeItemUpdateValidation,
+  validate,
+  productController.updateFreeItem
+);
+
+router.delete(
+  '/free-items/:id',
+  authenticate,
+  param('id').isUUID().withMessage('Valid free item ID is required'),
+  validate,
+  productController.deleteFreeItem
+);
 
 router.get(
   '/slug/:slug',
@@ -116,7 +177,6 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  authorizePermission(PERMISSION_CODES.PRODUCT_UPDATE),
   updateProductValidation,
   validate,
   productController.updateProduct
@@ -125,7 +185,6 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  authorizePermission(PERMISSION_CODES.PRODUCT_DELETE),
   param('id').isUUID().withMessage('Valid product ID is required'),
   validate,
   productController.deleteProduct

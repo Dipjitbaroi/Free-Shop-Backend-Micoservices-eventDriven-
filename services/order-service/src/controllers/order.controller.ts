@@ -33,12 +33,14 @@ export const orderController = {
           if (incomingFreeIds && incomingFreeIds.length > 1) {
             throw new BadRequestError('Only one freeItem is allowed for now');
           }
+          let selectedFreeItems: Array<{ id: string; name: string; sku?: string; image?: string }> = [];
           if (incomingFreeIds && incomingFreeIds.length === 1) {
             const fid = incomingFreeIds[0];
             const found = Array.isArray((product as any).freeItems) && (product as any).freeItems.find((fi: any) => fi.id === fid);
             if (!found) {
               throw new BadRequestError(`Invalid freeItemId for product "${product.name}"`);
             }
+            selectedFreeItems = [{ id: found.id, name: found.name, sku: found.sku, image: found.image }];
           }
           return {
             productId: product.id,
@@ -48,7 +50,7 @@ export const orderController = {
             productImage: product.images[0] ?? undefined,
             unit: product.unit,
             quantity: item.quantity,
-            freeItemIds: incomingFreeIds,
+            freeItems: selectedFreeItems,
             price: resolveEffectivePrice(product),
           };
         })

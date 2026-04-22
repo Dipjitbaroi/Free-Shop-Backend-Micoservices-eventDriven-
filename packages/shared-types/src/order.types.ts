@@ -45,6 +45,7 @@ export interface IOrderItem {
   discountAmount: number;
   totalPrice: number;
   status: OrderStatus;
+  freeItems?: IFreeItem[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -126,12 +127,7 @@ export interface ICartItem {
   totalPrice: number;
   productName?: string;
   productImage?: string;
-  freeItems?: Array<{
-    id: string;
-    name: string;
-    sku?: string;
-    image?: string;
-  }>;
+  freeItems?: IFreeItem[];
 }
 
 export interface ICartItemAdd {

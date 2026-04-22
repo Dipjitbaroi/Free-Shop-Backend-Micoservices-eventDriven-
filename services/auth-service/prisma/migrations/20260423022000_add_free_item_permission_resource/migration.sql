@@ -1,0 +1,1 @@
+ALTER TYPE "PermissionResource" ADD VALUE IF NOT EXISTS 'FREE_ITEM';
