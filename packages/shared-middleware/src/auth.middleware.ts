@@ -159,7 +159,7 @@ export const authorizePermission = (...permissionCodes: number[]) => {
           }
         );
 
-        const userPermissionCodes: number[] = userRolesResponse.data?.permissionCodes || [];
+        const userPermissionCodes: number[] = userRolesResponse.data?.data?.permissionCodes || [];
 
         // Check if user has at least one of the required permissions
         const hasPermission = permissionCodes.some((code) =>

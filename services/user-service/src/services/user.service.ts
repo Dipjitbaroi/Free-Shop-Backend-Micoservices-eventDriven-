@@ -27,6 +27,7 @@ interface AddressData {
   // Single detailed address line used by local e-commerce (house/road/flat)
   addressLine: string;
   // Proper Bangladesh address fields (kept minimal following local patterns)
+  area?: string; // specific area or neighborhood
   district: string; // required
   upazila?: string; // upazila/thana
   postalCode?: string;

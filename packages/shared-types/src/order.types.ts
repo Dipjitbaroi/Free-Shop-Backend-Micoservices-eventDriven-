@@ -53,6 +53,7 @@ export interface IShippingAddress {
   fullName: string;
   phone: string;
   addressLine: string;
+  area?: string;
   upazila?: string;
   district: string;
   /** Canonical zone id (UUID) used to calculate delivery charges */

@@ -51,6 +51,7 @@ export interface IAddress {
   fullName: string;
   phone: string;
   addressLine: string;
+  area?: string;
   upazila?: string;
   district: string;
   postalCode?: string;
@@ -67,6 +68,7 @@ export interface IAddressCreate {
   fullName: string;
   phone: string;
   addressLine: string;
+  area?: string;
   upazila?: string;
   district: string;
   postalCode?: string;
