@@ -59,7 +59,6 @@ Get service port from configuration
 3000
 {{- end }}
 {{- end }}
-{{- end }}
 
 {{/*
 Get image name
@@ -67,7 +66,7 @@ Get image name
 {{- define "freeshop.image" -}}
 {{- $registry := .Values.image.registry }}
 {{- $owner := .Values.image.owner }}
-{{- $service := .serviceName }}
+{{- $service := .Values.serviceName }}
 {{- $tag := .Values.image.tag | default "latest" }}
 {{- printf "%s/%s/freeshop-%s:%s" $registry $owner $service $tag }}
 {{- end }}
@@ -76,7 +75,7 @@ Get image name
 Check if service has database (database services: auth, user, product, order, payment, inventory, vendor, notification, analytics)
 */}}
 {{- define "freeshop.hasDatabase" -}}
-{{- if or (eq .serviceName "auth-service") (eq .serviceName "user-service") (eq .serviceName "product-service") (eq .serviceName "order-service") (eq .serviceName "payment-service") (eq .serviceName "inventory-service") (eq .serviceName "vendor-service") (eq .serviceName "notification-service") (eq .serviceName "analytics-service") }}
+{{- if or (eq .Values.serviceName "auth-service") (eq .Values.serviceName "user-service") (eq .Values.serviceName "product-service") (eq .Values.serviceName "order-service") (eq .Values.serviceName "payment-service") (eq .Values.serviceName "inventory-service") (eq .Values.serviceName "vendor-service") (eq .Values.serviceName "notification-service") (eq .Values.serviceName "analytics-service") }}
 true
 {{- end }}
 {{- end }}
