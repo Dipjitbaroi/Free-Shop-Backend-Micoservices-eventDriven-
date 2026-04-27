@@ -5892,6 +5892,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         description: 'Service Unavailable — upstream microservice is down',
         content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
       },
+      InternalServerError: {
+        description: 'Internal Server Error — unexpected server error',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+      },
     },
   },
 };
