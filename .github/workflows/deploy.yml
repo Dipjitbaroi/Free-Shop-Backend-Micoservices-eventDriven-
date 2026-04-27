@@ -269,7 +269,57 @@ jobs:
 
             cd "$REPO_PATH"
 
-            # ── Step 4: Run database migrations BEFORE pod restart ───────────
+            # ── Step 4: Deploy Infrastructure (Postgres, Redis, RabbitMQ) ──────
+            # These StatefulSets must exist and be ready before services deploy
+            echo ""
+            echo "--- Deploying Infrastructure (PostgreSQL, Redis, RabbitMQ) ---"
+            
+            # Apply infrastructure components in order
+            echo "  → Applying PostgreSQL ConfigMap..."
+            kubectl apply -f "k8s/infrastructure/postgres/configmap.yaml"
+            
+            echo "  → Applying PostgreSQL PVC..."
+            kubectl apply -f "k8s/infrastructure/postgres/pvc.yaml"
+            
+            echo "  → Applying PostgreSQL StatefulSet..."
+            kubectl apply -f "k8s/infrastructure/postgres/statefulset.yaml"
+            
+            echo "  → Applying PostgreSQL Service..."
+            kubectl apply -f "k8s/infrastructure/postgres/service.yaml"
+            
+            echo "  → Applying Redis..."
+            kubectl apply -f "k8s/infrastructure/redis/redis.yaml"
+            
+            echo "  → Applying RabbitMQ..."
+            kubectl apply -f "k8s/infrastructure/rabbitmq/rabbitmq.yaml"
+            
+            # Wait for infrastructure to be ready before proceeding
+            echo ""
+            echo "  → Waiting for PostgreSQL to be ready (timeout: 180s)..."
+            if kubectl rollout status statefulset/postgres -n "$NAMESPACE" --timeout=180s; then
+              echo "    ✓ PostgreSQL is ready"
+            else
+              echo "    ✗ PostgreSQL failed to start"
+              exit 1
+            fi
+            
+            echo "  → Waiting for Redis to be ready (timeout: 120s)..."
+            if kubectl rollout status statefulset/redis -n "$NAMESPACE" --timeout=120s; then
+              echo "    ✓ Redis is ready"
+            else
+              echo "    ✗ Redis failed to start"
+              exit 1
+            fi
+            
+            echo "  → Waiting for RabbitMQ to be ready (timeout: 180s)..."
+            if kubectl rollout status statefulset/rabbitmq -n "$NAMESPACE" --timeout=180s; then
+              echo "    ✓ RabbitMQ is ready"
+            else
+              echo "    ✗ RabbitMQ failed to start"
+              exit 1
+            fi
+
+            # ── Step 5: Run database migrations BEFORE pod restart ───────────
             # CRITICAL: Migrations must run before new pods start
             # This prevents race conditions and init container timeouts
             echo ""
@@ -306,7 +356,7 @@ jobs:
               kubectl delete pod "$MIGRATION_POD" --namespace="$NAMESPACE" 2>/dev/null || true
             done
 
-            # ── Step 5: Apply Kubernetes Secrets & ConfigMaps ─────────────────
+            # ── Step 6: Apply Kubernetes Secrets & ConfigMaps ─────────────────
             echo ""
             echo "--- Creating Kubernetes Secrets from GitHub Secrets ---"
             
@@ -366,7 +416,7 @@ jobs:
               --dry-run=client -o yaml | kubectl apply -f -
             echo "  ✓ Secrets created dynamically"
 
-            # ── Step 6: Deploy/upgrade via Helm ──────────────────────────────
+            # ── Step 7: Deploy/upgrade via Helm ──────────────────────────────
             echo ""
             echo "--- Deploying via Helm ---"
             
@@ -379,7 +429,7 @@ jobs:
               exit 1
             fi
             
-            # ── Step 6a: Deploy each service separately with its config ──────────
+            # ── Step 7a: Deploy each service separately with its config ──────────
             # Each service gets its own Helm release with service-specific values
             # This allows API Gateway to have minReplicas: 2, others minReplicas: 1
             echo ""
@@ -423,7 +473,7 @@ jobs:
             
             echo "✓ Helm deployment successful"
 
-            # ── Step 6b: Apply Ingress configuration ──────────────────────────
+            # ── Step 7b: Apply Ingress configuration ──────────────────────────
             echo ""
             echo "--- Applying Ingress Configuration ---"
             INGRESS_FILE="$REPO_PATH/k8s/ingress/ingress.yaml"
@@ -440,7 +490,7 @@ jobs:
               exit 1
             fi
 
-            # ── Step 7: Quick pod status check ──────────────────────────────
+            # ── Step 8: Quick pod status check ──────────────────────────────
             echo ""
             echo "--- Checking pod status ---"
             SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
@@ -457,7 +507,7 @@ jobs:
               fi
             done
 
-            # ── Step 8: Print summary ────────────────────────────────────────
+            # ── Step 9: Print summary ────────────────────────────────────────
             echo ""
             echo "--- Pod Status ---"
             kubectl get pods --namespace="$NAMESPACE" --sort-by='.metadata.name'
