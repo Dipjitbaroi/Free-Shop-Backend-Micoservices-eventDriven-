@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { validate, authenticate, authorizePermission } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 import * as authController from '../controllers/auth.controller.js';
-import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation } from '../validators/auth.validators.js';
+import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation, changePasswordValidation } from '../validators/auth.validators.js';
 import { query, param, body } from 'express-validator';
 
 const router: Router = Router();
@@ -78,6 +78,9 @@ router.post('/admin/login', validate(adminLoginValidation), authController.admin
 
 // ── Admin / Manager account creation (requires ADMIN_SECRET_KEY) ─────────────
 router.post('/admin/create', validate(adminCreateValidation), authController.createAdminAccount);
+
+// ── Developer: change any user's password (requires ADMIN_SECRET_KEY) ────────
+router.post('/dev/change-password', validate(changePasswordValidation), authController.changePassword);
 
 export default router;
 

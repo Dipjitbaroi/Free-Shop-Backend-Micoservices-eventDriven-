@@ -260,11 +260,11 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               examples: {
                 admin: {
                   summary: 'Admin login',
-                  value: { email: 'admin@freeshop.com', password: 'Str0ng!Pass' },
+                  value: { email: 'admin@example.com', password: 'your_password_here' },
                 },
                 manager: {
                   summary: 'Manager login',
-                  value: { email: 'manager@freeshop.com', password: 'Str0ng!Pass' },
+                  value: { email: 'manager@example.com', password: 'your_password_here' },
                 },
               },
             },
@@ -315,9 +315,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                 createAdmin: {
                   summary: 'Create an admin account',
                   value: {
-                    secretKey: 'super-secret-key',
-                    email: 'admin@freeshop.com',
-                    password: 'Str0ng!Pass',
+                    secretKey: 'your-admin-secret-key',
+                    email: 'admin@example.com',
+                    password: 'your_password_here',
                     firstName: 'Super',
                     lastName: 'Admin',
                     role: 'ADMIN',
@@ -326,9 +326,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                 createManager: {
                   summary: 'Create a manager account',
                   value: {
-                    secretKey: 'super-secret-key',
-                    email: 'manager@freeshop.com',
-                    password: 'Str0ng!Pass',
+                    secretKey: 'your-admin-secret-key',
+                    email: 'manager@example.com',
+                    password: 'your_password_here',
                     firstName: 'Store',
                     lastName: 'Manager',
                     role: 'MANAGER',
@@ -350,6 +350,79 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               'application/json': {
                 schema: { $ref: '#/components/schemas/ErrorResponse' },
                 example: { success: false, error: { code: 'FORBIDDEN', message: 'Invalid ADMIN_SECRET_KEY' } },
+              },
+            },
+          },
+        },
+      },
+    },
+
+    '/auth/dev/change-password': {
+      post: {
+        tags: ['Auth - Development'],
+        summary: 'Change any user\'s password (DEV ONLY)',
+        description: `**Development/Emergency endpoint** — Allows a developer to reset any user's password by providing the \`ADMIN_SECRET_KEY\`.
+
+        This endpoint:
+        - Requires the correct \`ADMIN_SECRET_KEY\`
+        - Changes the specified user's password
+        - Invalidates all active refresh tokens for that user (forces re-login on all devices)
+        - Is intended for emergency scenarios only
+
+        **⚠️ WARNING:** This endpoint is powerful and should be protected/restricted at the API Gateway level to internal/admin traffic only.`,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ChangePasswordRequest' },
+              example: {
+                secretKey: 'your-admin-secret-key',
+                userId: '550e8400-e29b-41d4-a716-446655440000',
+                newPassword: 'your_password_here',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Password changed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid', description: 'User ID' },
+                    email: { type: 'string', format: 'email', description: 'User email' },
+                    message: { type: 'string', description: 'Confirmation message' },
+                  },
+                },
+                example: {
+                  success: true,
+                  data: {
+                    id: '550e8400-e29b-41d4-a716-446655440000',
+                    email: 'user@example.com',
+                    message: 'Password changed successfully. User must log in again on all devices.',
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          403: {
+            description: 'Forbidden — wrong secret key',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+                example: { success: false, error: { code: 'FORBIDDEN', message: 'Invalid ADMIN_SECRET_KEY' } },
+              },
+            },
+          },
+          404: {
+            description: 'Not Found — user does not exist',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+                example: { success: false, error: { code: 'NOT_FOUND', message: 'User not found' } },
               },
             },
           },
@@ -4852,13 +4925,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             type: 'string',
             format: 'email',
             description: 'Email address of the ADMIN or MANAGER account.',
-            example: 'admin@freeshop.com',
+            example: 'admin@example.com',
           },
           password: {
             type: 'string',
             format: 'password',
             description: 'Account password. Must satisfy the platform password policy (min 8 chars, upper, lower, digit, special char).',
-            example: 'Str0ng!Pass',
+            example: 'your_password_here',
           },
         },
       },
@@ -4875,13 +4948,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             type: 'string',
             format: 'email',
             description: 'Email address for the new admin/manager account. Must be unique.',
-            example: 'admin@freeshop.com',
+            example: 'admin@example.com',
           },
           password: {
             type: 'string',
             format: 'password',
             description: 'Password for the new account (minimum 8 characters).',
-            example: 'Str0ng!Pass',
+            example: 'your_password_here',
           },
           firstName: {
             type: 'string',
@@ -4898,6 +4971,29 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             enum: ['ADMIN', 'MANAGER'],
             description: 'Role to assign. Defaults to ADMIN if omitted.',
             example: 'ADMIN',
+          },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['secretKey', 'userId', 'newPassword'],
+        properties: {
+          secretKey: {
+            type: 'string',
+            description: 'Server-side ADMIN_SECRET_KEY. Must match the ADMIN_SECRET_KEY environment variable on the auth-service.',
+            example: 'your-admin-secret-key',
+          },
+          userId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'UUID of the user whose password to change.',
+            example: '550e8400-e29b-41d4-a716-446655440000',
+          },
+          newPassword: {
+            type: 'string',
+            format: 'password',
+            description: 'New password for the user (minimum 8 characters).',
+            example: 'your_password_here',
           },
         },
       },
