@@ -208,6 +208,7 @@ jobs:
           script_stop: true
           script: |
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            export PATH=$PATH:/usr/local/bin
             REPO_OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
             REGISTRY="ghcr.io/$REPO_OWNER_LC"
 
