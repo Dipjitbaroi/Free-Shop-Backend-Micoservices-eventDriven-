@@ -44,7 +44,7 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 Selector labels - used to select pods by service
 */}}
 {{- define "freeshop.selectorLabels" -}}
-app: {{ .serviceName | quote }}
+app: {{ .Values.serviceName | quote }}
 release: {{ .Release.Name }}
 {{- end }}
 
@@ -52,11 +52,12 @@ release: {{ .Release.Name }}
 Get service port from configuration
 */}}
 {{- define "freeshop.servicePort" -}}
-{{- $serviceName := .serviceName }}
-{{- if hasKey .Values.services.ports $serviceName }}
+{{- $serviceName := .Values.serviceName }}
+{{- if and $serviceName (hasKey .Values.services.ports $serviceName) }}
 {{- index .Values.services.ports $serviceName }}
 {{- else }}
 3000
+{{- end }}
 {{- end }}
 {{- end }}
 
