@@ -258,3 +258,25 @@ export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
     req.requestId
   ));
 });
+
+/**
+ * POST /auth/dev/change-password
+ * Body: { secretKey, userId, newPassword }
+ *
+ * Allows a developer to change any user's password by providing the
+ * ADMIN_SECRET_KEY. This is intended for development/emergency scenarios only.
+ * No authentication required — the ADMIN_SECRET_KEY is the only security measure.
+ */
+export const changePassword = asyncHandler(async (req: Request, res: Response) => {
+  const { secretKey, userId, newPassword } = req.body;
+  logger.debug('changePassword → enter', { userId, requestId: req.requestId });
+
+  const result = await authService.changePassword(secretKey, userId, newPassword);
+
+  logger.info('changePassword → success', {
+    requestId: req.requestId,
+    userId,
+    email: result.email,
+  });
+  res.json(createApiResponse(result, 'Password changed successfully', req.requestId));
+});

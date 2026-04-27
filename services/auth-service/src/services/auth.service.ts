@@ -762,6 +762,61 @@ class AuthService {
     }
   }
 
+  /**
+   * Change a user's password using the ADMIN_SECRET_KEY.
+   * This is for development/emergency scenarios where a developer needs to reset a user's password.
+   * Requires the correct ADMIN_SECRET_KEY.
+   */
+  async changePassword(
+    secretKey: string,
+    userId: string,
+    newPassword: string,
+  ): Promise<{ id: string; email: string; message: string }> {
+    logger.debug('changePassword → enter', { userId });
+
+    // Validate admin secret key before performing any DB operations
+    if (!config.security.adminSecretKey) {
+      throw new ForbiddenError('ADMIN_SECRET_KEY is not configured');
+    }
+    if (secretKey !== config.security.adminSecretKey) {
+      throw new ForbiddenError('Invalid ADMIN_SECRET_KEY');
+    }
+
+    // Verify user exists
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    // Hash the new password
+    const passwordHash = await hashPassword(newPassword);
+
+    // Update user's password
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    // Invalidate all existing refresh tokens for this user
+    // (forces re-login on all devices)
+    await invalidateAllSessions(userId);
+
+    logger.info('changePassword → success', {
+      userId,
+      email: user.email,
+    });
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      message: 'Password changed successfully. User must log in again on all devices.',
+    };
+  }
+
 }
 
 export const authService = new AuthService();
