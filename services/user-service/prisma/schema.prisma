@@ -42,6 +42,8 @@ model Address {
   upazila       String?     // Thana/Upazila
   postalCode    String?
   // Canonical delivery zone reference (used to look up delivery charges)
+  // NOTE: Cross-service reference to Zone model in order-service database
+  // Validation is done at application level, not via foreign key
   zoneId        String      // required zone reference used for delivery charge lookup
   country       String      @default("Bangladesh")
   isDefault     Boolean     @default(false)
@@ -52,6 +54,7 @@ model Address {
 
   @@index([userProfileId])
   @@index([isDefault])
+  @@index([zoneId])
 }
 
 model WishlistItem {

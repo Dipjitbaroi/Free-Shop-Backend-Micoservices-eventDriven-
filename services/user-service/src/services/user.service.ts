@@ -1,5 +1,5 @@
 import { UserProfile, Address, Gender, AddressType } from '../../generated/client/client.js';
-import { NotFoundError, BadRequestError } from '@freeshop/shared-utils';
+import { NotFoundError, BadRequestError, isValidUUID } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { 
   cacheGet, 
@@ -153,6 +153,10 @@ class UserService {
     // Validate required Bangladesh fields
     if (!data.district) throw new BadRequestError('`district` is required');
     if (!data.zoneId) throw new BadRequestError('`zoneId` is required');
+    // Validate zoneId is a valid UUID format
+    if (!isValidUUID(data.zoneId)) {
+      throw new BadRequestError('`zoneId` must be a valid UUID format');
+    }
 
     const address = await prisma.address.create({
       // Cast to any because generated client input types differ across builds/environments
@@ -217,7 +221,13 @@ class UserService {
       type: data.type,
     };
 
-    if ((data as any).zoneId) updateData.zoneId = (data as any).zoneId;
+    // Validate zoneId if being updated
+    if ((data as any).zoneId) {
+      if (!isValidUUID((data as any).zoneId)) {
+        throw new BadRequestError('`zoneId` must be a valid UUID format');
+      }
+      updateData.zoneId = (data as any).zoneId;
+    }
 
     const updated = await prisma.address.update({
       where: { id: addressId },
