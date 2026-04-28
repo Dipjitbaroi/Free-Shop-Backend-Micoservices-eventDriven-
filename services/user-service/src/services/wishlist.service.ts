@@ -36,7 +36,7 @@ class WishlistService {
 
     try {
       const response = await axios.get(
-        `${process.env.PRODUCT_SERVICE_URL || 'http://product-service:3003'}/api/products/${productId}`,
+        `${process.env.PRODUCT_SERVICE_URL || 'http://product-service:3003'}/${productId}`,
         { timeout: 5000 }
       );
       const product = response.data?.data || null;
