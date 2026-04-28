@@ -93,7 +93,7 @@ class ProductService {
     }
   }
 
-  private async attachLastUpdatedBy<T extends { id: string }>(product: T): Promise<T & { lastUpdatedBy?: { id: string; name?: string; avatar?: string } | string | null }> {
+  private async attachLastUpdatedBy<T extends { id: string }>(product: T): Promise<T & { lastUpdatedBy?: { id: string; name?: string; email?: string; avatar?: string } | null }> {
     const rows = await prisma.$queryRaw<Array<{ lastUpdatedBy: string | null }>>`
       SELECT "lastUpdatedBy"
       FROM "products"
@@ -111,9 +111,10 @@ class ProductService {
     const userProfile = await this.fetchUserProfile(userId);
     const lastUpdatedByData = userProfile ? {
       id: userId,
-      name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+      name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
+      email: userProfile.email || undefined,
       avatar: userProfile.avatar,
-    } : userId;
+    } : null;
 
     return {
       ...product,
@@ -121,7 +122,7 @@ class ProductService {
     };
   }
 
-  private async attachLastUpdatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { lastUpdatedBy?: { id: string; name?: string; avatar?: string } | string | null }>> {
+  private async attachLastUpdatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { lastUpdatedBy?: { id: string; name?: string; email?: string; avatar?: string } | null }>> {
     if (products.length === 0) {
       return [];
     }
@@ -158,9 +159,10 @@ class ProductService {
       const userProfile = userProfiles.get(userId);
       const lastUpdatedByData = userProfile ? {
         id: userId,
-        name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+        name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
+        email: userProfile.email || undefined,
         avatar: userProfile.avatar,
-      } : userId;
+      } : null;
 
       return {
         ...product,
@@ -169,7 +171,7 @@ class ProductService {
     });
   }
 
-  private async attachCreatedBy<T extends { id: string }>(product: T): Promise<T & { createdBy?: { id: string; name?: string; avatar?: string } | string | null }> {
+  private async attachCreatedBy<T extends { id: string }>(product: T): Promise<T & { createdBy?: { id: string; name?: string; email?: string; avatar?: string } | null }> {
     const rows = await prisma.$queryRaw<Array<{ createdBy: string | null }>>`
       SELECT "createdBy"
       FROM "products"
@@ -187,9 +189,10 @@ class ProductService {
     const userProfile = await this.fetchUserProfile(userId);
     const createdByData = userProfile ? {
       id: userId,
-      name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+      name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
+      email: userProfile.email || undefined,
       avatar: userProfile.avatar,
-    } : userId;
+    } : null;
 
     return {
       ...product,
@@ -197,7 +200,7 @@ class ProductService {
     };
   }
 
-  private async attachCreatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { createdBy?: { id: string; name?: string; avatar?: string } | string | null }>> {
+  private async attachCreatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { createdBy?: { id: string; name?: string; email?: string; avatar?: string } | null }>> {
     if (products.length === 0) {
       return [];
     }
@@ -234,9 +237,10 @@ class ProductService {
       const userProfile = userProfiles.get(userId);
       const createdByData = userProfile ? {
         id: userId,
-        name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+        name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
+        email: userProfile.email || undefined,
         avatar: userProfile.avatar,
-      } : userId;
+      } : null;
 
       return {
         ...product,

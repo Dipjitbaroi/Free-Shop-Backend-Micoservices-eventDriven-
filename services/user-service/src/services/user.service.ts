@@ -39,13 +39,14 @@ interface AddressData {
 
 class UserService {
   // Public profile methods (no auth required)
-  async getPublicProfile(userId: string): Promise<{ id: string; firstName?: string | null; lastName?: string | null; avatar?: string | null }> {
+  async getPublicProfile(userId: string): Promise<{ id: string; firstName?: string | null; lastName?: string | null; email?: string | null; avatar?: string | null }> {
     const profile = await prisma.userProfile.findUnique({
       where: { userId },
       select: {
-        id: true,
+        userId: true,
         firstName: true,
         lastName: true,
+        email: true,
         avatar: true,
       },
     });
@@ -54,7 +55,13 @@ class UserService {
       throw new NotFoundError('User profile not found');
     }
 
-    return profile;
+    return {
+      id: profile.userId,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      avatar: profile.avatar,
+    };
   }
 
   // Profile methods
