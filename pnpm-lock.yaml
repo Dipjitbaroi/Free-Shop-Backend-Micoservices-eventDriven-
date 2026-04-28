@@ -757,6 +757,9 @@ importers:
       '@prisma/client-runtime-utils':
         specifier: ^7.6.0
         version: 7.7.0
+      axios:
+        specifier: ^1.4.0
+        version: 1.15.0
       dotenv:
         specifier: ^16.6.1
         version: 16.6.1
