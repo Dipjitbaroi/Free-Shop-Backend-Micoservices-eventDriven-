@@ -79,7 +79,7 @@ class ProductService {
 
     try {
       const response = await axios.get(
-        `${process.env.USER_SERVICE_URL || 'http://user-service:3002'}/api/profiles/${userId}`,
+        `${process.env.USER_SERVICE_URL || 'http://user-service:3002'}/${userId}/public-profile`,
         { timeout: 5000 }
       );
       const profile = response.data?.data || null;

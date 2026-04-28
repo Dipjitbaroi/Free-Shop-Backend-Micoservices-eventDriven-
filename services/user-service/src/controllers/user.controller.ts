@@ -3,10 +3,20 @@ import { userService } from '../services/user.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const userController = {
+  async getPublicProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.params.userId as string;
+      const profile = await userService.getPublicProfile(userId);
+      res.json(successResponse(profile, 'Public profile retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id as string;
-      const email = req.user?.email;
+      const email = (req.user?.email as string) || undefined;
       const profile = await userService.getProfile(userId, email);
       res.json(successResponse(profile, 'Profile retrieved successfully'));
     } catch (error) {
