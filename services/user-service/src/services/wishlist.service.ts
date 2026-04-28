@@ -8,15 +8,67 @@ import {
   wishlistCacheKey,
 } from '../lib/redis.js';
 import config from '../config/index.js';
+import axios from 'axios';
+
+interface ProductInfo {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  discountPrice?: number;
+  thumbnail?: string;
+  images?: string[];
+  status: string;
+  vendorId: string;
+}
+
+interface WishlistItemWithProduct extends WishlistItem {
+  product?: ProductInfo | null;
+}
 
 class WishlistService {
-  async getWishlist(userId: string, page: number = 1, limit: number = 20): Promise<IPaginatedResult<WishlistItem>> {
+  private productCache = new Map<string, ProductInfo>();
+
+  private async fetchProductInfo(productId: string): Promise<ProductInfo | null> {
+    if (this.productCache.has(productId)) {
+      return this.productCache.get(productId) || null;
+    }
+
+    try {
+      const response = await axios.get(
+        `${process.env.PRODUCT_SERVICE_URL || 'http://product-service:3003'}/api/products/${productId}`,
+        { timeout: 5000 }
+      );
+      const product = response.data?.data || null;
+      if (product) {
+        const productInfo: ProductInfo = {
+          id: product.id,
+          name: product.name,
+          slug: product.slug,
+          price: product.price,
+          discountPrice: product.discountPrice,
+          thumbnail: product.thumbnail,
+          images: product.images,
+          status: product.status,
+          vendorId: product.vendorId,
+        };
+        this.productCache.set(productId, productInfo);
+        return productInfo;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to fetch product ${productId}:`, error);
+      return null;
+    }
+  }
+
+  async getWishlist(userId: string, page: number = 1, limit: number = 20): Promise<IPaginatedResult<WishlistItemWithProduct>> {
     const profile = await prisma.userProfile.findUnique({
       where: { userId },
     });
 
     if (!profile) {
-      return createPaginatedResponse([] as WishlistItem[], 0, page, limit);
+      return createPaginatedResponse([] as WishlistItemWithProduct[], 0, page, limit);
     }
 
     const [items, total] = await Promise.all([
@@ -29,7 +81,14 @@ class WishlistService {
       prisma.wishlistItem.count({ where: { userProfileId: profile.id } }),
     ]);
 
-    return createPaginatedResponse(items, total, page, limit);
+    const itemsWithProducts = await Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        product: await this.fetchProductInfo(item.productId),
+      }))
+    );
+
+    return createPaginatedResponse(itemsWithProducts, total, page, limit);
   }
 
   async addToWishlist(userId: string, productId: string): Promise<WishlistItem> {

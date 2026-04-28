@@ -85,6 +85,7 @@ model Product {
   totalReviews        Int           @default(0)
   totalSold           Int           @default(0)
   viewCount           Int           @default(0)
+  createdBy           String?
   lastUpdatedBy       String?
   metadata            Json?
   createdAt           DateTime      @default(now())

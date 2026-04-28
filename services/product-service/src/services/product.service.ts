@@ -25,6 +25,15 @@ import {
 } from '../lib/redis.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import config from '../config/index.js';
+import axios from 'axios';
+
+interface UserProfile {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  avatar?: string;
+}
 
 interface ProductActorContext {
   userId?: string;
@@ -61,20 +70,58 @@ type FreeItemUpdateInput = {
 };
 
 class ProductService {
-  private async attachLastUpdatedBy<T extends { id: string }>(product: T): Promise<T & { lastUpdatedBy?: string | null }> {
+  private userProfileCache = new Map<string, UserProfile>();
+
+  private async fetchUserProfile(userId: string): Promise<UserProfile | null> {
+    if (this.userProfileCache.has(userId)) {
+      return this.userProfileCache.get(userId) || null;
+    }
+
+    try {
+      const response = await axios.get(
+        `${process.env.USER_SERVICE_URL || 'http://user-service:3002'}/api/profiles/${userId}`,
+        { timeout: 5000 }
+      );
+      const profile = response.data?.data || null;
+      if (profile) {
+        this.userProfileCache.set(userId, profile);
+      }
+      return profile;
+    } catch (error) {
+      console.error(`Failed to fetch user profile for ${userId}:`, error);
+      return null;
+    }
+  }
+
+  private async attachLastUpdatedBy<T extends { id: string }>(product: T): Promise<T & { lastUpdatedBy?: { id: string; name?: string; avatar?: string } | string | null }> {
     const rows = await prisma.$queryRaw<Array<{ lastUpdatedBy: string | null }>>`
       SELECT "lastUpdatedBy"
       FROM "products"
       WHERE "id" = ${product.id}
     `;
 
+    const userId = rows[0]?.lastUpdatedBy;
+    if (!userId) {
+      return {
+        ...product,
+        lastUpdatedBy: null,
+      };
+    }
+
+    const userProfile = await this.fetchUserProfile(userId);
+    const lastUpdatedByData = userProfile ? {
+      id: userId,
+      name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+      avatar: userProfile.avatar,
+    } : userId;
+
     return {
       ...product,
-      lastUpdatedBy: rows[0]?.lastUpdatedBy ?? null,
+      lastUpdatedBy: lastUpdatedByData,
     };
   }
 
-  private async attachLastUpdatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { lastUpdatedBy?: string | null }>> {
+  private async attachLastUpdatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { lastUpdatedBy?: { id: string; name?: string; avatar?: string } | string | null }>> {
     if (products.length === 0) {
       return [];
     }
@@ -87,14 +134,116 @@ class ProductService {
     `;
 
     const lastUpdatedByMap = new Map(rows.map((row) => [row.id, row.lastUpdatedBy]));
+    const userIds = Array.from(new Set(rows.map(r => r.lastUpdatedBy).filter(Boolean)));
+    
+    const userProfiles = new Map<string, UserProfile>();
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const profile = await this.fetchUserProfile(userId!);
+        if (profile) {
+          userProfiles.set(userId!, profile);
+        }
+      })
+    );
 
-    return products.map((product) => ({
-      ...product,
-      lastUpdatedBy: lastUpdatedByMap.get(product.id) ?? null,
-    }));
+    return products.map((product) => {
+      const userId = lastUpdatedByMap.get(product.id);
+      if (!userId) {
+        return {
+          ...product,
+          lastUpdatedBy: null,
+        };
+      }
+
+      const userProfile = userProfiles.get(userId);
+      const lastUpdatedByData = userProfile ? {
+        id: userId,
+        name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+        avatar: userProfile.avatar,
+      } : userId;
+
+      return {
+        ...product,
+        lastUpdatedBy: lastUpdatedByData,
+      };
+    });
   }
 
-  private async loadFreeItemsForProducts(productIds: string[]): Promise<Map<string, FreeItemRow[]>> {
+  private async attachCreatedBy<T extends { id: string }>(product: T): Promise<T & { createdBy?: { id: string; name?: string; avatar?: string } | string | null }> {
+    const rows = await prisma.$queryRaw<Array<{ createdBy: string | null }>>`
+      SELECT "createdBy"
+      FROM "products"
+      WHERE "id" = ${product.id}
+    `;
+
+    const userId = rows[0]?.createdBy;
+    if (!userId) {
+      return {
+        ...product,
+        createdBy: null,
+      };
+    }
+
+    const userProfile = await this.fetchUserProfile(userId);
+    const createdByData = userProfile ? {
+      id: userId,
+      name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+      avatar: userProfile.avatar,
+    } : userId;
+
+    return {
+      ...product,
+      createdBy: createdByData,
+    };
+  }
+
+  private async attachCreatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { createdBy?: { id: string; name?: string; avatar?: string } | string | null }>> {
+    if (products.length === 0) {
+      return [];
+    }
+
+    const ids = products.map((product) => product.id);
+    const rows = await prisma.$queryRaw<Array<{ id: string; createdBy: string | null }>>`
+      SELECT "id", "createdBy"
+      FROM "products"
+      WHERE "id" IN (${Prisma.join(ids)})
+    `;
+
+    const createdByMap = new Map(rows.map((row) => [row.id, row.createdBy]));
+    const userIds = Array.from(new Set(rows.map(r => r.createdBy).filter(Boolean)));
+    
+    const userProfiles = new Map<string, UserProfile>();
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const profile = await this.fetchUserProfile(userId!);
+        if (profile) {
+          userProfiles.set(userId!, profile);
+        }
+      })
+    );
+
+    return products.map((product) => {
+      const userId = createdByMap.get(product.id);
+      if (!userId) {
+        return {
+          ...product,
+          createdBy: null,
+        };
+      }
+
+      const userProfile = userProfiles.get(userId);
+      const createdByData = userProfile ? {
+        id: userId,
+        name: userProfile.firstName ? `${userProfile.firstName} ${userProfile.lastName || ''.trim()}` : userId,
+        avatar: userProfile.avatar,
+      } : userId;
+
+      return {
+        ...product,
+        createdBy: createdByData,
+      };
+    });
+  }
     const result = new Map<string, FreeItemRow[]>();
     if (productIds.length === 0) {
       return result;
@@ -382,6 +531,7 @@ class ProductService {
     const product = await prisma.product.create({
       data: {
         vendorId: data.vendorId,
+        createdBy: data.actorUserId || data.vendorId,
         name: data.name,
         slug: finalSlug,
         description: data.description,
@@ -430,7 +580,11 @@ class ProductService {
       categoryId: product.categoryId,
     });
 
-    return this.hydrateProduct(await this.attachLastUpdatedBy(product)) as Promise<Product>;
+    return this.hydrateProduct(
+      await this.attachCreatedBy(
+        await this.attachLastUpdatedBy(product)
+      )
+    ) as Promise<Product>;
   }
 
   async getProductById(id: string): Promise<Product> {
@@ -454,7 +608,11 @@ class ProductService {
       throw new NotFoundError('Product not found');
     }
 
-    const enrichedProduct = await this.hydrateProduct(await this.attachLastUpdatedBy(product));
+    const enrichedProduct = await this.hydrateProduct(
+      await this.attachCreatedBy(
+        await this.attachLastUpdatedBy(product)
+      )
+    );
 
     // Cache the result
     await cacheSet(productCacheKey(id), enrichedProduct, config.cache.productTTL);
@@ -488,7 +646,11 @@ class ProductService {
       data: { viewCount: { increment: 1 } },
     });
 
-    const enrichedProduct = await this.hydrateProduct(await this.attachLastUpdatedBy(product));
+    const enrichedProduct = await this.hydrateProduct(
+      await this.attachCreatedBy(
+        await this.attachLastUpdatedBy(product)
+      )
+    );
 
     await cacheSet(productSlugCacheKey(slug), enrichedProduct, config.cache.productTTL);
 
@@ -565,7 +727,11 @@ class ProductService {
       prisma.product.count({ where }),
     ]);
 
-    const enrichedProducts = await this.hydrateProducts(await this.attachLastUpdatedByMany(products));
+    const enrichedProducts = await this.hydrateProducts(
+      await this.attachCreatedByMany(
+        await this.attachLastUpdatedByMany(products)
+      )
+    );
 
     return createPaginatedResponse(enrichedProducts, totalItems, { page, limit });
   }
@@ -673,7 +839,11 @@ class ProductService {
       changes: data as Record<string, unknown>,
     });
 
-    return this.hydrateProduct(await this.attachLastUpdatedBy(updatedProduct)) as Promise<Product>;
+    return this.hydrateProduct(
+      await this.attachCreatedBy(
+        await this.attachLastUpdatedBy(updatedProduct)
+      )
+    ) as Promise<Product>;
   }
 
   async deleteProduct(id: string, actor: ProductActorContext = {}): Promise<void> {
@@ -780,7 +950,11 @@ class ProductService {
 
     await cacheDelete(productCacheKey(id));
 
-    return this.hydrateProduct(await this.attachLastUpdatedBy(updated)) as Promise<Product>;
+    return this.hydrateProduct(
+      await this.attachCreatedBy(
+        await this.attachLastUpdatedBy(updated)
+      )
+    ) as Promise<Product>;
   }
 
   async getVendorProducts(vendorId: string, filter: IProductFilter): Promise<IPaginatedResult<Product>> {
@@ -802,7 +976,11 @@ class ProductService {
       take: limit,
     });
 
-    return this.hydrateProducts(await this.attachLastUpdatedByMany(products)) as Promise<Product[]>;
+    return this.hydrateProducts(
+      await this.attachCreatedByMany(
+        await this.attachLastUpdatedByMany(products)
+      )
+    ) as Promise<Product[]>;
   }
 
   async getFlashSaleProducts(limit: number = 10): Promise<Product[]> {
@@ -823,7 +1001,11 @@ class ProductService {
       take: limit,
     });
 
-    return this.hydrateProducts(await this.attachLastUpdatedByMany(products)) as Promise<Product[]>;
+    return this.hydrateProducts(
+      await this.attachCreatedByMany(
+        await this.attachLastUpdatedByMany(products)
+      )
+    ) as Promise<Product[]>;
   }
 
   async updateProductRating(productId: string): Promise<void> {
