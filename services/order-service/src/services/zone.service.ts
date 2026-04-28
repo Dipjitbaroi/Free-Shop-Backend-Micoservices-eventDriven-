@@ -31,6 +31,10 @@ class ZoneService {
   async update(id: string, data: { name?: string; price?: number }) {
     return (prisma as any).zone.update({ where: { id }, data, select: { id: true, name: true, price: true } });
   }
+
+  async create(data: { name: string; price: number }) {
+    return (prisma as any).zone.create({ data, select: { id: true, name: true, price: true } });
+  }
 }
 
 export const zoneService = new ZoneService();
