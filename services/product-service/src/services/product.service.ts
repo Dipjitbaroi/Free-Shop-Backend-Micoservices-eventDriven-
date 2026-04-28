@@ -244,6 +244,8 @@ class ProductService {
       };
     });
   }
+
+  private async loadFreeItemsForProducts(productIds: string[]): Promise<Map<string, FreeItemRow[]>> {
     const result = new Map<string, FreeItemRow[]>();
     if (productIds.length === 0) {
       return result;
