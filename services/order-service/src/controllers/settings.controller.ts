@@ -3,33 +3,16 @@ import { zoneService } from '../services/zone.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const settingsController = {
-  async getDeliverySettings(req: Request, res: Response, next: NextFunction) {
+  async createDeliveryZone(req: Request, res: Response, next: NextFunction) {
     try {
-      // Return zones from Zone table (preferred) and fallback to settings if empty
-      const zonesFromDb = await zoneService.getAll();
-      // Always return canonical zones from DB (may be empty)
-      const deliveryCharges: Record<string, number> = {};
-      for (const z of zonesFromDb) deliveryCharges[z.id] = z.price;
-      res.json(successResponse({ deliveryCharges, zones: zonesFromDb }, 'Delivery charges retrieved'));
-    } catch (error) {
-      next(error);
-    }
-  },
+      const { name, price } = req.body;
+      
+      if (!name || typeof name !== 'string') throw new Error('Zone name is required');
+      if (typeof price !== 'number') throw new Error('Price must be a number');
 
-  async updateDeliverySettings(req: Request, res: Response, next: NextFunction) {
-    try {
-      // Accepts an array of zones: [{ id?, name, price }, ...]
-      const zones = req.body;
-      if (!Array.isArray(zones)) throw new Error('Body must be an array of zones');
-      for (const z of zones) {
-        if (z.id && typeof z.id !== 'string') throw new Error('If provided, `id` must be a string');
-        if (!z.name || typeof z.name !== 'string') throw new Error('Each zone must have a `name`');
-        if (typeof z.price !== 'number') throw new Error('Each zone must have a numeric `price`');
-      }
-
-      // Upsert to Zone table (id optional)
-      await zoneService.upsertMany(zones.map((z: any) => ({ id: z.id, name: z.name, price: z.price })));
-      res.json(successResponse(null, 'Delivery zones updated'));
+      // Create a new zone
+      const zone = await zoneService.create({ name, price });
+      res.status(201).json(successResponse({ zone }, 'Delivery zone created successfully'));
     } catch (error) {
       next(error);
     }

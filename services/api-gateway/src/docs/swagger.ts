@@ -1761,14 +1761,30 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     },
 
     '/settings/delivery': {
-      get: {
+      post: {
         tags: ['Settings'],
-        summary: 'Get all delivery zones with charges (admin/manager)',
-        description: 'Returns all delivery zones and a map of zone IDs to prices',
+        summary: 'Create delivery zone',
+        description: 'Create a new delivery zone. Only users with admin or manager permissions can create delivery zones.',
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Zone name' },
+                  price: { type: 'number', description: 'Delivery price for this zone' },
+                },
+                required: ['name', 'price'],
+              },
+              example: { name: 'In Feni', price: 60 },
+            },
+          },
+        },
         responses: {
-          200: {
-            description: 'Delivery zones and charges retrieved',
+          201: {
+            description: 'Delivery zone created successfully',
             content: {
               'application/json': {
                 schema: {
@@ -1778,78 +1794,17 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                     data: {
                       type: 'object',
                       properties: {
-                        deliveryCharges: {
+                        zone: {
                           type: 'object',
-                          description: 'Map of zone ID to delivery price',
-                          example: { 'zone-uuid-1': 60, 'zone-uuid-2': 50 },
-                        },
-                        zones: {
-                          type: 'array',
-                          description: 'All delivery zones',
-                          items: {
-                            type: 'object',
-                            properties: {
-                              id: { type: 'string', format: 'uuid' },
-                              name: { type: 'string' },
-                              price: { type: 'number' },
-                            },
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            price: { type: 'number' },
                           },
-                          example: [
-                            { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
-                            { id: 'zone-uuid-2', name: 'In Dhaka', price: 50 },
-                          ],
                         },
                       },
                     },
-                    message: { type: 'string', example: 'Delivery charges retrieved' },
-                  },
-                },
-              },
-            },
-          },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
-        },
-      },
-      put: {
-        tags: ['Settings'],
-        summary: 'Create or update delivery zones (bulk)',
-        description: 'Upsert multiple zones. If id is provided, updates existing zone; otherwise creates new zone.',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: { type: 'string', format: 'uuid', description: 'Zone ID (optional - if not provided, creates new)' },
-                    name: { type: 'string', description: 'Zone name' },
-                    price: { type: 'number', description: 'Delivery price for this zone' },
-                  },
-                  required: ['name', 'price'],
-                },
-              },
-              example: [
-                { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
-                { name: 'Outside Dhaka', price: 120 },
-              ],
-            },
-          },
-        },
-        responses: {
-          200: {
-            description: 'Delivery zones updated successfully',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: { type: 'boolean', example: true },
-                    data: { type: 'null' },
-                    message: { type: 'string', example: 'Delivery zones updated' },
+                    message: { type: 'string', example: 'Delivery zone created successfully' },
                   },
                 },
               },
