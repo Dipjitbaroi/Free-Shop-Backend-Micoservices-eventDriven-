@@ -106,6 +106,15 @@ export const setupRoutes = (app: Application): void => {
     })
   );
   
+  // Deliveries (order service) routes
+  app.use(
+    '/api/v1/deliveries',
+    createProxyMiddleware({
+      ...getProxyOptions('order', config.services.order.url),
+      pathRewrite: async (path) => `/deliveries${path === '/' ? '' : path}`,
+    })
+  );
+  
   app.use(
     '/api/v1/cart',
     createProxyMiddleware({
