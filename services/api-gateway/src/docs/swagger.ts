@@ -3060,14 +3060,14 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery by order',
+        summary: 'Get delivery by order (includes delivery man and order details)',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
           200: {
-            description: 'Delivery details for the order',
+            description: 'Delivery details with enriched delivery man and order information',
             content: {
               'application/json': {
                 schema: {
@@ -3077,13 +3077,57 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                     data: {
                       type: 'object',
                       properties: {
-                        deliveryId: { type: 'string', format: 'uuid' },
+                        id: { type: 'string', format: 'uuid' },
                         orderId: { type: 'string', format: 'uuid' },
-                        provider: { type: 'string' },
-                        status: { type: 'string' },
-                        trackingNumber: { type: 'string' },
+                        status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
+                        deliveryManId: { type: 'string', format: 'uuid', nullable: true },
+                        deliveryMan: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            email: { type: 'string', format: 'email' },
+                            phone: { type: 'string' },
+                            avatar: { type: 'string', format: 'uri' },
+                          },
+                        },
+                        order: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            orderNumber: { type: 'string' },
+                            status: { type: 'string' },
+                            total: { type: 'number' },
+                            subtotal: { type: 'number' },
+                            shippingFee: { type: 'number' },
+                            tax: { type: 'number' },
+                            discount: { type: 'number' },
+                            paymentStatus: { type: 'string' },
+                            paymentMethod: { type: 'string' },
+                            shippingAddress: { type: 'object' },
+                            billingAddress: { type: 'object' },
+                            items: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  productName: { type: 'string' },
+                                  quantity: { type: 'integer' },
+                                  price: { type: 'number' },
+                                  vendorId: { type: 'string', format: 'uuid' },
+                                },
+                              },
+                            },
+                            createdAt: { type: 'string', format: 'date-time' },
+                            updatedAt: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                        trackingId: { type: 'string', nullable: true },
                         estimatedDeliveryDate: { type: 'string', format: 'date-time' },
-                        actualDeliveryDate: { type: 'string', format: 'date-time' },
+                        actualDeliveryDate: { type: 'string', format: 'date-time', nullable: true },
+                        createdAt: { type: 'string', format: 'date-time' },
                       },
                     },
                   },
@@ -3177,17 +3221,18 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/delivery-man/{deliveryManId}': {
       get: {
         tags: ['Orders'],
-        summary: 'Get deliveries assigned to a delivery man',
+        summary: 'Get deliveries assigned to a delivery man (includes enriched data)',
+        description: 'Returns paginated list of deliveries with complete delivery man profile and order information',
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Delivery man ID' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status' },
         ],
         responses: {
           200: {
-            description: 'Paginated list of deliveries for the delivery man',
+            description: 'Paginated list of deliveries with enriched delivery man and order details',
             content: {
               'application/json': {
                 schema: {
@@ -3195,25 +3240,66 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   properties: {
                     success: { type: 'boolean' },
                     data: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          deliveryId: { type: 'string', format: 'uuid' },
-                          orderId: { type: 'string', format: 'uuid' },
-                          status: { type: 'string' },
-                          customerName: { type: 'string' },
-                          address: { type: 'string' },
-                          estimatedDeliveryDate: { type: 'string', format: 'date-time' },
-                        },
-                      },
-                    },
-                    pagination: {
                       type: 'object',
                       properties: {
-                        page: { type: 'integer' },
-                        limit: { type: 'integer' },
-                        total: { type: 'integer' },
+                        deliveries: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              orderId: { type: 'string', format: 'uuid' },
+                              status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
+                              deliveryManId: { type: 'string', format: 'uuid' },
+                              deliveryMan: {
+                                type: 'object',
+                                description: 'Delivery man profile information',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  name: { type: 'string' },
+                                  email: { type: 'string', format: 'email' },
+                                  phone: { type: 'string' },
+                                  avatar: { type: 'string', format: 'uri' },
+                                },
+                              },
+                              order: {
+                                type: 'object',
+                                description: 'Complete order information',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  orderNumber: { type: 'string' },
+                                  status: { type: 'string' },
+                                  total: { type: 'number' },
+                                  shippingAddress: { type: 'object' },
+                                  items: {
+                                    type: 'array',
+                                    items: {
+                                      type: 'object',
+                                      properties: {
+                                        id: { type: 'string', format: 'uuid' },
+                                        productName: { type: 'string' },
+                                        quantity: { type: 'integer' },
+                                        price: { type: 'number' },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                              trackingId: { type: 'string', nullable: true },
+                              estimatedDeliveryDate: { type: 'string', format: 'date-time' },
+                              createdAt: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            pages: { type: 'integer' },
+                          },
+                        },
                       },
                     },
                   },

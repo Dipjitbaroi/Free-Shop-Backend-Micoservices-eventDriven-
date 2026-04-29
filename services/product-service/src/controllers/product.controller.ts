@@ -33,13 +33,18 @@ const getUserRbacSnapshot = async (req: Request) => {
 export const productController = {
   async createProduct(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendorId = req.user?.userId;
+      const userId = req.user?.id || req.user?.userId;
+      const vendorId = req.user?.userId || req.user?.id;
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+      
       const product = await productService.createProduct({
         ...req.body,
         vendorId,
-        actorUserId: req.user?.userId,
+        actorUserId: userId,
       });
-      // Filter price field for vendors (disabled - role not available, service layer enforces rules)
       res.status(201).json(successResponse(product, 'Product created successfully'));
     } catch (error) {
       next(error);
@@ -106,7 +111,7 @@ export const productController = {
   async updateProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const userId = req.user?.userId;
+      const userId = req.user?.id || req.user?.userId;
       const { permissionCodes, roleNames } = await getUserRbacSnapshot(req);
       const canUpdateAny = permissionCodes.includes(PERMISSION_CODES.PRODUCT_UPDATE);
       const canUpdatePrice =
@@ -121,7 +126,6 @@ export const productController = {
         canUpdatePrice,
         actorUserId: userId,
       });
-      // Filter price field for vendors (disabled - role not available, service layer enforces rules)
       res.json(successResponse(product, 'Product updated successfully'));
     } catch (error) {
       next(error);
@@ -204,7 +208,7 @@ export const productController = {
 
   async deleteProduct(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
+      const userId = req.user?.id || req.user?.userId;
       const { permissionCodes } = await getUserRbacSnapshot(req);
 
       await productService.deleteProduct(req.params.id as string, {
@@ -249,7 +253,7 @@ export const productController = {
         reason,
         price,
         priceAuthorized,
-        req.user?.userId
+        req.user?.id || req.user?.userId
       );
       res.json(successResponse(product, 'Product status updated successfully'));
     } catch (error) {
@@ -259,7 +263,7 @@ export const productController = {
 
   async getVendorProducts(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendorId = req.params.vendorId as string || req.user?.userId;
+      const vendorId = req.params.vendorId as string || req.user?.id || req.user?.userId;
       const { status, page, limit } = req.query;
 
       const products = await productService.getVendorProducts(
