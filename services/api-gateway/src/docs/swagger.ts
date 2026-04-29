@@ -1206,6 +1206,70 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     },
 
     // ─── USERS ───────────────────────────────────────────────────────────────
+    '/users/{userId}': {
+      get: {
+        tags: ['Users'],
+        summary: 'Get user profile by ID',
+        description: 'Retrieve a user profile by their ID. Requires authentication.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'userId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'User ID (UUID)',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'User profile retrieved successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/UserResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
+    '/users/{userId}/public-profile': {
+      get: {
+        tags: ['Users'],
+        summary: 'Get user public profile by ID',
+        description: 'Retrieve a user\'s public profile information (name, avatar only). No authentication required.',
+        parameters: [
+          {
+            name: 'userId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'User ID (UUID)',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Public profile retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    firstName: { type: 'string', nullable: true },
+                    lastName: { type: 'string', nullable: true },
+                    email: { type: 'string', format: 'email', nullable: true },
+                    avatar: { type: 'string', nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
     '/users/profile': {
       get: {
         tags: ['Users'],
@@ -2739,6 +2803,25 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             description: 'Order details',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderResponse' } } },
           },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Orders'],
+        summary: 'Delete an order (requires ORDER_DELETE permission)',
+        description: 'Permanently delete an order. Only orders in PENDING, CONFIRMED, CANCELLED, or RETURNED status can be deleted. Requires ORDER_DELETE permission (admin/manager only).',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Order ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Order deleted successfully',
+            content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },

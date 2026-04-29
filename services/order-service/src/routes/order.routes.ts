@@ -117,6 +117,16 @@ router.post(
   orderController.cancelOrder
 );
 
+// Delete order (requires ORDER_DELETE permission)
+router.delete(
+  '/:id',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ORDER_DELETE),
+  param('id').isUUID(),
+  validate,
+  orderController.deleteOrder
+);
+
 // Get single order
 router.get(
   '/:id',

@@ -25,6 +25,7 @@ export const Events = {
   ORDER_SHIPPED: 'order.shipped',
   ORDER_DELIVERED: 'order.delivered',
   ORDER_CANCELLED: 'order.cancelled',
+  ORDER_DELETED: 'order.deleted',
   ORDER_REFUNDED: 'order.refunded',
   ORDER_STATUS_CHANGED: 'order.status_changed',
 

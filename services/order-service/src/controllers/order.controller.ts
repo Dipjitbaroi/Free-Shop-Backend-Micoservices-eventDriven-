@@ -187,6 +187,16 @@ export const orderController = {
     }
   },
 
+  async deleteOrder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id as string;
+      await orderService.deleteOrder(req.params.id as string, userId);
+      res.json(successResponse(null, 'Order deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async addTrackingInfo(req: Request, res: Response, next: NextFunction) {
     try {
       const { trackingNumber, carrier } = req.body;

@@ -7,6 +7,9 @@ import { body, param } from 'express-validator';
 const router: Router = Router();
 
 // Public route - get user profile by ID (no auth required)
+router.get('/:userId', authenticate, userController.getUserById);
+
+// Public route - get user public profile by ID (no auth required)  
 router.get('/:userId/public-profile', userController.getPublicProfile);
 
 // Validation schemas

@@ -2,6 +2,7 @@ import { DeliveryInfo } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { DeliveryProvider, DeliveryStatus } from '@freeshop/shared-types';
+import { OrderStatus } from '../../generated/client/client.js';
 
 interface IDeliveryInfoData {
   type: 'INHOUSE' | 'THIRD_PARTY';
@@ -15,6 +16,75 @@ interface IDeliveryInfoData {
 }
 
 class DeliveryService {
+  /**
+   * Syncs DeliveryInfo status back to Order when delivery status changes
+   * This ensures bi-directional consistency
+   * 
+   * @param deliveryId Delivery ID
+   * @param newDeliveryStatus New delivery status
+   */
+  private async syncDeliveryOrderStatus(deliveryId: string, newDeliveryStatus: DeliveryStatus): Promise<void> {
+    try {
+      const delivery = await prisma.deliveryInfo.findUnique({
+        where: { id: deliveryId },
+        select: { orderId: true },
+      });
+
+      if (!delivery) {
+        return;
+      }
+
+      let newOrderStatus: OrderStatus | null = null;
+
+      // Map delivery status to order status
+      switch (newDeliveryStatus) {
+        case 'PENDING':
+          newOrderStatus = OrderStatus.PENDING;
+          break;
+        case 'ASSIGNED':
+          newOrderStatus = OrderStatus.PROCESSING;
+          break;
+        case 'PICKED_UP':
+          newOrderStatus = OrderStatus.PROCESSING;
+          break;
+        case 'IN_TRANSIT':
+          newOrderStatus = OrderStatus.SHIPPED;
+          break;
+        case 'OUT_FOR_DELIVERY':
+          newOrderStatus = OrderStatus.OUT_FOR_DELIVERY;
+          break;
+        case 'DELIVERED':
+          newOrderStatus = OrderStatus.DELIVERED;
+          break;
+        case 'FAILED':
+          // Failed delivery doesn't immediately change order status
+          // Admin needs to take action
+          break;
+        case 'CANCELLED':
+          newOrderStatus = OrderStatus.CANCELLED;
+          break;
+      }
+
+      // Only update if status has changed
+      if (newOrderStatus) {
+        const currentOrder = await prisma.order.findUnique({
+          where: { id: delivery.orderId },
+          select: { status: true },
+        });
+
+        if (currentOrder && currentOrder.status !== newOrderStatus) {
+          await prisma.order.update({
+            where: { id: delivery.orderId },
+            data: { status: newOrderStatus },
+          });
+        }
+      }
+    } catch (error) {
+      // Log but don't fail the operation if sync fails
+      console.error(`Failed to sync order status for delivery ${deliveryId}:`, error);
+    }
+  }
+
   async createDelivery(orderId: string, data: IDeliveryInfoData): Promise<DeliveryInfo> {
     // Check if order exists
     const order = await prisma.order.findUnique({
@@ -122,6 +192,9 @@ class DeliveryService {
       where: { id: deliveryId },
       data,
     });
+
+    // Sync order status to maintain consistency
+    await this.syncDeliveryOrderStatus(deliveryId, status);
 
     return updated;
   }
