@@ -79,17 +79,33 @@ class ProductService {
 
     try {
       const response = await axios.get(
-        `${process.env.USER_SERVICE_URL || 'http://user-service:3002'}/${userId}/public-profile`,
+        `${process.env.USER_SERVICE_URL || 'http://user-service:3002'}/users/${userId}`,
         { timeout: 5000 }
       );
       const profile = response.data?.data || null;
       if (profile) {
-        this.userProfileCache.set(userId, profile);
+        // Ensure profile has required fields
+        const validated: UserProfile = {
+          id: profile.id || userId,
+          firstName: profile.firstName || undefined,
+          lastName: profile.lastName || undefined,
+          email: profile.email || undefined,
+          avatar: profile.avatar || undefined,
+        };
+        this.userProfileCache.set(userId, validated);
+        return validated;
       }
-      return profile;
+      return null;
     } catch (error) {
       console.error(`Failed to fetch user profile for ${userId}:`, error);
-      return null;
+      // Return minimal profile structure instead of null to avoid breaking UI
+      return {
+        id: userId,
+        firstName: undefined,
+        lastName: undefined,
+        email: undefined,
+        avatar: undefined,
+      };
     }
   }
 

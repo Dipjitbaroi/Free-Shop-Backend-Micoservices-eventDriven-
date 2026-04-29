@@ -3,6 +3,16 @@ import { userService } from '../services/user.service.js';
 import { successResponse } from '@freeshop/shared-utils';
 
 export const userController = {
+  async getUserById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.params.userId as string;
+      const profile = await userService.getUserById(userId);
+      res.json(successResponse(profile, 'User profile retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getPublicProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.params.userId as string;

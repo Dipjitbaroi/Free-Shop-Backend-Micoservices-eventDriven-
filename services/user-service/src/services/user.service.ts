@@ -39,6 +39,28 @@ interface AddressData {
 
 class UserService {
   // Public profile methods (no auth required)
+  async getUserById(userId: string): Promise<UserProfile> {
+    const cached = await cacheGet<UserProfile>(profileCacheKey(userId));
+    if (cached) return cached;
+
+    const profile = await prisma.userProfile.findUnique({
+      where: { userId },
+      include: {
+        addresses: {
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+    });
+
+    if (!profile) {
+      throw new NotFoundError('User profile not found');
+    }
+
+    await cacheSet(profileCacheKey(userId), profile, config.cache.profileTTL);
+
+    return profile;
+  }
+
   async getPublicProfile(userId: string): Promise<{ id: string; firstName?: string | null; lastName?: string | null; email?: string | null; avatar?: string | null }> {
     const profile = await prisma.userProfile.findUnique({
       where: { userId },

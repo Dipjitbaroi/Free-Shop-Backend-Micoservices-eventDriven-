@@ -62,6 +62,84 @@ interface OrderFilters {
 }
 
 class OrderService {
+  /**
+   * Syncs Order and DeliveryInfo statuses to maintain consistency
+   * 
+   * Status Mapping Rules:
+   * - PENDING → delivery remains PENDING (no delivery created yet)
+   * - CONFIRMED → delivery becomes ASSIGNED (ready for pickup)
+   * - PROCESSING → delivery becomes ASSIGNED or IN_TRANSIT 
+   * - SHIPPED → delivery becomes IN_TRANSIT (on the way)
+   * - OUT_FOR_DELIVERY → delivery becomes OUT_FOR_DELIVERY
+   * - DELIVERED → delivery becomes DELIVERED
+   * - CANCELLED → delivery becomes CANCELLED
+   * 
+   * @param orderId Order ID to sync
+   * @param newOrderStatus New Order status being set
+   */
+  private async syncOrderDeliveryStatus(orderId: string, newOrderStatus: OrderStatus): Promise<void> {
+    try {
+      const delivery = await prisma.deliveryInfo.findUnique({
+        where: { orderId },
+      });
+
+      if (!delivery) {
+        // No delivery info yet, only sync if order is being cancelled
+        if (newOrderStatus === OrderStatus.CANCELLED) {
+          // Can't do anything without delivery, but this is expected
+        }
+        return;
+      }
+
+      let newDeliveryStatus: string | null = null;
+
+      // Map order status to delivery status
+      switch (newOrderStatus) {
+        case OrderStatus.PENDING:
+          newDeliveryStatus = 'PENDING';
+          break;
+        case OrderStatus.CONFIRMED:
+          newDeliveryStatus = 'ASSIGNED';
+          break;
+        case OrderStatus.PROCESSING:
+          // Keep current status or move to ASSIGNED if still PENDING
+          newDeliveryStatus = delivery.status === 'PENDING' ? 'ASSIGNED' : delivery.status;
+          break;
+        case OrderStatus.SHIPPED:
+          newDeliveryStatus = 'IN_TRANSIT';
+          break;
+        case OrderStatus.OUT_FOR_DELIVERY:
+          newDeliveryStatus = 'OUT_FOR_DELIVERY';
+          break;
+        case OrderStatus.DELIVERED:
+          newDeliveryStatus = 'DELIVERED';
+          break;
+        case OrderStatus.CANCELLED:
+          newDeliveryStatus = 'CANCELLED';
+          break;
+        case OrderStatus.REFUNDED:
+          // For refunded orders, mark delivery as cancelled
+          newDeliveryStatus = 'CANCELLED';
+          break;
+      }
+
+      // Only update if status has changed
+      if (newDeliveryStatus && delivery.status !== newDeliveryStatus) {
+        await prisma.deliveryInfo.update({
+          where: { id: delivery.id },
+          data: {
+            status: newDeliveryStatus as any,
+            ...(newDeliveryStatus === 'DELIVERED' && { actualDeliveryDate: new Date() }),
+            ...(newDeliveryStatus === 'CANCELLED' && { notes: 'Cancelled due to order cancellation' }),
+          },
+        });
+      }
+    } catch (error) {
+      // Log but don't fail the operation if sync fails
+      console.error(`Failed to sync delivery status for order ${orderId}:`, error);
+    }
+  }
+
   private async loadOrderItemFreeItems(orderItemIds: string[]): Promise<Map<string, FreeItemSnapshot[]>> {
     const result = new Map<string, FreeItemSnapshot[]>();
     if (orderItemIds.length === 0) return result;
@@ -325,6 +403,9 @@ class OrderService {
 
     await cacheDelete(orderCacheKey(orderId));
 
+    // Sync delivery status to maintain consistency
+    await this.syncOrderDeliveryStatus(orderId, status);
+
     // Publish status update event
     await eventPublisher.publish(Events.ORDER_STATUS_CHANGED, {
       orderId: updatedOrder.id,
@@ -388,18 +469,71 @@ class OrderService {
   async cancelOrder(orderId: string, userId: string, reason: string): Promise<OrderWithItems> {
     const order = await this.getOrderById(orderId);
 
-    // Check if user owns the order
-    if (order.userId !== userId) {
+    // Check if user owns the order (handle both authenticated and guest orders)
+    if (order.userId && order.userId !== userId) {
       throw new BadRequestError('You can only cancel your own orders');
+    }
+
+    // Guest orders cannot be cancelled by authenticated users (security)
+    if (!order.userId && userId) {
+      throw new BadRequestError('Cannot cancel guest orders as authenticated user');
     }
 
     // Check if order can be cancelled
     const cancellableStatuses: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.CONFIRMED];
     if (!cancellableStatuses.includes(order.status)) {
-      throw new BadRequestError('Order cannot be cancelled at this stage');
+      throw new BadRequestError(`Order cannot be cancelled when in ${order.status} status. Only PENDING and CONFIRMED orders can be cancelled.`);
     }
 
     return this.updateOrderStatus(orderId, OrderStatus.CANCELLED, reason);
+  }
+
+  async deleteOrder(orderId: string, userId: string): Promise<void> {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, deliveryInfo: true },
+    });
+
+    if (!order) {
+      throw new NotFoundError('Order not found');
+    }
+
+    // Only allow deletion of orders that are in a cancellable state
+    // or have been delivered/returned to avoid data loss
+    const deletableStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.CONFIRMED,
+      OrderStatus.CANCELLED,
+      OrderStatus.RETURNED,
+    ];
+
+    if (!deletableStatuses.includes(order.status)) {
+      throw new BadRequestError(
+        `Order cannot be deleted when in ${order.status} status. Only pending, confirmed, cancelled, or returned orders can be deleted.`
+      );
+    }
+
+    // Delete related delivery info first
+    if (order.deliveryInfo) {
+      await prisma.deliveryInfo.delete({
+        where: { orderId },
+      });
+    }
+
+    // Delete order (items will cascade due to onDelete: Cascade)
+    await prisma.order.delete({
+      where: { id: orderId },
+    });
+
+    // Clear cache
+    await cacheDelete(orderCacheKey(orderId));
+
+    // Publish deletion event
+    await eventPublisher.publish(Events.ORDER_DELETED, {
+      orderId,
+      orderNumber: order.orderNumber,
+      userId: order.userId,
+    });
   }
 
   async addTrackingInfo(orderId: string, trackingNumber: string, carrier?: string): Promise<OrderWithItems> {
