@@ -71,6 +71,8 @@ router.post(
 router.get(
   '/orders/:orderId/delivery',
   authenticate,
+  param('orderId').isUUID().withMessage('Invalid order ID'),
+  validate,
   deliveryController.getDeliveryByOrder
 );
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { validate, authenticate, authorizePermission } from '@freeshop/shared-middleware';
-import { PERMISSION_CODES } from '@freeshop/shared-types';
+import { PERMISSION_CODES, DEFAULT_ROLES } from '@freeshop/shared-types';
 import * as authController from '../controllers/auth.controller.js';
 import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation, changePasswordValidation } from '../validators/auth.validators.js';
 import { query, param, body } from 'express-validator';
@@ -34,7 +34,7 @@ router.get(
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('role').optional().isIn(['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN']),
+    query('role').optional().isIn(Object.values(DEFAULT_ROLES)),
     query('status').optional().isIn(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']),
     query('search').optional().isString().trim(),
   ],

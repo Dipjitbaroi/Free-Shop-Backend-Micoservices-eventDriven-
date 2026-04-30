@@ -71,6 +71,99 @@ router.post(
   orderController.validateCoupon
 );
 
+// ── Coupon Management Routes ──
+// Create coupon (requires COUPON_CREATE permission)
+router.post(
+  '/coupons',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.COUPON_CREATE),
+  body('code').isString().notEmpty().isLength({ min: 3, max: 20 }),
+  body('description').optional().isString(),
+  body('type').isIn(['PERCENTAGE', 'FIXED', 'FREE_SHIPPING']),
+  body('value').isFloat({ min: 0 }),
+  body('minOrderAmount').optional().isFloat({ min: 0 }),
+  body('maxDiscount').optional().isFloat({ min: 0 }),
+  body('usageLimit').optional().isInt({ min: 1 }),
+  body('perUserLimit').optional().isInt({ min: 1 }),
+  body('applicableProducts').optional().isArray(),
+  body('applicableCategories').optional().isArray(),
+  body('applicableVendors').optional().isArray(),
+  body('startDate').isISO8601(),
+  body('endDate').optional().isISO8601(),
+  body('isActive').optional().isBoolean(),
+  validate,
+  orderController.createCoupon
+);
+
+// List coupons with filters (requires COUPON_READ for admin view)
+router.get(
+  '/coupons',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.COUPON_READ),
+  [
+    query('isActive').optional().isBoolean(),
+    query('type').optional().isIn(['PERCENTAGE', 'FIXED', 'FREE_SHIPPING']),
+    query('search').optional().isString(),
+    ...paginationValidation,
+  ],
+  validate,
+  orderController.listCoupons
+);
+
+// Get coupon by ID
+router.get(
+  '/coupons/:id',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.COUPON_READ),
+  param('id').isUUID(),
+  validate,
+  orderController.getCoupon
+);
+
+// Get coupon usage statistics
+router.get(
+  '/coupons/:id/usage-stats',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.COUPON_READ),
+  param('id').isUUID(),
+  validate,
+  orderController.getCouponUsageStats
+);
+
+// Update coupon (requires COUPON_UPDATE permission)
+router.put(
+  '/coupons/:id',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.COUPON_UPDATE),
+  param('id').isUUID(),
+  body('code').optional().isString().notEmpty(),
+  body('description').optional().isString(),
+  body('type').optional().isIn(['PERCENTAGE', 'FIXED', 'FREE_SHIPPING']),
+  body('value').optional().isFloat({ min: 0 }),
+  body('minOrderAmount').optional().isFloat({ min: 0 }),
+  body('maxDiscount').optional().isFloat({ min: 0 }),
+  body('usageLimit').optional().isInt({ min: 1 }),
+  body('perUserLimit').optional().isInt({ min: 1 }),
+  body('applicableProducts').optional().isArray(),
+  body('applicableCategories').optional().isArray(),
+  body('applicableVendors').optional().isArray(),
+  body('startDate').optional().isISO8601(),
+  body('endDate').optional().isISO8601(),
+  body('isActive').optional().isBoolean(),
+  validate,
+  orderController.updateCoupon
+);
+
+// Delete coupon (requires COUPON_DELETE permission)
+router.delete(
+  '/coupons/:id',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.COUPON_DELETE),
+  param('id').isUUID(),
+  validate,
+  orderController.deleteCoupon
+);
+
 // User routes - get own orders
 router.get(
   '/my-orders',

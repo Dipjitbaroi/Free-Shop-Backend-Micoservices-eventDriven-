@@ -19,6 +19,7 @@ export const PERMISSION_RESOURCE_CODES = {
   REPORT: 90,      // 90xx
   SETTINGS: 100,   // 100x
   ADMIN_PANEL: 110, // 110x
+  COUPON: 130,     // 130xx
 } as const;
 
 // Actions:
@@ -117,6 +118,12 @@ export const PERMISSION_CODES = {
   // User Management permissions (specific to user update/delete operations)
   USER_MANAGEMENT_UPDATE: 11002,
   USER_MANAGEMENT_DELETE: 11003,
+
+  // Coupon permissions
+  COUPON_CREATE: 13001,
+  COUPON_READ: 13002,
+  COUPON_UPDATE: 13003,
+  COUPON_DELETE: 13004,
 } as const;
 
 // ── Role Definitions ──

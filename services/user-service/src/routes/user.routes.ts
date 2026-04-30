@@ -1,15 +1,29 @@
 import { Router } from 'express';
 import { userController } from '../controllers/user.controller.js';
-import { authenticate } from '@freeshop/shared-middleware';
+import { authenticate, authenticateService, authorizePermission } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param } from 'express-validator';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 
 const router: Router = Router();
 
-// Public route - get user profile by ID (no auth required)
-router.get('/:userId', authenticate, userController.getUserById);
+// ===== INTERNAL SERVICE-TO-SERVICE APIs (Not exposed in Swagger) =====
+// These routes MUST come first to avoid matching the generic /:userId route
+// These routes use SERVICE_AUTH_TOKEN for system-level communication
+// Only accessible by other microservices with the shared token
+// NO PERMISSION CHECKS - System level access
 
-// Public route - get user public profile by ID (no auth required)  
+/**
+ * Internal: Get user profile by ID (for service-to-service calls)
+ * @internal - Not exposed in public API docs
+ * Path: GET /users/internal/profile/:userId
+ * Auth: SERVICE_AUTH_TOKEN only
+ */
+router.get('/internal/profile/:userId', authenticateService, userController.getUserById);
+
+// ===== PUBLIC APIs =====
+
+// Public route - get user public profile by ID (no auth required)
 router.get('/:userId/public-profile', userController.getPublicProfile);
 
 // Validation schemas
@@ -34,7 +48,7 @@ const addAddressValidation = [
   body('type').optional().isIn(['SHIPPING', 'BILLING', 'BOTH']),
 ];
 
-// All routes require authentication
+// All routes below require authentication
 router.use(authenticate);
 
 // Profile routes
@@ -70,3 +84,7 @@ router.post(
 );
 
 export default router;
+
+// Place generic public GET by userId after specific routes to avoid
+// accidental route parameter capture (e.g. '/addresses' being treated as userId)
+router.get('/:userId', authenticate, authorizePermission(PERMISSION_CODES.USER_READ), userController.getUserById);

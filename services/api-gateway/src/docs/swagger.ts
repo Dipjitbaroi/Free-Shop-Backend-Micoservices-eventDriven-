@@ -1210,7 +1210,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Users'],
         summary: 'Get user profile by ID',
-        description: 'Retrieve a user profile by their ID. Requires authentication.',
+        description: 'Retrieve a user profile by their ID. Requires authentication and the USER_READ permission.',
         security: [{ bearerAuth: [] }],
         parameters: [
           {
@@ -1228,6 +1228,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -2754,6 +2755,215 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
+      '/orders/coupons': {
+        post: {
+          tags: ['Coupons'],
+          summary: 'Create a new coupon (requires COUPON_CREATE permission)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['code', 'type', 'value', 'startDate'],
+                  properties: {
+                    code: { type: 'string', minLength: 3, maxLength: 20, description: 'Unique coupon code' },
+                    description: { type: 'string', nullable: true },
+                    type: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] },
+                    value: { type: 'number', minimum: 0, description: 'Percentage (0-100) or fixed amount' },
+                    minOrderAmount: { type: 'number', nullable: true, description: 'Minimum order amount required' },
+                    maxDiscount: { type: 'number', nullable: true, description: 'Maximum discount cap' },
+                    usageLimit: { type: 'integer', nullable: true, description: 'Total usage limit' },
+                    perUserLimit: { type: 'integer', nullable: true, default: 1 },
+                    applicableProducts: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableCategories: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableVendors: { type: 'array', items: { type: 'string' }, nullable: true },
+                    startDate: { type: 'string', format: 'date-time' },
+                    endDate: { type: 'string', format: 'date-time', nullable: true },
+                    isActive: { type: 'boolean', default: true },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: 'Coupon created successfully',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Coupon' },
+                },
+              },
+            },
+            400: { $ref: '#/components/responses/BadRequest' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
+        get: {
+          tags: ['Coupons'],
+          summary: 'List all coupons with filters (requires COUPON_READ permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+            { name: 'type', in: 'query', schema: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] } },
+            { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by code or description' },
+            { $ref: '#/components/parameters/page' },
+            { $ref: '#/components/parameters/limit' },
+          ],
+          responses: {
+            200: {
+              description: 'List of coupons with pagination',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/Coupon' },
+                      },
+                      pagination: { $ref: '#/components/schemas/Pagination' },
+                    },
+                  },
+                },
+              },
+            },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
+      },
+      '/orders/coupons/{id}': {
+        get: {
+          tags: ['Coupons'],
+          summary: 'Get coupon by ID (requires COUPON_READ permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            200: {
+              description: 'Coupon details',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Coupon' },
+                },
+              },
+            },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+        put: {
+          tags: ['Coupons'],
+          summary: 'Update coupon (requires COUPON_UPDATE permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    code: { type: 'string', minLength: 3, maxLength: 20 },
+                    description: { type: 'string', nullable: true },
+                    type: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] },
+                    value: { type: 'number', minimum: 0 },
+                    minOrderAmount: { type: 'number', nullable: true },
+                    maxDiscount: { type: 'number', nullable: true },
+                    usageLimit: { type: 'integer', nullable: true },
+                    perUserLimit: { type: 'integer', nullable: true },
+                    applicableProducts: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableCategories: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableVendors: { type: 'array', items: { type: 'string' }, nullable: true },
+                    startDate: { type: 'string', format: 'date-time' },
+                    endDate: { type: 'string', format: 'date-time', nullable: true },
+                    isActive: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Coupon updated successfully',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Coupon' },
+                },
+              },
+            },
+            400: { $ref: '#/components/responses/BadRequest' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+        delete: {
+          tags: ['Coupons'],
+          summary: 'Delete coupon (requires COUPON_DELETE permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            200: { description: 'Coupon deleted successfully' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+      },
+      '/orders/coupons/{id}/usage-stats': {
+        get: {
+          tags: ['Coupons'],
+          summary: 'Get coupon usage statistics (requires COUPON_READ permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            200: {
+              description: 'Coupon usage statistics',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      code: { type: 'string' },
+                      totalUsageLimit: { type: 'integer', nullable: true },
+                      currentUsageCount: { type: 'integer' },
+                      remainingUses: { oneOf: [{ type: 'integer' }, { type: 'string', enum: ['unlimited'] }] },
+                      usageDetails: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            userId: { type: 'string' },
+                            orderId: { type: 'string' },
+                            discount: { type: 'number' },
+                            usedAt: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+      },
     '/orders/vendor/{vendorId}': {
       get: {
         tags: ['Orders'],
@@ -5636,6 +5846,38 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               totalPages: { type: 'integer' },
             },
           },
+        },
+      },
+      Coupon: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          code: { type: 'string', description: 'Unique coupon code' },
+          description: { type: 'string', nullable: true },
+          type: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] },
+          value: { type: 'number', description: 'Percentage (0-100) or fixed amount' },
+          minOrderAmount: { type: 'number', nullable: true, description: 'Minimum order amount required' },
+          maxDiscount: { type: 'number', nullable: true, description: 'Maximum discount cap for percentage coupons' },
+          usageLimit: { type: 'integer', nullable: true, description: 'Total usage limit (null = unlimited)' },
+          usageCount: { type: 'integer', description: 'Current usage count' },
+          perUserLimit: { type: 'integer', description: 'Max uses per user (default 1)' },
+          applicableProducts: { type: 'array', items: { type: 'string' }, nullable: true, description: 'Product IDs this coupon applies to' },
+          applicableCategories: { type: 'array', items: { type: 'string' }, nullable: true, description: 'Category IDs this coupon applies to' },
+          applicableVendors: { type: 'array', items: { type: 'string' }, nullable: true, description: 'Vendor IDs this coupon applies to' },
+          startDate: { type: 'string', format: 'date-time', description: 'Coupon becomes valid' },
+          endDate: { type: 'string', format: 'date-time', nullable: true, description: 'Coupon expires' },
+          isActive: { type: 'boolean', description: 'Whether coupon is currently active' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      Pagination: {
+        type: 'object',
+        properties: {
+          total: { type: 'integer' },
+          page: { type: 'integer' },
+          limit: { type: 'integer' },
+          totalPages: { type: 'integer' },
         },
       },
       CartItem: {

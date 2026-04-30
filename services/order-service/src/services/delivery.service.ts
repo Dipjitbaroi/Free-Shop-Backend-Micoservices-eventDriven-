@@ -33,14 +33,26 @@ class DeliveryService {
     }
 
     try {
+      const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3002';
+      const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+      
+      if (!serviceToken) {
+        console.warn(`⚠ SERVICE_AUTH_TOKEN not configured, cannot fetch delivery man profile`);
+        return null;
+      }
+
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 5000);
 
       const response = await fetch(
-        `${process.env.USER_SERVICE_URL || 'http://user-service:3002'}/users/${deliveryManId}`,
+        `${userServiceUrl}/users/internal/profile/${deliveryManId}`,
         { 
           method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceToken}`,
+            'X-Service-Call': 'true',
+          },
           signal: controller.signal,
         }
       );
@@ -48,6 +60,7 @@ class DeliveryService {
       clearTimeout(timeout);
 
       if (!response.ok) {
+        console.warn(`⚠ Failed to fetch profile: ${response.statusText}`);
         return null;
       }
 
@@ -64,8 +77,10 @@ class DeliveryService {
           avatar: profile.avatar || undefined,
         };
         this.deliveryManCache.set(deliveryManId, validated);
+        console.log(`✓ Cached delivery man profile for ${deliveryManId}`);
         return validated;
       }
+      console.warn(`⚠ No profile data in response for delivery man ${deliveryManId}`);
       return null;
     } catch (error) {
       console.error(`Failed to fetch delivery man profile for ${deliveryManId}:`, error);
@@ -250,23 +265,41 @@ class DeliveryService {
     }
 
     // Enrich delivery man info if exists
+    let deliveryMan = null;
     if (delivery.deliveryManId) {
-      const deliveryManProfile = await this.fetchDeliveryManProfile(delivery.deliveryManId);
-      return {
-        ...delivery,
-        deliveryMan: deliveryManProfile ? {
-          id: delivery.deliveryManId,
-          name: deliveryManProfile.firstName && deliveryManProfile.lastName 
-            ? `${deliveryManProfile.firstName} ${deliveryManProfile.lastName}` 
-            : (deliveryManProfile.firstName || deliveryManProfile.lastName || ''),
-          email: deliveryManProfile.email,
-          phone: deliveryManProfile.phone,
-          avatar: deliveryManProfile.avatar,
-        } : null,
-      };
+      try {
+        const deliveryManProfile = await this.fetchDeliveryManProfile(delivery.deliveryManId);
+        if (deliveryManProfile) {
+          deliveryMan = {
+            id: delivery.deliveryManId,
+            name: deliveryManProfile.firstName && deliveryManProfile.lastName 
+              ? `${deliveryManProfile.firstName} ${deliveryManProfile.lastName}` 
+              : (deliveryManProfile.firstName || deliveryManProfile.lastName || ''),
+            email: deliveryManProfile.email,
+            phone: deliveryManProfile.phone,
+            avatar: deliveryManProfile.avatar,
+          };
+        }
+      } catch (error) {
+        console.error(`Failed to enrich delivery man: ${error}`);
+      }
     }
 
-    return delivery;
+    // Return serializable object
+    return {
+      id: delivery.id,
+      orderId: delivery.orderId,
+      status: delivery.status,
+      deliveryManId: delivery.deliveryManId,
+      deliveryMan,
+      order: delivery.order,
+      provider: delivery.provider,
+      trackingId: delivery.externalTrackingId,
+      estimatedDeliveryDate: delivery.estimatedDeliveryDate,
+      actualDeliveryDate: delivery.actualDeliveryDate,
+      createdAt: delivery.createdAt,
+      updatedAt: delivery.updatedAt,
+    };
   }
 
   async getDeliveryById(deliveryId: string): Promise<DeliveryInfo | null> {
@@ -378,18 +411,37 @@ class DeliveryService {
     const total = await prisma.deliveryInfo.count({ where });
 
     // Enrich delivery man info for all deliveries
-    const deliveryManProfile = await this.fetchDeliveryManProfile(deliveryManId);
+    let deliveryMan = null;
+    try {
+      const deliveryManProfile = await this.fetchDeliveryManProfile(deliveryManId);
+      if (deliveryManProfile) {
+        deliveryMan = {
+          id: deliveryManId,
+          name: deliveryManProfile.firstName && deliveryManProfile.lastName 
+            ? `${deliveryManProfile.firstName} ${deliveryManProfile.lastName}` 
+            : (deliveryManProfile.firstName || deliveryManProfile.lastName || ''),
+          email: deliveryManProfile.email,
+          phone: deliveryManProfile.phone,
+          avatar: deliveryManProfile.avatar,
+        };
+      }
+    } catch (error) {
+      console.error(`Failed to enrich delivery man: ${error}`);
+    }
+
+    // Return serializable objects
     const enrichedDeliveries = deliveries.map(delivery => ({
-      ...delivery,
-      deliveryMan: deliveryManProfile ? {
-        id: deliveryManId,
-        name: deliveryManProfile.firstName && deliveryManProfile.lastName 
-          ? `${deliveryManProfile.firstName} ${deliveryManProfile.lastName}` 
-          : (deliveryManProfile.firstName || deliveryManProfile.lastName || ''),
-        email: deliveryManProfile.email,
-        phone: deliveryManProfile.phone,
-        avatar: deliveryManProfile.avatar,
-      } : null,
+      id: delivery.id,
+      orderId: delivery.orderId,
+      status: delivery.status,
+      deliveryManId: delivery.deliveryManId,
+      deliveryMan,
+      order: delivery.order,
+      provider: delivery.provider,
+      trackingId: delivery.externalTrackingId,
+      estimatedDeliveryDate: delivery.estimatedDeliveryDate,
+      createdAt: delivery.createdAt,
+      updatedAt: delivery.updatedAt,
     }));
 
     return { deliveries: enrichedDeliveries, total };

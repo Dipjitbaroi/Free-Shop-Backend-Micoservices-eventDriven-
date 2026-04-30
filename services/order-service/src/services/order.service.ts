@@ -178,8 +178,25 @@ class OrderService {
 
   private async hydrateOrder(order: OrderWithItems): Promise<OrderWithItems & { items: Array<OrderItem & { freeItems: FreeItemSnapshot[] }> }> {
     const freeItemMap = await this.loadOrderItemFreeItems(order.items.map((item) => item.id));
+    // Enrich shippingAddress.zoneId -> include zone object when available
+    const shippingAddress: any = (order as any).shippingAddress ?? null;
+    if (shippingAddress && typeof shippingAddress === 'object' && 'zoneId' in shippingAddress) {
+      try {
+        const zoneId = String(shippingAddress.zoneId);
+        const z = await zoneService.get(zoneId);
+        if (z) {
+          // Attach zone object under `zone` while preserving original zoneId for backwards compatibility
+          (shippingAddress as any).zone = z;
+        }
+      } catch (err) {
+        // Ignore zone enrichment failures - do not block order hydration
+        console.warn(`Failed to enrich shipping zone for order ${order.id}:`, err);
+      }
+    }
+
     return {
       ...order,
+      shippingAddress,
       items: order.items.map((item) => ({
         ...item,
         freeItems: freeItemMap.get(item.id) || [],
@@ -648,6 +665,152 @@ class OrderService {
         }),
       ]);
     }
+  }
+
+  // ── Coupon Management Methods ──
+  async createCoupon(data: {
+    code: string;
+    description?: string;
+    type: string;
+    value: number;
+    minOrderAmount?: number;
+    maxDiscount?: number;
+    usageLimit?: number;
+    perUserLimit?: number;
+    applicableProducts?: string[];
+    applicableCategories?: string[];
+    applicableVendors?: string[];
+    startDate: Date;
+    endDate?: Date;
+    isActive?: boolean;
+  }): Promise<any> {
+    const coupon = await prisma.coupon.create({
+      data: {
+        code: data.code.toUpperCase(),
+        description: data.description,
+        type: data.type as any,
+        value: data.value,
+        minOrderAmount: data.minOrderAmount,
+        maxDiscount: data.maxDiscount,
+        usageLimit: data.usageLimit,
+        perUserLimit: data.perUserLimit ?? 1,
+        ...(data.applicableProducts ? { applicableProducts: data.applicableProducts } : {}),
+        ...(data.applicableCategories ? { applicableCategories: data.applicableCategories } : {}),
+        ...(data.applicableVendors ? { applicableVendors: data.applicableVendors } : {}),
+        startDate: data.startDate,
+        endDate: data.endDate,
+        isActive: data.isActive ?? true,
+      },
+    });
+    return coupon;
+  }
+
+  async updateCoupon(id: string, data: Partial<{
+    code: string;
+    description?: string;
+    type: string;
+    value: number;
+    minOrderAmount?: number;
+    maxDiscount?: number;
+    usageLimit?: number;
+    perUserLimit?: number;
+    applicableProducts?: string[];
+    applicableCategories?: string[];
+    applicableVendors?: string[];
+    startDate: Date;
+    endDate?: Date;
+    isActive?: boolean;
+  }>): Promise<any> {
+    const updateData: any = {};
+    
+    if (data.code) updateData.code = data.code.toUpperCase();
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.type) updateData.type = data.type;
+    if (data.value !== undefined) updateData.value = data.value;
+    if (data.minOrderAmount !== undefined) updateData.minOrderAmount = data.minOrderAmount;
+    if (data.maxDiscount !== undefined) updateData.maxDiscount = data.maxDiscount;
+    if (data.usageLimit !== undefined) updateData.usageLimit = data.usageLimit;
+    if (data.perUserLimit !== undefined) updateData.perUserLimit = data.perUserLimit;
+    if (data.applicableProducts !== undefined) updateData.applicableProducts = data.applicableProducts;
+    if (data.applicableCategories !== undefined) updateData.applicableCategories = data.applicableCategories;
+    if (data.applicableVendors !== undefined) updateData.applicableVendors = data.applicableVendors;
+    if (data.startDate) updateData.startDate = data.startDate;
+    if (data.endDate !== undefined) updateData.endDate = data.endDate;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+    const coupon = await prisma.coupon.update({
+      where: { id },
+      data: updateData,
+    });
+    return coupon;
+  }
+
+  async deleteCoupon(id: string): Promise<void> {
+    // Soft delete by marking as inactive
+    await prisma.coupon.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  async getCoupon(id: string): Promise<any> {
+    const coupon = await prisma.coupon.findUnique({
+      where: { id },
+    });
+    return coupon;
+  }
+
+  async getCouponByCode(code: string): Promise<any> {
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase() },
+    });
+    return coupon;
+  }
+
+  async listCoupons(filter?: {
+    isActive?: boolean;
+    type?: string;
+    search?: string;
+  }, page: number = 1, limit: number = 20): Promise<IPaginatedResult<any>> {
+    const where: any = {};
+    
+    if (filter?.isActive !== undefined) where.isActive = filter.isActive;
+    if (filter?.type) where.type = filter.type;
+    if (filter?.search) {
+      where.OR = [
+        { code: { contains: filter.search, mode: 'insensitive' } },
+        { description: { contains: filter.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const coupons = await prisma.coupon.findMany({
+      where,
+      skip: calculateOffset(page, limit),
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const total = await prisma.coupon.count({ where });
+
+    return createPaginatedResponse(coupons, total, page, limit);
+  }
+
+  async getCouponUsageStats(couponId: string): Promise<any> {
+    const coupon = await prisma.coupon.findUnique({
+      where: { id: couponId },
+    });
+
+    const usageDetails = await prisma.couponUsage.findMany({
+      where: { couponId },
+    });
+
+    return {
+      code: coupon?.code,
+      totalUsageLimit: coupon?.usageLimit,
+      currentUsageCount: coupon?.usageCount ?? 0,
+      usageDetails,
+      remainingUses: coupon?.usageLimit ? (coupon.usageLimit - (coupon.usageCount ?? 0)) : 'unlimited',
+    };
   }
 
   // Vendor order methods
