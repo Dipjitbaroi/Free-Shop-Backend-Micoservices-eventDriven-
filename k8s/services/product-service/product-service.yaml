@@ -142,6 +142,11 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: JWT_SECRET
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SERVICE_AUTH_TOKEN
             # Cloudinary Configuration
             - name: CLOUDINARY_CLOUD_NAME
               valueFrom:
