@@ -144,6 +144,11 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: JWT_SECRET
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SERVICE_AUTH_TOKEN
           resources:
             requests:
               cpu: "100m"
