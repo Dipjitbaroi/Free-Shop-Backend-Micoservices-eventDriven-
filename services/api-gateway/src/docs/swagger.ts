@@ -439,7 +439,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
-          { name: 'role', in: 'query', schema: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] }, description: 'Filter by role' },
+          { name: 'role', in: 'query', schema: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'] }, description: 'Filter by role' },
           { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] }, description: 'Filter by account status' },
           { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by firstName, lastName, email, or phone' },
         ],
@@ -5635,7 +5635,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               firstName: { type: 'string', example: 'John' },
               lastName: { type: 'string', example: 'Doe' },
               avatar: { type: 'string', format: 'uri', nullable: true },
-              role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'], example: 'CUSTOMER' },
+              role: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'], example: 'CUSTOMER' },
               // For `/auth/me` the server may also include an RBAC snapshot
               roles: { type: 'array', items: { $ref: '#/components/schemas/Role' } },
               roleNames: { type: 'array', items: { type: 'string' } },
@@ -6131,7 +6131,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           lastName: { type: 'string' },
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
-          role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] },
+          role: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'] },
           status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
           oauthProvider: { type: 'string', enum: ['LOCAL', 'GOOGLE', 'FACEBOOK', 'APPLE', 'ANONYMOUS'] },
           emailVerified: { type: 'boolean' },
@@ -6154,7 +6154,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           district: { type: 'string' },
           upazila: { type: 'string' },
           // Canonical shipping zone identifier. Required for order creation when providing inline shippingAddress.
+          // In responses, the zoneId is used to look up and attach the complete zone object (id, name, price).
           zoneId: { type: 'string' },
+          // Zone object enrichment (populated in responses only)
+          zone: { type: 'object', nullable: true, description: 'Enriched zone object in responses containing { id, name, price }', properties: { id: { type: 'string' }, name: { type: 'string' }, price: { type: 'number' } } },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
         },
