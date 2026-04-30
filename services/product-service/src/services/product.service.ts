@@ -1195,7 +1195,7 @@ class ProductService {
     ) as Promise<Product>;
   }
 
-  async getVendorProducts(vendorId: string, filter: IProductFilter): Promise<IPaginatedResult<Product>> {
+  async getVendorProducts(vendorId: string, filter: IProductFilter): Promise<IPaginatedResult<ProductListItem>> {
     return this.getProducts({ ...filter, vendorId });
   }
 
