@@ -9,6 +9,7 @@ import {
   addressesCacheKey,
 } from '../lib/redis.js';
 import config from '../config/index.js';
+import axios from 'axios';
 
 interface ProfileData {
   email?: string;
@@ -39,11 +40,47 @@ interface AddressData {
 
 class UserService {
   // Public profile methods (no auth required)
+  private async fetchAuthServiceUserData(userId: string): Promise<{ firstName?: string; lastName?: string; email?: string; avatar?: string; phone?: string } | null> {
+    try {
+      const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+      const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+
+      if (!serviceToken) {
+        return null;
+      }
+
+      const response = await axios.get(
+        `${authServiceUrl}/internal/users/${userId}`,
+        {
+          timeout: 5000,
+          headers: {
+            'Authorization': `Bearer ${serviceToken}`,
+            'X-Service-Call': 'true',
+          },
+        }
+      );
+
+      const user = response.data?.data || null;
+      if (user) {
+        return {
+          firstName: user.firstName || undefined,
+          lastName: user.lastName || undefined,
+          email: user.email || undefined,
+          avatar: user.avatar || undefined,
+          phone: user.phone || undefined,
+        };
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
   async getUserById(userId: string): Promise<UserProfile> {
     const cached = await cacheGet<UserProfile>(profileCacheKey(userId));
     if (cached) return cached;
 
-    const profile = await prisma.userProfile.findUnique({
+    let profile = await prisma.userProfile.findUnique({
       where: { userId },
       include: {
         addresses: {
@@ -56,13 +93,36 @@ class UserService {
       throw new NotFoundError('User profile not found');
     }
 
+    // If firstName or lastName are null, try to fetch from auth-service
+    if (!profile.firstName || !profile.lastName) {
+      const authData = await this.fetchAuthServiceUserData(userId);
+      if (authData && (authData.firstName || authData.lastName)) {
+        // Update the profile with data from auth-service
+        profile = await prisma.userProfile.update({
+          where: { userId },
+          data: {
+            firstName: authData.firstName || profile.firstName,
+            lastName: authData.lastName || profile.lastName,
+            email: authData.email || profile.email,
+            avatar: authData.avatar || profile.avatar,
+            phone: authData.phone || profile.phone,
+          },
+          include: {
+            addresses: {
+              orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        });
+      }
+    }
+
     await cacheSet(profileCacheKey(userId), profile, config.cache.profileTTL);
 
     return profile;
   }
 
   async getPublicProfile(userId: string): Promise<{ id: string; firstName?: string | null; lastName?: string | null; email?: string | null; avatar?: string | null }> {
-    const profile = await prisma.userProfile.findUnique({
+    let profile = await prisma.userProfile.findUnique({
       where: { userId },
       select: {
         userId: true,
@@ -75,6 +135,32 @@ class UserService {
 
     if (!profile) {
       throw new NotFoundError('User profile not found');
+    }
+
+    // If firstName or lastName are null, try to fetch from auth-service
+    if (!profile.firstName || !profile.lastName) {
+      const authData = await this.fetchAuthServiceUserData(userId);
+      if (authData && (authData.firstName || authData.lastName)) {
+        profile = {
+          userId: profile.userId,
+          firstName: authData.firstName || profile.firstName,
+          lastName: authData.lastName || profile.lastName,
+          email: authData.email || profile.email,
+          avatar: authData.avatar || profile.avatar,
+        };
+        // Update the profile in database so we don't need to fetch from auth-service next time
+        await prisma.userProfile.update({
+          where: { userId },
+          data: {
+            firstName: authData.firstName || undefined,
+            lastName: authData.lastName || undefined,
+            email: authData.email || undefined,
+            avatar: authData.avatar || undefined,
+          },
+        }).catch(() => {
+          // Ignore update errors - the profile is already loaded
+        });
+      }
     }
 
     return {
