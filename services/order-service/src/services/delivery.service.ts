@@ -242,7 +242,6 @@ class DeliveryService {
             paymentStatus: true,
             paymentMethod: true,
             shippingAddress: true,
-            billingAddress: true,
             items: {
               select: {
                 id: true,
