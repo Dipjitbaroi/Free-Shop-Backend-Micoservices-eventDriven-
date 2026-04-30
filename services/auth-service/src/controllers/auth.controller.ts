@@ -280,3 +280,23 @@ export const changePassword = asyncHandler(async (req: Request, res: Response) =
   });
   res.json(createApiResponse(result, 'Password changed successfully', req.requestId));
 });
+
+/**
+ * GET /auth/internal/users/:userId
+ * Get user data by ID (for service-to-service calls)
+ * @internal - Not exposed in public API docs
+ * Auth: SERVICE_AUTH_TOKEN only
+ */
+export const getUserById = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params as { userId: string };
+  logger.debug('getUserById → enter', { userId, requestId: req.requestId });
+
+  const user = await authService.getUserById(userId);
+
+  logger.debug('getUserById → success', {
+    requestId: req.requestId,
+    userId,
+  });
+
+  res.json(createApiResponse(user, 'User retrieved successfully', req.requestId));
+});

@@ -1,11 +1,22 @@
 import { Router } from 'express';
-import { validate, authenticate, authorizePermission } from '@freeshop/shared-middleware';
+import { validate, authenticate, authorizePermission, authenticateService } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES, DEFAULT_ROLES } from '@freeshop/shared-types';
 import * as authController from '../controllers/auth.controller.js';
 import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation, changePasswordValidation } from '../validators/auth.validators.js';
 import { query, param, body } from 'express-validator';
 
 const router: Router = Router();
+
+// ── Internal service-to-service routes ────────────────────────────────────────
+// These routes use SERVICE_AUTH_TOKEN for system-level communication
+// Only accessible by other microservices with the shared token
+
+/**
+ * GET /internal/users/:userId
+ * Get user data by ID (for service-to-service calls)
+ * @internal - Not exposed in public API docs
+ */
+router.get('/internal/users/:userId', authenticateService, authController.getUserById);
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 
