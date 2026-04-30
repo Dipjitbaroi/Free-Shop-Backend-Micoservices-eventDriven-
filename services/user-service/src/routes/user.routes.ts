@@ -16,7 +16,7 @@ const router: Router = Router();
 /**
  * Internal: Get user profile by ID (for service-to-service calls)
  * @internal - Not exposed in public API docs
- * Path: GET /users/internal/profile/:userId
+ * Path: GET /internal/profile/:userId
  * Auth: SERVICE_AUTH_TOKEN only
  */
 router.get('/internal/profile/:userId', authenticateService, userController.getUserById);
