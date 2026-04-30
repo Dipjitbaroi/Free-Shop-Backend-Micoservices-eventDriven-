@@ -24,9 +24,9 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/', healthRoutes);
-app.use('/', userRoutes);
 app.use('/sellers', sellerRoutes);
 app.use('/wishlist', wishlistRoutes);
+app.use('/', userRoutes);
 
 // Error handling
 app.use(notFoundHandler);
