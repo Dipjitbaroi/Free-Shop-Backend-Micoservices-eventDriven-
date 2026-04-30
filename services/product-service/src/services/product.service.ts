@@ -103,7 +103,7 @@ class ProductService {
 
       console.log(`🔄 Fetching user profile for ${userId} from internal API`);
       const response = await axios.get(
-        `${userServiceUrl}/users/internal/profile/${userId}`,
+        `${userServiceUrl}/internal/profile/${userId}`,
         { 
           timeout: 5000,
           headers: {

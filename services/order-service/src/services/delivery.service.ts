@@ -45,7 +45,7 @@ class DeliveryService {
       const timeout = setTimeout(() => controller.abort(), 5000);
 
       const response = await fetch(
-        `${userServiceUrl}/users/internal/profile/${deliveryManId}`,
+        `${userServiceUrl}/internal/profile/${deliveryManId}`,
         { 
           method: 'GET',
           headers: { 
