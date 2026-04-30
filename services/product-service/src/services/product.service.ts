@@ -86,10 +86,16 @@ class ProductService {
   private userProfileCache = new Map<string, UserProfile>();
 
   private async fetchUserProfile(userId: string): Promise<UserProfile | null> {
+    // Check cache, but skip if profile is incomplete (null firstName/lastName)
     if (this.userProfileCache.has(userId)) {
       const cached = this.userProfileCache.get(userId);
-      console.log(`📦 Cache HIT for user ${userId}`);
-      return cached || null;
+      if (cached && (cached.firstName || cached.lastName)) {
+        console.log(`📦 Cache HIT for user ${userId}`);
+        return cached;
+      }
+      // If cached profile is incomplete, skip it and refetch from server
+      console.log(`⚠ Cache STALE for user ${userId} (incomplete profile), refetching...`);
+      this.userProfileCache.delete(userId);
     }
 
     try {

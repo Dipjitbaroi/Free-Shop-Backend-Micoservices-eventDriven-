@@ -28,8 +28,13 @@ class DeliveryService {
   private deliveryManCache = new Map<string, DeliveryManProfile>();
 
   private async fetchDeliveryManProfile(deliveryManId: string): Promise<DeliveryManProfile | null> {
+    // Check cache, but skip if profile is incomplete (null firstName/lastName)
     if (this.deliveryManCache.has(deliveryManId)) {
-      return this.deliveryManCache.get(deliveryManId) || null;
+      const cached = this.deliveryManCache.get(deliveryManId);
+      if (cached && (cached.firstName || cached.lastName)) {
+        return cached; // Return only if profile has complete names
+      }
+      // If cached profile is incomplete, skip it and refetch from server
     }
 
     try {
