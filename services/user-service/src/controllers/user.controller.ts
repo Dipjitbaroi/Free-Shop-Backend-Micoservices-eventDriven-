@@ -1,13 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import { userService } from '../services/user.service.js';
-import { successResponse } from '@freeshop/shared-utils';
+import { successResponse, NotFoundError } from '@freeshop/shared-utils';
 
 export const userController = {
   async getUserById(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.params.userId as string;
-      const profile = await userService.getUserById(userId);
-      res.json(successResponse(profile, 'User profile retrieved successfully'));
+      try {
+        const profile = await userService.getUserById(userId);
+        res.json(successResponse(profile, 'User profile retrieved successfully'));
+      } catch (err: any) {
+        // If profile not found in user-service DB, attempt to create/upsert
+        // by using getProfile (which upserts). This helps internal callers
+        // that expect a profile even when it wasn't created earlier.
+        if (err instanceof NotFoundError || String(err?.message).includes('User profile not found')) {
+          const profile = await userService.getProfile(userId);
+          res.json(successResponse(profile, 'User profile retrieved successfully'));
+        } else {
+          throw err;
+        }
+      }
     } catch (error) {
       next(error);
     }
@@ -16,8 +28,19 @@ export const userController = {
   async getPublicProfile(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.params.userId as string;
-      const profile = await userService.getPublicProfile(userId);
-      res.json(successResponse(profile, 'Public profile retrieved successfully'));
+      try {
+        const profile = await userService.getPublicProfile(userId);
+        res.json(successResponse(profile, 'Public profile retrieved successfully'));
+      } catch (err: any) {
+        if (err instanceof NotFoundError || String(err?.message).includes('User profile not found')) {
+          // Attempt to create minimal profile (upsert) so we can enrich and return public fields
+          await userService.getProfile(userId).catch(() => null);
+          const profile = await userService.getPublicProfile(userId);
+          res.json(successResponse(profile, 'Public profile retrieved successfully'));
+        } else {
+          throw err;
+        }
+      }
     } catch (error) {
       next(error);
     }
