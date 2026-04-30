@@ -43,6 +43,19 @@ interface ProductActorContext {
   canUpdatePrice?: boolean;
 }
 
+type EnrichedUserRef = {
+  id: string | null | undefined;
+  name: string;
+  email?: string;
+  avatar?: string;
+} | null;
+
+type ProductListItem = Omit<Product, 'createdBy' | 'lastUpdatedBy'> & {
+  createdBy: EnrichedUserRef;
+  lastUpdatedBy: EnrichedUserRef;
+  freeItems: FreeItemRow[];
+};
+
 type FreeItemRow = {
   id: string;
   name: string;
@@ -819,7 +832,7 @@ class ProductService {
     return enrichedProduct as Product;
   }
 
-  async getProducts(filter: IProductFilter): Promise<IPaginatedResult<Product>> {
+  async getProducts(filter: IProductFilter): Promise<IPaginatedResult<ProductListItem>> {
     const page = filter.page || 1;
     const limit = Math.min(filter.limit || config.pagination.defaultLimit, config.pagination.maxLimit);
     const offset = calculateOffset(page, limit);
