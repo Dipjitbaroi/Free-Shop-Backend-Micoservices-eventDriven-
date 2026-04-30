@@ -74,16 +74,35 @@ class ProductService {
 
   private async fetchUserProfile(userId: string): Promise<UserProfile | null> {
     if (this.userProfileCache.has(userId)) {
-      return this.userProfileCache.get(userId) || null;
+      const cached = this.userProfileCache.get(userId);
+      console.log(`📦 Cache HIT for user ${userId}`);
+      return cached || null;
     }
 
     try {
+      const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3002';
+      const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+      
+      if (!serviceToken) {
+        console.warn(`⚠ SERVICE_AUTH_TOKEN not configured, cannot fetch user profile`);
+        return null;
+      }
+
+      console.log(`🔄 Fetching user profile for ${userId} from internal API`);
       const response = await axios.get(
-        `${process.env.USER_SERVICE_URL || 'http://user-service:3002'}/users/${userId}`,
-        { timeout: 5000 }
+        `${userServiceUrl}/users/internal/profile/${userId}`,
+        { 
+          timeout: 5000,
+          headers: {
+            'Authorization': `Bearer ${serviceToken}`,
+            'X-Service-Call': 'true',
+          }
+        }
       );
+      
       const profile = response.data?.data || null;
       if (profile) {
+        console.log(`✓ Received user profile: firstName=${profile.firstName}, lastName=${profile.lastName}`);
         // Ensure profile has required fields
         const validated: UserProfile = {
           id: profile.id || userId,
@@ -93,11 +112,13 @@ class ProductService {
           avatar: profile.avatar || undefined,
         };
         this.userProfileCache.set(userId, validated);
+        console.log(`✓ Cached user profile for ${userId}`);
         return validated;
       }
+      console.warn(`⚠ No profile data in response for user ${userId}`);
       return null;
     } catch (error) {
-      console.error(`Failed to fetch user profile for ${userId}:`, error);
+      console.error(`❌ Failed to fetch user profile for ${userId}:`, error);
       // Return minimal profile structure instead of null to avoid breaking UI
       return {
         id: userId,
@@ -110,32 +131,44 @@ class ProductService {
   }
 
   private async attachLastUpdatedBy<T extends { id: string }>(product: T): Promise<T & { lastUpdatedBy?: { id: string; name?: string; email?: string; avatar?: string } | null }> {
-    const rows = await prisma.$queryRaw<Array<{ lastUpdatedBy: string | null }>>`
-      SELECT "lastUpdatedBy"
-      FROM "products"
-      WHERE "id" = ${product.id}
-    `;
+    try {
+      const rows = await prisma.$queryRaw<Array<{ lastUpdatedBy: string | null }>>`
+        SELECT "lastUpdatedBy"
+        FROM "products"
+        WHERE "id" = ${product.id}
+      `;
 
-    const userId = rows[0]?.lastUpdatedBy;
-    if (!userId) {
+      const userId = rows[0]?.lastUpdatedBy;
+      let lastUpdatedByData = null;
+
+      if (userId) {
+        try {
+          const userProfile = await this.fetchUserProfile(userId);
+          if (userProfile && (userProfile.firstName || userProfile.lastName)) {
+            lastUpdatedByData = {
+              id: userId,
+              name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
+              email: userProfile.email || undefined,
+              avatar: userProfile.avatar,
+            };
+            console.log(`✓ Enriched lastUpdatedBy for product ${product.id}: ${lastUpdatedByData.name}`);
+          }
+        } catch (error) {
+          console.error(`Failed to fetch user profile for lastUpdatedBy ${userId}:`, error);
+        }
+      }
+
+      return {
+        ...product,
+        lastUpdatedBy: lastUpdatedByData,
+      };
+    } catch (error) {
+      console.error(`Error in attachLastUpdatedBy: ${error}`);
       return {
         ...product,
         lastUpdatedBy: null,
       };
     }
-
-    const userProfile = await this.fetchUserProfile(userId);
-    const lastUpdatedByData = userProfile ? {
-      id: userId,
-      name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
-      email: userProfile.email || undefined,
-      avatar: userProfile.avatar,
-    } : null;
-
-    return {
-      ...product,
-      lastUpdatedBy: lastUpdatedByData,
-    };
   }
 
   private async attachLastUpdatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { lastUpdatedBy?: { id: string; name?: string; email?: string; avatar?: string } | null }>> {
@@ -188,32 +221,44 @@ class ProductService {
   }
 
   private async attachCreatedBy<T extends { id: string }>(product: T): Promise<T & { createdBy?: { id: string; name?: string; email?: string; avatar?: string } | null }> {
-    const rows = await prisma.$queryRaw<Array<{ createdBy: string | null }>>`
-      SELECT "createdBy"
-      FROM "products"
-      WHERE "id" = ${product.id}
-    `;
+    try {
+      const rows = await prisma.$queryRaw<Array<{ createdBy: string | null }>>`
+        SELECT "createdBy"
+        FROM "products"
+        WHERE "id" = ${product.id}
+      `;
 
-    const userId = rows[0]?.createdBy;
-    if (!userId) {
+      const userId = rows[0]?.createdBy;
+      let createdByData = null;
+
+      if (userId) {
+        try {
+          const userProfile = await this.fetchUserProfile(userId);
+          if (userProfile && (userProfile.firstName || userProfile.lastName)) {
+            createdByData = {
+              id: userId,
+              name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
+              email: userProfile.email || undefined,
+              avatar: userProfile.avatar,
+            };
+            console.log(`✓ Enriched createdBy for product ${product.id}: ${createdByData.name}`);
+          }
+        } catch (error) {
+          console.error(`Failed to fetch user profile for createdBy ${userId}:`, error);
+        }
+      }
+
+      return {
+        ...product,
+        createdBy: createdByData,
+      };
+    } catch (error) {
+      console.error(`Error in attachCreatedBy: ${error}`);
       return {
         ...product,
         createdBy: null,
       };
     }
-
-    const userProfile = await this.fetchUserProfile(userId);
-    const createdByData = userProfile ? {
-      id: userId,
-      name: userProfile.firstName && userProfile.lastName ? `${userProfile.firstName} ${userProfile.lastName}` : (userProfile.firstName || userProfile.lastName || ''),
-      email: userProfile.email || undefined,
-      avatar: userProfile.avatar,
-    } : null;
-
-    return {
-      ...product,
-      createdBy: createdByData,
-    };
   }
 
   private async attachCreatedByMany<T extends { id: string }>(products: T[]): Promise<Array<T & { createdBy?: { id: string; name?: string; email?: string; avatar?: string } | null }>> {
@@ -612,8 +657,12 @@ class ProductService {
   async getProductById(id: string): Promise<Product> {
     // Try cache first
     const cached = await cacheGet<Product>(productCacheKey(id));
-    if (cached) return cached;
+    if (cached) {
+      console.log(`📦 Product cache HIT for ${id}`);
+      return cached;
+    }
 
+    console.log(`🔍 Fetching product ${id} from database`);
     const product = await prisma.product.findUnique({
       where: { id },
       include: {
@@ -630,11 +679,59 @@ class ProductService {
       throw new NotFoundError('Product not found');
     }
 
-    const enrichedProduct = await this.hydrateProduct(
-      await this.attachCreatedBy(
-        await this.attachLastUpdatedBy(product)
-      )
-    );
+    // Get createdBy and lastUpdatedBy from database
+    const [createdByRow, lastUpdatedByRow] = await Promise.all([
+      prisma.$queryRaw<Array<{ createdBy: string | null }>>`
+        SELECT "createdBy" FROM "products" WHERE "id" = ${product.id}
+      `,
+      prisma.$queryRaw<Array<{ lastUpdatedBy: string | null }>>`
+        SELECT "lastUpdatedBy" FROM "products" WHERE "id" = ${product.id}
+      `,
+    ]);
+
+    const createdById = createdByRow[0]?.createdBy;
+    const lastUpdatedById = lastUpdatedByRow[0]?.lastUpdatedBy;
+
+    // Fetch user profiles in parallel
+    const [createdByProfile, lastUpdatedByProfile] = await Promise.all([
+      createdById ? this.fetchUserProfile(createdById) : Promise.resolve(null),
+      lastUpdatedById ? this.fetchUserProfile(lastUpdatedById) : Promise.resolve(null),
+    ]);
+
+    // Build enriched user data
+    const createdByData = createdByProfile && (createdByProfile.firstName || createdByProfile.lastName) ? {
+      id: createdById,
+      name: createdByProfile.firstName && createdByProfile.lastName ? 
+        `${createdByProfile.firstName} ${createdByProfile.lastName}` : 
+        (createdByProfile.firstName || createdByProfile.lastName || ''),
+      email: createdByProfile.email || undefined,
+      avatar: createdByProfile.avatar,
+    } : null;
+
+    const lastUpdatedByData = lastUpdatedByProfile && (lastUpdatedByProfile.firstName || lastUpdatedByProfile.lastName) ? {
+      id: lastUpdatedById,
+      name: lastUpdatedByProfile.firstName && lastUpdatedByProfile.lastName ? 
+        `${lastUpdatedByProfile.firstName} ${lastUpdatedByProfile.lastName}` : 
+        (lastUpdatedByProfile.firstName || lastUpdatedByProfile.lastName || ''),
+      email: lastUpdatedByProfile.email || undefined,
+      avatar: lastUpdatedByProfile.avatar,
+    } : null;
+
+    console.log(`✓ Enriched product ${id} - createdBy:`, JSON.stringify(createdByData));
+    console.log(`✓ Enriched product ${id} - lastUpdatedBy:`, JSON.stringify(lastUpdatedByData));
+
+    // Get free items
+    const freeItems = await this.loadFreeItemsForProduct(id);
+
+    // Build final response object explicitly to avoid Prisma circular references
+    const enrichedProduct = {
+      ...product,
+      createdBy: createdByData,
+      lastUpdatedBy: lastUpdatedByData,
+      freeItems,
+    };
+
+    console.log(`✓ Final enrichedProduct - createdBy:`, JSON.stringify(enrichedProduct.createdBy));
 
     // Cache the result
     await cacheSet(productCacheKey(id), enrichedProduct, config.cache.productTTL);
@@ -668,11 +765,54 @@ class ProductService {
       data: { viewCount: { increment: 1 } },
     });
 
-    const enrichedProduct = await this.hydrateProduct(
-      await this.attachCreatedBy(
-        await this.attachLastUpdatedBy(product)
-      )
-    );
+    // Get createdBy and lastUpdatedBy from database
+    const [createdByRow, lastUpdatedByRow] = await Promise.all([
+      prisma.$queryRaw<Array<{ createdBy: string | null }>>`
+        SELECT "createdBy" FROM "products" WHERE "id" = ${product.id}
+      `,
+      prisma.$queryRaw<Array<{ lastUpdatedBy: string | null }>>`
+        SELECT "lastUpdatedBy" FROM "products" WHERE "id" = ${product.id}
+      `,
+    ]);
+
+    const createdById = createdByRow[0]?.createdBy;
+    const lastUpdatedById = lastUpdatedByRow[0]?.lastUpdatedBy;
+
+    // Fetch user profiles in parallel
+    const [createdByProfile, lastUpdatedByProfile] = await Promise.all([
+      createdById ? this.fetchUserProfile(createdById) : Promise.resolve(null),
+      lastUpdatedById ? this.fetchUserProfile(lastUpdatedById) : Promise.resolve(null),
+    ]);
+
+    // Build enriched user data
+    const createdByData = createdByProfile && (createdByProfile.firstName || createdByProfile.lastName) ? {
+      id: createdById,
+      name: createdByProfile.firstName && createdByProfile.lastName ? 
+        `${createdByProfile.firstName} ${createdByProfile.lastName}` : 
+        (createdByProfile.firstName || createdByProfile.lastName || ''),
+      email: createdByProfile.email || undefined,
+      avatar: createdByProfile.avatar,
+    } : null;
+
+    const lastUpdatedByData = lastUpdatedByProfile && (lastUpdatedByProfile.firstName || lastUpdatedByProfile.lastName) ? {
+      id: lastUpdatedById,
+      name: lastUpdatedByProfile.firstName && lastUpdatedByProfile.lastName ? 
+        `${lastUpdatedByProfile.firstName} ${lastUpdatedByProfile.lastName}` : 
+        (lastUpdatedByProfile.firstName || lastUpdatedByProfile.lastName || ''),
+      email: lastUpdatedByProfile.email || undefined,
+      avatar: lastUpdatedByProfile.avatar,
+    } : null;
+
+    // Get free items
+    const freeItems = await this.loadFreeItemsForProduct(product.id);
+
+    // Build final response object explicitly
+    const enrichedProduct = {
+      ...product,
+      createdBy: createdByData,
+      lastUpdatedBy: lastUpdatedByData,
+      freeItems,
+    };
 
     await cacheSet(productSlugCacheKey(slug), enrichedProduct, config.cache.productTTL);
 
@@ -749,11 +889,74 @@ class ProductService {
       prisma.product.count({ where }),
     ]);
 
-    const enrichedProducts = await this.hydrateProducts(
-      await this.attachCreatedByMany(
-        await this.attachLastUpdatedByMany(products)
-      )
+    // Get all createdBy and lastUpdatedBy IDs
+    const productIds = products.map(p => p.id);
+    const [createdByRows, lastUpdatedByRows] = await Promise.all([
+      prisma.$queryRaw<Array<{ id: string; createdBy: string | null }>>`
+        SELECT "id", "createdBy" FROM "products" WHERE "id" IN (${Prisma.join(productIds)})
+      `,
+      prisma.$queryRaw<Array<{ id: string; lastUpdatedBy: string | null }>>`
+        SELECT "id", "lastUpdatedBy" FROM "products" WHERE "id" IN (${Prisma.join(productIds)})
+      `,
+    ]);
+
+    // Build maps for quick lookup
+    const createdByMap = new Map(createdByRows.map(r => [r.id, r.createdBy]));
+    const lastUpdatedByMap = new Map(lastUpdatedByRows.map(r => [r.id, r.lastUpdatedBy]));
+
+    // Collect all unique user IDs to fetch profiles
+    const userIds = Array.from(new Set([
+      ...Array.from(createdByMap.values()).filter(Boolean),
+      ...Array.from(lastUpdatedByMap.values()).filter(Boolean),
+    ]));
+
+    // Fetch all user profiles in parallel
+    const userProfiles = new Map<string, UserProfile>();
+    await Promise.all(
+      userIds.map(async (userId) => {
+        const profile = await this.fetchUserProfile(userId!);
+        if (profile) {
+          userProfiles.set(userId!, profile);
+        }
+      })
     );
+
+    // Get free items for all products
+    const freeItemsMap = await this.loadFreeItemsForProducts(productIds);
+
+    // Build enriched products
+    const enrichedProducts = products.map(product => {
+      const createdById = createdByMap.get(product.id);
+      const lastUpdatedById = lastUpdatedByMap.get(product.id);
+
+      const createdByProfile = createdById ? userProfiles.get(createdById) : null;
+      const lastUpdatedByProfile = lastUpdatedById ? userProfiles.get(lastUpdatedById) : null;
+
+      const createdByData = createdByProfile && (createdByProfile.firstName || createdByProfile.lastName) ? {
+        id: createdById,
+        name: createdByProfile.firstName && createdByProfile.lastName ? 
+          `${createdByProfile.firstName} ${createdByProfile.lastName}` : 
+          (createdByProfile.firstName || createdByProfile.lastName || ''),
+        email: createdByProfile.email || undefined,
+        avatar: createdByProfile.avatar,
+      } : null;
+
+      const lastUpdatedByData = lastUpdatedByProfile && (lastUpdatedByProfile.firstName || lastUpdatedByProfile.lastName) ? {
+        id: lastUpdatedById,
+        name: lastUpdatedByProfile.firstName && lastUpdatedByProfile.lastName ? 
+          `${lastUpdatedByProfile.firstName} ${lastUpdatedByProfile.lastName}` : 
+          (lastUpdatedByProfile.firstName || lastUpdatedByProfile.lastName || ''),
+        email: lastUpdatedByProfile.email || undefined,
+        avatar: lastUpdatedByProfile.avatar,
+      } : null;
+
+      return {
+        ...product,
+        createdBy: createdByData,
+        lastUpdatedBy: lastUpdatedByData,
+        freeItems: freeItemsMap.get(product.id) || [],
+      };
+    });
 
     return createPaginatedResponse(enrichedProducts, totalItems, { page, limit });
   }

@@ -218,6 +218,77 @@ export const orderController = {
     }
   },
 
+  async createCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const coupon = await orderService.createCoupon(req.body);
+      res.status(201).json(successResponse(coupon, 'Coupon created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      const coupon = await orderService.updateCoupon(id, req.body);
+      res.json(successResponse(coupon, 'Coupon updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async deleteCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      await orderService.deleteCoupon(id);
+      res.json(successResponse(null, 'Coupon deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      const coupon = await orderService.getCoupon(id);
+      if (!coupon) {
+        return res.status(404).json({ error: 'Coupon not found' });
+      }
+      res.json(successResponse(coupon, 'Coupon retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async listCoupons(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { isActive, type, search, page, limit } = req.query;
+      const filter = {
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+        type: type as string,
+        search: search as string,
+      };
+      const result = await orderService.listCoupons(
+        filter,
+        page ? parseInt(page as string) : 1,
+        limit ? parseInt(limit as string) : 20
+      );
+      res.json(successResponse(result, 'Coupons retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getCouponUsageStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      const stats = await orderService.getCouponUsageStats(id);
+      res.json(successResponse(stats, 'Coupon usage stats retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getVendorOrders(req: Request, res: Response, next: NextFunction) {
     try {
       const vendorId = (req.params.vendorId as string) || (req.user?.id as string);
