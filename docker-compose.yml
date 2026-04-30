@@ -82,6 +82,7 @@ services:
       - NOTIFICATION_SERVICE_URL=http://notification-service:3008
       - ANALYTICS_SERVICE_URL=http://analytics-service:3009
       - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
       - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:3000/api/v1}
     ports:
       - "3000:3000"
@@ -114,6 +115,7 @@ services:
       - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
       - ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,6 +141,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -167,6 +170,7 @@ services:
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - PRODUCT_UPLOAD_MAX_IMAGES=${PRODUCT_UPLOAD_MAX_IMAGES}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -193,6 +197,7 @@ services:
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET}
       - PRODUCT_SERVICE_URL=http://product-service:3003
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -226,6 +231,7 @@ services:
       - BKASH_PASSWORD=${BKASH_PASSWORD}
       - BKASH_BASE_URL=${BKASH_BASE_URL}
       - CALLBACK_BASE_URL=${CALLBACK_BASE_URL:-http://localhost:3005}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -251,6 +257,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
