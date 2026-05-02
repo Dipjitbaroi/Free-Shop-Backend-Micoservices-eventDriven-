@@ -25,12 +25,13 @@ export async function setupEventSubscribers(): Promise<void> {
       }
       
       // Update order payment status
+      const shouldMoveToConfirmed = order?.status === OrderStatus.PENDING;
       await prisma.order.update({
         where: { id: event.orderId },
         data: { 
           paymentStatus: PaymentStatus.PAID,
           paidAt: new Date(),
-          status: OrderStatus.CONFIRMED,
+          ...(shouldMoveToConfirmed && { status: OrderStatus.CONFIRMED }),
         },
       }).catch((err: any) => {
         logger.error('Failed to update order payment status', { 
