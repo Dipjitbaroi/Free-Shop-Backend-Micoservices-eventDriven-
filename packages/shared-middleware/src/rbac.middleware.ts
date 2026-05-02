@@ -331,6 +331,7 @@ function generatePermissionCode(resource: PermissionResource, action: Permission
     [PermissionResource.REPORT]: 90,
     [PermissionResource.SETTINGS]: 100,
     [PermissionResource.ADMIN_PANEL]: 110,
+    [PermissionResource.COUPON]: 130,
   };
 
   const actionMap: Record<PermissionAction, number> = {

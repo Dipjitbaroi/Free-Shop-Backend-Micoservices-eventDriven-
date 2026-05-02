@@ -47,36 +47,32 @@ export const initializeRBAC = async (req: Request, res: Response) => {
       });
     }
 
-    // Count existing roles before initialization
+    // Keep previous counts for status and observability
     const existingRolesCount = await (req as any).prisma?.role?.count?.() || 0;
-    
-    if (existingRolesCount > 0) {
-      // Already initialized - return status
-      const rolesCount = await (req as any).prisma?.role?.count?.() || 0;
-      const permissionsCount = await (req as any).prisma?.permission?.count?.() || 0;
-      
-      return res.status(200).json(
-        successResponse(
-          {
-            rolesCount,
-            permissionsCount,
-            timestamp: new Date().toISOString(),
-            status: 'already_initialized',
-          },
-          'RBAC system is already initialized'
-        )
-      );
-    }
-    
-    // Initialize RBAC
+    const existingPermissionsCount = await (req as any).prisma?.permission?.count?.() || 0;
+
+    // Initialize/Reconcile RBAC (idempotent)
     await RBACService.initializeDefaultRoles();
+
+    const rolesCount = await (req as any).prisma?.role?.count?.() || 0;
+    const permissionsCount = await (req as any).prisma?.permission?.count?.() || 0;
+    const status = existingRolesCount > 0 ? 'reconciled' : 'initialized';
     
     const duration = Date.now() - startTime;
     
     return res.status(200).json(
       successResponse(
-        { timestamp: new Date().toISOString(), durationMs: duration, status: 'initialized' },
-        'RBAC system initialized successfully'
+        {
+          rolesCount,
+          permissionsCount,
+          previousPermissionsCount: existingPermissionsCount,
+          timestamp: new Date().toISOString(),
+          durationMs: duration,
+          status,
+        },
+        status === 'initialized'
+          ? 'RBAC system initialized successfully'
+          : 'RBAC system reconciled successfully'
       )
     );
   } catch (error: any) {
