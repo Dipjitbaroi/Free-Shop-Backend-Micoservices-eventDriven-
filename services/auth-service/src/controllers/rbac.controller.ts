@@ -5,6 +5,7 @@
 
 import { Request, Response } from 'express';
 import RBACService from '../services/rbac.service.js';
+import { prisma } from '../lib/prisma.js';
 import {
   ICreateRoleRequest,
   ICreatePermissionRequest,
@@ -48,14 +49,14 @@ export const initializeRBAC = async (req: Request, res: Response) => {
     }
 
     // Keep previous counts for status and observability
-    const existingRolesCount = await (req as any).prisma?.role?.count?.() || 0;
-    const existingPermissionsCount = await (req as any).prisma?.permission?.count?.() || 0;
+    const existingRolesCount = await prisma.role.count();
+    const existingPermissionsCount = await prisma.permission.count();
 
     // Initialize/Reconcile RBAC (idempotent)
     await RBACService.initializeDefaultRoles();
 
-    const rolesCount = await (req as any).prisma?.role?.count?.() || 0;
-    const permissionsCount = await (req as any).prisma?.permission?.count?.() || 0;
+    const rolesCount = await prisma.role.count();
+    const permissionsCount = await prisma.permission.count();
     const status = existingRolesCount > 0 ? 'reconciled' : 'initialized';
     
     const duration = Date.now() - startTime;
