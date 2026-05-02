@@ -230,9 +230,23 @@ class DeliveryService {
     return delivery;
   }
 
-  async getDeliveryByOrderId(orderId: string): Promise<any> {
-    const delivery = await prisma.deliveryInfo.findUnique({
-      where: { orderId },
+  async getDeliveryByOrderId(orderId: string, search?: string): Promise<any> {
+    // Build where clause — allow optional `search` to match order number, tracking id, or delivery id
+    const where: any = { orderId };
+    if (search) {
+      where.AND = [
+        {
+          OR: [
+            { externalTrackingId: { contains: search, mode: 'insensitive' } },
+            { id: { contains: search, mode: 'insensitive' } },
+            { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
+          ],
+        },
+      ];
+    }
+
+    const delivery = await prisma.deliveryInfo.findFirst({
+      where,
       include: {
         order: {
           select: {

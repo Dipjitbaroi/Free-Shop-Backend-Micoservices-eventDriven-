@@ -72,6 +72,7 @@ router.get(
   '/orders/:orderId/delivery',
   authenticate,
   param('orderId').isUUID().withMessage('Invalid order ID'),
+  query('search').optional().isString(),
   validate,
   deliveryController.getDeliveryByOrder
 );
