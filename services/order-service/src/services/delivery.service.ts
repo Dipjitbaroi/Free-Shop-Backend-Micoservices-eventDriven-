@@ -2,7 +2,8 @@ import { DeliveryInfo } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { DeliveryProvider, DeliveryStatus } from '@freeshop/shared-types';
-import { OrderStatus } from '../../generated/client/client.js';
+import { OrderStatus, PaymentMethod, PaymentStatus } from '../../generated/client/client.js';
+import { completeCODPayment } from '../lib/payment-client.js';
 
 interface DeliveryManProfile {
   id: string;
@@ -26,6 +27,54 @@ interface IDeliveryInfoData {
 
 class DeliveryService {
   private deliveryManCache = new Map<string, DeliveryManProfile>();
+
+  private async completeCODPaymentOnDelivery(orderId: string): Promise<void> {
+    try {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: {
+          id: true,
+          total: true,
+          paymentMethod: true,
+          paymentStatus: true,
+        },
+      });
+
+      if (!order) {
+        console.warn(`Order not found while completing COD payment for delivery: ${orderId}`);
+        return;
+      }
+
+      if (order.paymentMethod !== PaymentMethod.COD) {
+        return;
+      }
+
+      if (order.paymentStatus === PaymentStatus.PAID) {
+        return;
+      }
+
+      const paymentResult = await completeCODPayment(order.id, Number(order.total));
+
+      if (!paymentResult.success) {
+        console.error(
+          `Failed to complete COD payment for delivered order ${order.id}: ${paymentResult.error || 'Unknown error'}`
+        );
+        return;
+      }
+
+      await prisma.order.update({
+        where: { id: order.id },
+        data: {
+          paymentStatus: PaymentStatus.PAID,
+          paidAt: new Date(),
+        },
+      });
+
+      console.log(`✓ COD payment marked as PAID for delivered order ${order.id}`);
+    } catch (error) {
+      console.error(`Failed COD payment sync for delivered order ${orderId}:`, error);
+    }
+  }
 
   private async fetchDeliveryManProfile(deliveryManId: string): Promise<DeliveryManProfile | null> {
     // Check cache, but skip if profile is incomplete (null firstName/lastName)
@@ -365,6 +414,11 @@ class DeliveryService {
 
     // Sync order status to maintain consistency
     await this.syncDeliveryOrderStatus(deliveryId, status);
+
+    // For COD orders, mark payment as paid when delivery is completed.
+    if (status === 'DELIVERED') {
+      await this.completeCODPaymentOnDelivery(updated.orderId);
+    }
 
     return updated;
   }
