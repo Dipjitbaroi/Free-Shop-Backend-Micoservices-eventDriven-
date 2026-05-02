@@ -148,4 +148,20 @@ export const paymentController = {
       next(error);
     }
   },
+
+  async completeCODPaymentForDelivery(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { orderId, amount, transactionId } = req.body;
+      
+      const payment = await paymentService.completeCODPaymentForDelivery(
+        orderId as string,
+        amount as number,
+        transactionId as string | undefined
+      );
+      
+      res.json(successResponse({ payment }, 'COD payment completed'));
+    } catch (error) {
+      next(error);
+    }
+  },
 };

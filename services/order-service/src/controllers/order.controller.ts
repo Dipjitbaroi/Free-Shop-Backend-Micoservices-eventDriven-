@@ -91,6 +91,7 @@ export const orderController = {
         shippingAddress,
         items: resolvedItems,
         userId,
+        couponCode: req.body.couponCode ?? req.body.discountCode,
       });
 
       // Clear cart after successful order
