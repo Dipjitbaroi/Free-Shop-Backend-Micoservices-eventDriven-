@@ -46,6 +46,7 @@ enum PermissionResource {
   REPORT
   SETTINGS
   ADMIN_PANEL
+  COUPON
 }
 
 model User {
