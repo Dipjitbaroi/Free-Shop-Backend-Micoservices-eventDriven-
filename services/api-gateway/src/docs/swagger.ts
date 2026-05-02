@@ -849,10 +849,14 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['RBAC'],
         summary: 'Get all permissions (PERMISSION_READ required)',
+        description: 'Retrieve paginated list of all permissions with optional filtering by search term, resource, or action. Search is case-insensitive and matches against resource, action, and description fields.',
         security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
+          { $ref: '#/components/parameters/search' },
+          { $ref: '#/components/parameters/resource' },
+          { $ref: '#/components/parameters/action' },
         ],
         responses: {
           200: {
@@ -6297,6 +6301,27 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         in: 'query',
         description: 'Items per page',
         schema: { type: 'integer', default: 20, minimum: 1, maximum: 100 },
+      },
+      search: {
+        name: 'search',
+        in: 'query',
+        description: 'Search term to filter permissions (case-insensitive). Searches across resource, action, and description fields.',
+        required: false,
+        schema: { type: 'string', example: 'COUPON' },
+      },
+      resource: {
+        name: 'resource',
+        in: 'query',
+        description: 'Filter permissions by specific resource (e.g., COUPON, USER, PRODUCT, ORDER)',
+        required: false,
+        schema: { type: 'string', example: 'COUPON' },
+      },
+      action: {
+        name: 'action',
+        in: 'query',
+        description: 'Filter permissions by specific action (e.g., CREATE, READ, UPDATE, DELETE)',
+        required: false,
+        schema: { type: 'string', example: 'CREATE' },
       },
     },
 

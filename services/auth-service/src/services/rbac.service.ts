@@ -477,17 +477,47 @@ export class RBACService {
   }
 
   /**
-   * Get all permissions
+   * Get all permissions with optional search filters
+   * @param page - Page number (default: 1)
+   * @param limit - Items per page (default: 50)
+   * @param filters - Optional search filters: search (searchs description/resource/action), resource, action
    */
-  static async getAllPermissions(page = 1, limit = 50): Promise<{ permissions: IPermission[]; total: number }> {
+  static async getAllPermissions(
+    page = 1,
+    limit = 50,
+    filters?: { search?: string; resource?: string; action?: string }
+  ): Promise<{ permissions: IPermission[]; total: number }> {
     try {
+      const where: Record<string, any> = {};
+
+      // Build search filter - search across resource, action, and description
+      if (filters?.search) {
+        const searchTerm = filters.search.toUpperCase();
+        where.OR = [
+          { resource: { contains: searchTerm, mode: 'insensitive' } },
+          { action: { contains: searchTerm, mode: 'insensitive' } },
+          { description: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+
+      // Filter by specific resource if provided
+      if (filters?.resource) {
+        where.resource = filters.resource.toUpperCase();
+      }
+
+      // Filter by specific action if provided
+      if (filters?.action) {
+        where.action = filters.action.toUpperCase();
+      }
+
       const permissions = await prisma.permission.findMany({
+        where,
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { permissionCode: 'asc' },
       });
 
-      const total = await prisma.permission.count();
+      const total = await prisma.permission.count({ where });
 
       return { permissions: permissions as any, total };
     } catch (error) {

@@ -251,16 +251,24 @@ export const removePermissionFromRole = async (req: Request, res: Response) => {
 
 /**
  * Get all permissions
- * GET /rbac/permissions?page=1&limit=50
+ * GET /rbac/permissions?page=1&limit=50&search=COUPON&resource=COUPON&action=CREATE
  */
 export const getPermissions = async (req: Request, res: Response) => {
   try {
     const pageStr = String(Array.isArray(req.query.page) ? req.query.page[0] : req.query.page);
     const limitStr = String(Array.isArray(req.query.limit) ? req.query.limit[0] : req.query.limit);
+    const searchStr = String(Array.isArray(req.query.search) ? req.query.search[0] : req.query.search || '');
+    const resourceStr = String(Array.isArray(req.query.resource) ? req.query.resource[0] : req.query.resource || '');
+    const actionStr = String(Array.isArray(req.query.action) ? req.query.action[0] : req.query.action || '');
+    
     const page = parseInt(pageStr) || 1;
     const limit = parseInt(limitStr) || 50;
 
-    const { permissions, total } = await RBACService.getAllPermissions(page, limit);
+    const { permissions, total } = await RBACService.getAllPermissions(page, limit, {
+      search: searchStr || undefined,
+      resource: resourceStr || undefined,
+      action: actionStr || undefined,
+    });
 
     return res.status(200).json(
       successResponse(
