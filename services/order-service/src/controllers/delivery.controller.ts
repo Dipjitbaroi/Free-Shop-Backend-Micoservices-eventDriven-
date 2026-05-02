@@ -37,7 +37,10 @@ export const deliveryController = {
     try {
       const orderId = Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId;
 
-      const delivery = await deliveryService.getDeliveryByOrderId(orderId);
+      const searchRaw = Array.isArray(req.query.search) ? req.query.search[0] : req.query.search;
+      const search = typeof searchRaw === 'string' ? searchRaw : undefined;
+
+      const delivery = await deliveryService.getDeliveryByOrderId(orderId, search);
 
       if (!delivery) {
         throw new NotFoundError('Delivery not found for this order');
