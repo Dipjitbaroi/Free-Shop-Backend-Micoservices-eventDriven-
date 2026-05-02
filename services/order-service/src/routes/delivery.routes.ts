@@ -41,6 +41,15 @@ const paginationValidation = [
   query('status').optional().isString(),
 ];
 
+const deliveryManFiltersValidation = [
+  query('page').optional().isInt({ min: 1 }),
+  query('limit').optional().isInt({ min: 1, max: 100 }),
+  query('status').optional().isString(),
+  query('fromDate').optional().isISO8601().withMessage('Invalid fromDate format. Use ISO 8601'),
+  query('toDate').optional().isISO8601().withMessage('Invalid toDate format. Use ISO 8601'),
+  query('search').optional().isString().trim(),
+];
+
 // ── Order-specific delivery routes ──────────────────────────────────────────
 
 /**
@@ -125,11 +134,18 @@ router.post(
 /**
  * Get deliveries for a delivery man
  * GET /deliveries/delivery-man/:deliveryManId
+ * Query Parameters:
+ *   - page: number (default: 1)
+ *   - limit: number (default: 20, max: 100)
+ *   - status: string (PENDING, ASSIGNED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED, RETURNED)
+ *   - fromDate: ISO8601 date string (optional)
+ *   - toDate: ISO8601 date string (optional)
+ *   - search: string to search in order number (optional)
  */
 router.get(
   '/deliveries/delivery-man/:deliveryManId',
   authenticate,
-  paginationValidation,
+  deliveryManFiltersValidation,
   validate,
   deliveryController.getDeliveriesForDeliveryMan
 );

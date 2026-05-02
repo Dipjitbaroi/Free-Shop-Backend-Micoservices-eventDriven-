@@ -107,12 +107,19 @@ export const deliveryController = {
       const limit = parseInt(limitStr) || 20;
       const statusRaw = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
       const status = typeof statusRaw === 'string' ? statusRaw : undefined;
+      const fromDateRaw = Array.isArray(req.query.fromDate) ? req.query.fromDate[0] : req.query.fromDate;
+      const toDateRaw = Array.isArray(req.query.toDate) ? req.query.toDate[0] : req.query.toDate;
+      const searchRaw = Array.isArray(req.query.search) ? req.query.search[0] : req.query.search;
+      const search = typeof searchRaw === 'string' ? searchRaw : undefined;
+
+      const fromDate = fromDateRaw ? new Date(fromDateRaw as string) : undefined;
+      const toDate = toDateRaw ? new Date(toDateRaw as string) : undefined;
 
       const { deliveries, total } = await deliveryService.getDeliveriesByDeliveryMan(
         deliveryManId,
         page,
         limit,
-        { status }
+        { status, fromDate, toDate, search }
       );
 
       res.json(
