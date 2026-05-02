@@ -46,7 +46,7 @@ router.get(
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
     query('role').optional().isIn(Object.values(DEFAULT_ROLES)),
-    query('status').optional().isIn(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']),
+    query('status').optional().isIn(['ACTIVE', 'SUSPENDED']),
     query('search').optional().isString().trim(),
   ],
   validate,
@@ -64,7 +64,7 @@ router.patch(
     body('lastName').optional().isString().trim().notEmpty().withMessage('lastName must be a non-empty string'),
     body('phone').optional().isString().trim().withMessage('phone must be a string'),
     body('avatar').optional().isString().trim().isURL().withMessage('avatar must be a valid URL'),
-    body('status').optional().isIn(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']).withMessage('Invalid status'),
+    body('status').optional().isIn(['ACTIVE', 'SUSPENDED']).withMessage('Invalid status'),
   ],
   validate,
   authController.updateUser

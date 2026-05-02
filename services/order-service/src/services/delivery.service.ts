@@ -393,27 +393,11 @@ class DeliveryService {
     deliveryManId: string,
     page = 1,
     limit = 20,
-    filters?: { status?: string; fromDate?: Date; toDate?: Date; search?: string }
+    filters?: { status?: string }
   ): Promise<{ deliveries: any[]; total: number }> {
     const where: any = {
       deliveryManId,
       ...(filters?.status && { status: filters.status }),
-      ...(filters?.fromDate || filters?.toDate) && {
-        createdAt: {
-          ...(filters?.fromDate && { gte: filters.fromDate }),
-          ...(filters?.toDate && { lte: filters.toDate }),
-        },
-      },
-      ...(filters?.search && {
-        order: {
-          is: {
-            orderNumber: {
-              contains: filters.search,
-              mode: 'insensitive',
-            },
-          },
-        },
-      }),
     };
 
     const deliveries = await prisma.deliveryInfo.findMany({

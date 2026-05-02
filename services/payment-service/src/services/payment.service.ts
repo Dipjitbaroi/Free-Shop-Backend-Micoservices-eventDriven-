@@ -488,6 +488,47 @@ class PaymentService {
       collectedAt: new Date().toISOString(),
     });
   }
+
+  // Auto-complete COD payment when delivery is marked as delivered
+  async completeCODPaymentForDelivery(
+    orderId: string,
+    amount: number,
+    transactionId?: string
+  ): Promise<Payment> {
+    // Find or create payment for this order
+    let payment = await prisma.payment.findFirst({
+      where: { orderId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!payment) {
+      // Create payment if it doesn't exist
+      payment = await prisma.payment.create({
+        data: {
+          orderId,
+          amount,
+          method: PaymentMethod.COD,
+          status: PaymentStatus.PENDING,
+        },
+      });
+    }
+
+    if (payment.method !== PaymentMethod.COD) {
+      throw new BadRequestError('Order payment method is not COD');
+    }
+
+    if (payment.status === PaymentStatus.COMPLETED) {
+      return payment; // Already completed, just return it
+    }
+
+    const txId = transactionId || `COD_${orderId}_${Date.now()}`;
+
+    return this.completePayment(payment.id, txId, {
+      autoCompleted: true,
+      autoCompletedAt: new Date().toISOString(),
+      deliveryCompleted: true,
+    });
+  }
 }
 
 export const paymentService = new PaymentService();

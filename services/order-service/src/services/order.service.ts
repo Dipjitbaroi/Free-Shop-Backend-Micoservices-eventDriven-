@@ -405,6 +405,11 @@ class OrderService {
       case OrderStatus.CANCELLED:
         updateData.cancelledAt = new Date();
         if (note) updateData.cancellationReason = note;
+        // When cancelling order, set payment status back to PENDING if it was never paid
+        // This prevents "paid" orders from being cancelled without explicit refund handling
+        if (order.paymentStatus !== PaymentStatus.PAID) {
+          updateData.paymentStatus = PaymentStatus.PENDING;
+        }
         break;
     }
 
@@ -470,15 +475,18 @@ class OrderService {
 
     await cacheDelete(orderCacheKey(orderId));
 
-    // Publish payment update event
-    await eventPublisher.publish(Events.PAYMENT_RECEIVED, {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      userId: order.userId,
-      amount: order.total,
-      paymentMethod: order.paymentMethod,
-      transactionId,
-    });
+    // Only publish PAYMENT_RECEIVED event if payment is actually paid
+    // Other payment status changes should not trigger this event
+    if (paymentStatus === PaymentStatus.PAID) {
+      await eventPublisher.publish(Events.PAYMENT_RECEIVED, {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userId: order.userId,
+        amount: order.total,
+        paymentMethod: order.paymentMethod,
+        transactionId,
+      });
+    }
 
     return this.hydrateOrder(order) as Promise<OrderWithItems>;
   }

@@ -440,7 +440,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'role', in: 'query', schema: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'] }, description: 'Filter by role' },
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] }, description: 'Filter by account status' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'] }, description: 'Filter by account status' },
           { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by firstName, lastName, email, or phone' },
         ],
         responses: {
@@ -475,7 +475,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   lastName: { type: 'string', description: 'Last name (optional)', example: 'Doe' },
                   phone: { type: 'string', description: 'Phone number (optional)', example: '+1234567890' },
                   avatar: { type: 'string', format: 'uri', description: 'Avatar URL (optional)', example: 'https://example.com/avatar.jpg' },
-                  status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], description: 'Account status (optional)' },
+                  status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'], description: 'Account status (optional)' },
                 },
               },
             },
@@ -3270,14 +3270,16 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery by order (includes delivery man and order details)',
+        summary: 'Get delivery by order (returns unassigned and assigned deliveries with enriched details)',
+        description: 'Retrieve delivery information for an order, including delivery man details and complete order information. Returns delivery even if no delivery man is assigned. Supports optional search by delivery ID, tracking ID, or order number.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' }, description: 'Optional search term to filter by delivery ID, tracking ID, or order number' },
         ],
         responses: {
           200: {
-            description: 'Delivery details with enriched delivery man and order information',
+            description: 'Delivery details with enriched order information (delivery man will be null if not yet assigned)',
             content: {
               'application/json': {
                 schema: {
@@ -3432,13 +3434,16 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Orders'],
         summary: 'Get deliveries assigned to a delivery man (includes enriched data)',
-        description: 'Returns paginated list of deliveries with complete delivery man profile and order information',
+        description: 'Returns paginated list of deliveries with complete delivery man profile and order information. Supports filtering by date range and order number search.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Delivery man ID' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status' },
+          { name: 'fromDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries from this date (ISO 8601)' },
+          { name: 'toDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries until this date (ISO 8601)' },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by order number' },
         ],
         responses: {
           200: {
@@ -4025,6 +4030,72 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/payments/cod/complete': {
+      post: {
+        tags: ['Payments'],
+        summary: 'Auto-complete COD payment when delivery is marked as DELIVERED (internal)',
+        description: 'This is an internal service-to-service endpoint called automatically by the order service when a COD delivery is marked as DELIVERED. Not for direct API use.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['orderId', 'amount'],
+                properties: {
+                  orderId: { type: 'string', format: 'uuid', description: 'Order ID' },
+                  amount: { type: 'number', minimum: 0.01, description: 'Order amount' },
+                  transactionId: { type: 'string', description: 'Optional transaction ID (auto-generated if not provided)' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'COD payment completed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        payment: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            orderId: { type: 'string', format: 'uuid' },
+                            amount: { type: 'number' },
+                            method: { type: 'string', enum: ['COD'] },
+                            status: { type: 'string', enum: ['COMPLETED'] },
+                            transactionId: { type: 'string' },
+                            paidAt: { type: 'string', format: 'date-time' },
+                            metadata: {
+                              type: 'object',
+                              properties: {
+                                autoCompleted: { type: 'boolean' },
+                                deliveryCompleted: { type: 'boolean' },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -5616,7 +5687,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
           roles: { type: 'array', items: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'VENDOR', 'DELIVERY_MAN', 'CUSTOMER'] } },
-          status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
+          status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'] },
           isEmailVerified: { type: 'boolean' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
@@ -5641,7 +5712,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               roles: { type: 'array', items: { $ref: '#/components/schemas/Role' } },
               roleNames: { type: 'array', items: { type: 'string' } },
               permissionCodes: { type: 'array', items: { type: 'integer' } },
-              status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], example: 'ACTIVE' },
+              status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'], example: 'ACTIVE' },
               oauthProvider: { type: 'string', example: 'LOCAL' },
               emailVerified: { type: 'boolean', example: false },
               phoneVerified: { type: 'boolean', example: false },
@@ -6133,7 +6204,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
           role: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'] },
-          status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
+          status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'] },
           oauthProvider: { type: 'string', enum: ['LOCAL', 'GOOGLE', 'FACEBOOK', 'APPLE', 'ANONYMOUS'] },
           emailVerified: { type: 'boolean' },
           phoneVerified: { type: 'boolean' },
