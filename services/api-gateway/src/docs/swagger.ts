@@ -5467,7 +5467,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
           // billingAddress is disabled — not currently used
           paymentMethod: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'] },
-          discountCode: { type: 'string' },
+          couponCode: { type: 'string', description: 'Coupon code to apply to the order' },
+          discountCode: { type: 'string', deprecated: true, description: 'Legacy alias for couponCode' },
           notes: { type: 'string' },
         },
         examples: {
@@ -5530,7 +5531,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   quantity: 3
                 }
               ],
-              discountCode: 'SAVE10'
+              couponCode: 'SAVE10'
             }
           }
         },
