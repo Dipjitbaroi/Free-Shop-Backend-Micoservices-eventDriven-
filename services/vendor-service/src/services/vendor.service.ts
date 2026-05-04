@@ -94,7 +94,7 @@ class VendorService {
 
     await messageBroker.publish(
       EXCHANGES.VENDOR,
-      getRoutingKey('vendor', 'CREATED'),
+      getRoutingKey('Vendor', 'CREATED'),
       {
         vendorId: vendor.id,
         userId: vendor.userId,
@@ -208,7 +208,7 @@ class VendorService {
 
     await messageBroker.publish(
       EXCHANGES.VENDOR,
-      getRoutingKey('vendor', 'UPDATED'),
+      getRoutingKey('Vendor', 'UPDATED'),
       {
         vendorId: updated.id,
         userId: updated.userId,
@@ -233,7 +233,7 @@ class VendorService {
 
     await messageBroker.publish(
       EXCHANGES.VENDOR,
-      getRoutingKey('vendor', 'STATUS_CHANGED'),
+      getRoutingKey('Vendor', 'STATUS_CHANGED'),
       {
         vendorId: vendor.id,
         userId: vendor.userId,
@@ -260,7 +260,7 @@ class VendorService {
 
     await messageBroker.publish(
       EXCHANGES.VENDOR,
-      getRoutingKey('vendor', 'VERIFIED'),
+      getRoutingKey('Vendor', 'VERIFIED'),
       {
         vendorId: vendor.id,
         userId: vendor.userId,

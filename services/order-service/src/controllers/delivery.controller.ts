@@ -108,11 +108,20 @@ export const deliveryController = {
       const statusRaw = Array.isArray(req.query.status) ? req.query.status[0] : req.query.status;
       const status = typeof statusRaw === 'string' ? statusRaw : undefined;
 
+      const searchRaw = Array.isArray(req.query.search) ? req.query.search[0] : req.query.search;
+      const search = typeof searchRaw === 'string' ? searchRaw.trim() : undefined;
+
+      const startDateRaw = Array.isArray(req.query.startDate) ? req.query.startDate[0] : req.query.startDate;
+      const endDateRaw = Array.isArray(req.query.endDate) ? req.query.endDate[0] : req.query.endDate;
+
+      const startDate = startDateRaw ? new Date(String(startDateRaw)) : undefined;
+      const endDate = endDateRaw ? new Date(String(endDateRaw)) : undefined;
+
       const { deliveries, total } = await deliveryService.getDeliveriesByDeliveryMan(
         deliveryManId,
         page,
         limit,
-        { status }
+        { status, search, startDate, endDate }
       );
 
       res.json(

@@ -52,7 +52,7 @@ class ReviewService {
 
     await messageBroker.publish(
       EXCHANGES.VENDOR,
-      getRoutingKey('vendor', 'REVIEW_CREATED'),
+      getRoutingKey('Vendor', 'REVIEW_CREATED'),
       {
         reviewId: review.id,
         vendorId: input.vendorId,
