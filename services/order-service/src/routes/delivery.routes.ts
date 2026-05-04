@@ -130,6 +130,9 @@ router.get(
   '/deliveries/delivery-man/:deliveryManId',
   authenticate,
   paginationValidation,
+  query('search').optional().isString(),
+  query('startDate').optional().isISO8601(),
+  query('endDate').optional().isISO8601(),
   validate,
   deliveryController.getDeliveriesForDeliveryMan
 );

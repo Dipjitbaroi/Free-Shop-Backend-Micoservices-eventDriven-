@@ -3438,16 +3438,16 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Orders'],
         summary: 'Get deliveries assigned to a delivery man (includes enriched data)',
-        description: 'Returns paginated list of deliveries with complete delivery man profile and order information. Supports filtering by date range and order number search.',
+        description: 'Returns paginated list of deliveries with complete delivery man profile and order information. Supports filtering by date range, delivery status, and full-text search by order number, customer name, email, or phone.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Delivery man ID' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
-          { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status' },
-          { name: 'fromDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries from this date (ISO 8601)' },
-          { name: 'toDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries until this date (ISO 8601)' },
-          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by order number' },
+          { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status (PENDING, ASSIGNED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED, CANCELLED)' },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries from this date (ISO 8601 format, e.g., 2026-04-01T00:00:00Z)' },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries until this date (ISO 8601 format, e.g., 2026-04-30T23:59:59Z)' },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by order number, customer name (from shipping address), guest email, or guest phone' },
         ],
         responses: {
           200: {

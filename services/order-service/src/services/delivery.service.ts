@@ -447,17 +447,23 @@ class DeliveryService {
     deliveryManId: string,
     page = 1,
     limit = 20,
-    filters?: { status?: string }
+    filters?: { status?: string; search?: string; startDate?: Date; endDate?: Date }
   ): Promise<{ deliveries: any[]; total: number }> {
     const where: any = {
       deliveryManId,
       ...(filters?.status && { status: filters.status }),
     };
 
+    // Apply date range filters on delivery.createdAt if provided
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {};
+      if (filters.startDate) where.createdAt.gte = filters.startDate;
+      if (filters.endDate) where.createdAt.lte = filters.endDate;
+    }
+
+    // Fetch all matching deliveries (we'll paginate after applying search on joined order fields)
     const deliveries = await prisma.deliveryInfo.findMany({
       where,
-      skip: (page - 1) * limit,
-      take: limit,
       include: {
         order: {
           select: {
@@ -466,6 +472,8 @@ class DeliveryService {
             status: true,
             total: true,
             shippingAddress: true,
+            guestEmail: true,
+            guestPhone: true,
             items: {
               select: {
                 id: true,
@@ -480,7 +488,27 @@ class DeliveryService {
       orderBy: { createdAt: 'desc' },
     });
 
-    const total = await prisma.deliveryInfo.count({ where });
+    // Filter by customer name or orderNumber if search provided
+    let filtered = deliveries;
+    if (filters?.search) {
+      const s = filters.search.toLowerCase();
+      filtered = deliveries.filter((d) => {
+        const orderNumber = d.order?.orderNumber?.toLowerCase() || '';
+        const shippingAddr = d.order?.shippingAddress as any;
+        const shippingName = (shippingAddr && (shippingAddr.name || shippingAddr.fullName)) || '';
+        const guestEmail = d.order?.guestEmail || '';
+        const guestPhone = d.order?.guestPhone || '';
+
+        return (
+          orderNumber.includes(s) ||
+          String(shippingName).toLowerCase().includes(s) ||
+          String(guestEmail).toLowerCase().includes(s) ||
+          String(guestPhone).toLowerCase().includes(s)
+        );
+      });
+    }
+
+    const total = filtered.length;
 
     // Enrich delivery man info for all deliveries
     let deliveryMan = null;
@@ -501,8 +529,12 @@ class DeliveryService {
       console.error(`Failed to enrich delivery man: ${error}`);
     }
 
+    // Apply pagination on the filtered array
+    const start = (page - 1) * limit;
+    const paged = filtered.slice(start, start + limit);
+
     // Return serializable objects
-    const enrichedDeliveries = deliveries.map(delivery => ({
+    const enrichedDeliveries = paged.map(delivery => ({
       id: delivery.id,
       orderId: delivery.orderId,
       status: delivery.status,
