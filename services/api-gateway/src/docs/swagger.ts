@@ -4546,9 +4546,12 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                     minItems: 1,
                     items: {
                       type: 'object',
-                      required: ['productId', 'quantity'],
+                      required: ['quantity'],
                       properties: {
-                        productId: { type: 'string', format: 'uuid' },
+                        productId: { type: 'string', format: 'uuid', description: 'Base product ID when no composite inventory key is used' },
+                        inventoryKey: { type: 'string', description: 'Composite inventory key such as productId, productId:variantId, or productId:free:freeItemId' },
+                        variantId: { type: 'string', format: 'uuid', nullable: true, description: 'Variant ID for variant-specific stock' },
+                        freeItemId: { type: 'string', format: 'uuid', nullable: true, description: 'Free-item identifier for bundled/promotional stock' },
                         quantity: { type: 'integer', minimum: 1 },
                       },
                     },
@@ -4573,6 +4576,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                         type: 'object',
                         properties: {
                           productId: { type: 'string' },
+                          variantId: { type: 'string', nullable: true },
+                          freeItemId: { type: 'string', nullable: true },
                           available: { type: 'boolean' },
                           availableStock: { type: 'integer' },
                           requestedQuantity: { type: 'integer' },
@@ -4585,6 +4590,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             },
           },
           400: { $ref: '#/components/responses/BadRequest' },
+        },
+      },
+    },
+    '/inventory/cleanup/expired-reservations': {
+      post: {
+        tags: ['Inventory'],
+        summary: 'Release expired stock reservations (admin / scheduled job)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Expired reservations cleaned up',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        releasedCount: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
@@ -6107,6 +6142,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         properties: {
           id: { type: 'string', format: 'uuid' },
           productId: { type: 'string', format: 'uuid' },
+          variantId: { type: 'string', format: 'uuid', nullable: true, description: 'Variant-specific inventory bucket' },
+          freeItemId: { type: 'string', format: 'uuid', nullable: true, description: 'Promotional/free-item inventory bucket' },
           userId: { type: 'string', format: 'uuid', description: 'Owner user ID for this inventory record' },
           sku: { type: 'string' },
           totalStock: { type: 'integer' },
@@ -6114,6 +6151,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           reservedStock: { type: 'integer' },
           lowStockThreshold: { type: 'integer' },
           isLowStock: { type: 'boolean' },
+          isOutOfStock: { type: 'boolean' },
           lastRestockedAt: { type: 'string', format: 'date-time' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },

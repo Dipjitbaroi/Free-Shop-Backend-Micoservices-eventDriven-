@@ -12,6 +12,7 @@ import { zoneService } from './zone.service.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
 import { cacheDelete, orderCacheKey } from '../lib/redis.js';
+import { checkInventoryAvailability } from '../lib/inventory-client.js';
 
 import config from '../config/index.js';
 import { cartService } from './cart.service.js';
@@ -64,6 +65,7 @@ interface OrderFilters {
 class OrderService {
   /**
    * Syncs Order and DeliveryInfo statuses to maintain consistency
+   * Uses atomic database updates to prevent race conditions
    * 
    * Status Mapping Rules:
    * - PENDING → delivery remains PENDING (no delivery created yet)
@@ -79,21 +81,9 @@ class OrderService {
    */
   private async syncOrderDeliveryStatus(orderId: string, newOrderStatus: OrderStatus): Promise<void> {
     try {
-      const delivery = await prisma.deliveryInfo.findUnique({
-        where: { orderId },
-      });
-
-      if (!delivery) {
-        // No delivery info yet, only sync if order is being cancelled
-        if (newOrderStatus === OrderStatus.CANCELLED) {
-          // Can't do anything without delivery, but this is expected
-        }
-        return;
-      }
-
+      // Determine the new delivery status
       let newDeliveryStatus: string | null = null;
 
-      // Map order status to delivery status
       switch (newOrderStatus) {
         case OrderStatus.PENDING:
           newDeliveryStatus = 'PENDING';
@@ -102,9 +92,12 @@ class OrderService {
           newDeliveryStatus = 'ASSIGNED';
           break;
         case OrderStatus.PROCESSING:
-          // Keep current status or move to ASSIGNED if still PENDING
-          newDeliveryStatus = delivery.status === 'PENDING' ? 'ASSIGNED' : delivery.status;
-          break;
+          // For PROCESSING, only update if currently PENDING (atomic check+update)
+          await prisma.deliveryInfo.updateMany({
+            where: { orderId, status: 'PENDING' },
+            data: { status: 'ASSIGNED' },
+          });
+          return;
         case OrderStatus.SHIPPED:
           newDeliveryStatus = 'IN_TRANSIT';
           break;
@@ -123,16 +116,23 @@ class OrderService {
           break;
       }
 
-      // Only update if status has changed
-      if (newDeliveryStatus && delivery.status !== newDeliveryStatus) {
-        await prisma.deliveryInfo.update({
-          where: { id: delivery.id },
+      // Atomic update: use updateMany to ensure no race condition
+      if (newDeliveryStatus) {
+        const updated = await prisma.deliveryInfo.updateMany({
+          where: { orderId },
           data: {
             status: newDeliveryStatus as any,
             ...(newDeliveryStatus === 'DELIVERED' && { actualDeliveryDate: new Date() }),
             ...(newDeliveryStatus === 'CANCELLED' && { notes: 'Cancelled due to order cancellation' }),
           },
         });
+
+        if (updated.count > 0) {
+          console.info(`Delivery status synced for order ${orderId}`, {
+            newStatus: newDeliveryStatus,
+            recordsUpdated: updated.count,
+          });
+        }
       }
     } catch (error) {
       // Log but don't fail the operation if sync fails
@@ -226,7 +226,61 @@ class OrderService {
     );
   }
 
+  /**
+   * Pre-flight inventory validation
+   * Checks if all items in the order have sufficient stock
+   * This is a non-blocking check (failures are logged but don't fail order creation)
+   * Actual reservation happens in inventory service after order creation
+   */
+  private async validateInventoryAvailability(
+    items: Array<{
+      productId: string;
+      freeItems?: FreeItemSnapshot[];
+      quantity: number;
+    }>
+  ): Promise<void> {
+    const inventoryCheckItems = items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      freeItemId: item.freeItems?.[0]?.id,
+    }));
+
+    console.info('Running pre-flight inventory check', {
+      itemCount: inventoryCheckItems.length,
+      requestedQuantities: inventoryCheckItems.map((item) => `${item.productId}:${item.quantity}`),
+    });
+
+    const result = await checkInventoryAvailability(inventoryCheckItems);
+
+    if (!result.available) {
+      const details = result.unavailableItems
+        .map((item) => `${item.productId} requested ${item.requested}, available ${item.available}`)
+        .join('; ');
+
+      throw new BadRequestError(
+        details
+          ? `Insufficient inventory for: ${details}`
+          : 'Insufficient inventory for one or more items'
+      );
+    }
+  }
+
   async createOrder(data: CreateOrderData): Promise<OrderWithItems> {
+    // PRE-FLIGHT: Validate inventory availability before order creation
+    // This prevents order creation if insufficient stock
+    try {
+      await this.validateInventoryAvailability(data.items);
+    } catch (error) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      // Log inventory check failures but don't block order creation
+      // Order will fail at reservation stage if inventory is unavailable
+      console.warn('Inventory validation check failed (non-blocking)', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
     // Calculate totals
     const subtotal = data.items.reduce((sum, item) => {
       const itemTotal = item.price * item.quantity - (item.discount || 0);

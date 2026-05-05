@@ -9,7 +9,9 @@ datasource db {
 
 model Inventory {
   id              String   @id @default(uuid())
-  productId       String   @unique
+  productId       String
+  variantId       String?  // For product variants
+  freeItemId      String?  // For free items
   userId          String
   
   // Stock levels
@@ -32,6 +34,7 @@ model Inventory {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  @@unique([productId, variantId, freeItemId])
   @@index([productId])
   @@index([userId])
   @@index([isLowStock])
@@ -44,6 +47,7 @@ model StockReservation {
   inventory   Inventory         @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
   
   orderId     String
+  variantId   String?           // Support for product variants
   quantity    Int
   status      ReservationStatus @default(PENDING)
   
@@ -54,7 +58,7 @@ model StockReservation {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
 
-  @@unique([inventoryId, orderId])
+  @@unique([inventoryId, orderId, variantId])
   @@index([orderId])
   @@index([status])
   @@index([expiresAt])
@@ -99,11 +103,33 @@ model InventoryAlert {
   @@index([createdAt])
 }
 
+model EventProcessingLog {
+  id          String   @id @default(uuid())
+  eventType   String   // e.g., ORDER_CREATED, PAYMENT_REFUNDED
+  eventId     String   // Unique event identifier
+  orderId     String?  // For order-related events
+  
+  status      String   @default("PROCESSING")  // PROCESSING, SUCCESS, FAILED, COMPENSATED
+  payload     String?  // JSON payload for debugging
+  error       String?  // Error message if failed
+  
+  processedAt DateTime @default(now())
+  completedAt DateTime?
+  
+  createdAt   DateTime @default(now())
+
+  @@unique([eventType, eventId])
+  @@index([orderId])
+  @@index([status])
+  @@index([processedAt])
+}
+
 enum ReservationStatus {
   PENDING
   CONFIRMED
   FULFILLED
   RELEASED
+  REFUNDED
   EXPIRED
 }
 
@@ -115,6 +141,8 @@ enum MovementType {
   RESERVATION
   RELEASE
   INITIAL
+  COMPENSATION
+  REFUND
 }
 
 enum AlertType {

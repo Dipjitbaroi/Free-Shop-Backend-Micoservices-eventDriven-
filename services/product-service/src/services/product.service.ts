@@ -685,6 +685,9 @@ class ProductService {
       vendorId: product.vendorId,
       name: product.name,
       price: Number(product.price),
+      stock: product.stock as unknown as number,
+      reservedStock: product.reservedStock as unknown as number,
+      lowStockThreshold: product.lowStockThreshold as unknown as number,
       categoryId: product.categoryId,
     });
 

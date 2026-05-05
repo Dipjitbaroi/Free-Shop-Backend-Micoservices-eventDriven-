@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { inventoryService } from '../services/inventory.service.js';
+import { cleanupService } from '../services/cleanup.service.js';
 import { successResponse, ForbiddenError } from '@freeshop/shared-utils';
 
 export const inventoryController = {
@@ -168,6 +169,15 @@ export const inventoryController = {
       const { items } = req.body;
       const result = await inventoryService.checkAvailability(items);
       res.json(successResponse(result, 'Availability checked'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async cleanupExpiredReservations(req: Request, res: Response, next: NextFunction) {
+    try {
+      const releasedCount = await cleanupService.releaseExpiredReservations();
+      res.json(successResponse({ releasedCount }, 'Expired reservations cleaned up'));
     } catch (error) {
       next(error);
     }

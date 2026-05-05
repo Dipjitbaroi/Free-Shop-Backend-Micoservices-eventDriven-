@@ -1,11 +1,51 @@
 import { messageBroker } from '../lib/message-broker.js';
-import { Events, Queues, IOrderCreatedEvent, IOrderCancelledEvent, IVendorApprovedEvent } from '@freeshop/shared-events';
+import { Events, Queues, IOrderCreatedEvent, IOrderCancelledEvent, IVendorApprovedEvent, IInventoryUpdatedPayload } from '@freeshop/shared-events';
 import { prisma } from '../lib/prisma.js';
+import { ProductStatus } from '../../generated/client/client.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
+import { cacheDelete, productCacheKey, productSlugCacheKey } from '../lib/redis.js';
 
 const logger = createServiceLogger('product-service');
 
 export async function setupEventSubscribers(): Promise<void> {
+  await messageBroker.subscribe<IInventoryUpdatedPayload>(
+    Queues.PRODUCT_EVENTS,
+    Events.INVENTORY_UPDATED,
+    async (event) => {
+      logger.info('Product service received inventory update event', {
+        productId: event.productId,
+        action: event.action,
+      });
+
+      const product = await prisma.product.findUnique({ where: { id: event.productId } });
+
+      if (!product) {
+        logger.warn('Inventory update received for missing product', { productId: event.productId });
+        return;
+      }
+
+      const shouldAutoSyncStatus = product.status === ProductStatus.ACTIVE || product.status === ProductStatus.OUT_OF_STOCK;
+      const nextStatus = shouldAutoSyncStatus
+        ? (event.isOutOfStock || event.newStock <= 0 ? ProductStatus.OUT_OF_STOCK : ProductStatus.ACTIVE)
+        : product.status;
+
+      const updatedProduct = await prisma.product.update({
+        where: { id: event.productId },
+        data: {
+          stock: event.newStock,
+          reservedStock: event.reservedStock ?? product.reservedStock,
+          lowStockThreshold: event.lowStockThreshold ?? product.lowStockThreshold,
+          status: nextStatus,
+        },
+      });
+
+      await Promise.all([
+        cacheDelete(productCacheKey(updatedProduct.id)),
+        cacheDelete(productSlugCacheKey(product.slug)),
+      ]);
+    }
+  );
+
   // Subscribe to order created events to potentially track product sales
   await messageBroker.subscribe<IOrderCreatedEvent>(
     Queues.PRODUCT_EVENTS,
