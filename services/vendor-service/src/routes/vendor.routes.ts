@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import { vendorController } from '../controllers/vendor.controller.js';
-import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate, authenticateService } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 
 const router: Router = Router();
@@ -124,6 +124,17 @@ router.patch(
   ],
   validate,
   vendorController.verifyDocument
+);
+
+// Internal service-to-service route (service auth only)
+router.get(
+  '/internal/user/:userId',
+  authenticateService,
+  [
+    param('userId').isUUID().withMessage('Valid user ID is required'),
+  ],
+  validate,
+  vendorController.getMyVendor
 );
 
 export default router;

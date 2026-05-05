@@ -614,10 +614,31 @@ class ProductService {
       ? `${slug}-${Date.now().toString(36)}` 
       : slug;
 
+    // Determine createdBy: prefer actorUserId, otherwise try to resolve vendor owner
+    let createdBy: string | null = data.actorUserId || null;
+    if (!createdBy && data.vendorId) {
+      try {
+        const vendorServiceUrl = process.env.VENDOR_SERVICE_URL || 'http://vendor-service:3007';
+        const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+        if (serviceToken) {
+          const resp = await axios.get(`${vendorServiceUrl}/api/vendors/${data.vendorId}`, {
+            timeout: 3000,
+            headers: { Authorization: `Bearer ${serviceToken}` },
+          });
+          const vendorData = resp.data?.data || null;
+          if (vendorData && vendorData.userId) {
+            createdBy = vendorData.userId;
+          }
+        }
+      } catch (err) {
+        console.warn(`Could not resolve vendor owner for vendor ${data.vendorId}:`, err && (err as any).message ? (err as any).message : err);
+      }
+    }
+
     const product = await prisma.product.create({
       data: {
         vendorId: data.vendorId,
-        createdBy: data.actorUserId || data.vendorId,
+        createdBy: createdBy,
         name: data.name,
         slug: finalSlug,
         description: data.description,
@@ -655,7 +676,7 @@ class ProductService {
     await this.upsertProductFreeItems(prisma as any, product.id, {
       freeItems: data.freeItems,
       freeItemIds: data.freeItemIds,
-    }, data.actorUserId || data.vendorId);
+    }, createdBy || data.vendorId);
 
     // Publish event
     await eventPublisher.productCreated({
