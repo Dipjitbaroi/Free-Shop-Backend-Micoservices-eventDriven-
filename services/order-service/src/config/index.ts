@@ -4,6 +4,7 @@ const config = {
   productServiceUrl: process.env.PRODUCT_SERVICE_URL || 'http://localhost:3003',
   userServiceUrl: process.env.USER_SERVICE_URL || 'http://localhost:3001',
   paymentServiceUrl: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3002',
+  inventoryServiceUrl: process.env.INVENTORY_SERVICE_URL || 'http://localhost:3005',
   
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key',

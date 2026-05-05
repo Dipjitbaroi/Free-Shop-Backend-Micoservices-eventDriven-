@@ -29,10 +29,19 @@ router.post(
 router.post(
   '/check-availability',
   body('items').isArray({ min: 1 }),
-  body('items.*.productId').isUUID(),
+  body('items.*.productId').isString().notEmpty(),
   body('items.*.quantity').isInt({ min: 1 }),
   validate,
   inventoryController.checkAvailability
+);
+
+// Cleanup expired reservations (manual API trigger instead of cron)
+router.post(
+  '/cleanup/expired-reservations',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
+  validate,
+  inventoryController.cleanupExpiredReservations
 );
 
 // Get product inventory
