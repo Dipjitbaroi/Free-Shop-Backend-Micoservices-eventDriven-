@@ -681,6 +681,7 @@ class ProductService {
     // Publish event
     await eventPublisher.productCreated({
       productId: product.id,
+      createdBy: createdBy || product.id,
       vendorId: product.vendorId,
       name: product.name,
       price: Number(product.price),

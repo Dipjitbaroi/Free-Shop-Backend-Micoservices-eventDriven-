@@ -13,7 +13,7 @@ import {
 import config from '../config/index.js';
 
 class CategoryService {
-  async createCategory(data: ICategoryCreate): Promise<Category> {
+  async createCategory(data: ICategoryCreate, userId: string): Promise<Category> {
     const slug = generateSlug(data.name);
 
     // Check for duplicate slug
@@ -46,6 +46,7 @@ class CategoryService {
         parentId: data.parentId,
         level,
         sortOrder: data.sortOrder || 0,
+        userId,
       },
     });
 

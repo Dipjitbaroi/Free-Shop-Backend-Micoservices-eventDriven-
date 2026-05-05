@@ -4499,7 +4499,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/inventory/initialize': {
       post: {
         tags: ['Inventory'],
-        summary: 'Initialize inventory for a product (admin / Vendor)',
+        summary: 'Initialize inventory for a product (admin / vendor)',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -4507,10 +4507,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['productId', 'vendorId'],
+                required: ['productId', 'userId'],
                 properties: {
                   productId: { type: 'string', format: 'uuid' },
-                  vendorId: { type: 'string', format: 'uuid' },
+                  userId: { type: 'string', format: 'uuid', description: 'Owner user ID for this inventory (creator/vendor)' },
                   initialStock: { type: 'integer', minimum: 0, default: 0 },
                   lowStockThreshold: { type: 'integer', minimum: 0, default: 10 },
                 },
@@ -4604,20 +4604,20 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
-    '/inventory/vendor/{vendorId}': {
+    '/inventory/user/{userId}': {
       get: {
         tags: ['Inventory'],
-        summary: "Get a Vendor's full inventory (Vendor / admin / manager)",
+        summary: "Get a user's inventory (returns products owned/created by the user)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'User ID to fetch inventory for (must match authenticated user or caller must have permission)' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'lowStockOnly', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Return only low-stock or out-of-stock items' },
         ],
         responses: {
           200: {
-            description: 'Vendor inventory list',
+            description: 'User inventory list',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedInventory' } } },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -5492,6 +5492,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       CreateCategoryRequest: {
         type: 'object',
         required: ['name'],
+        description: 'userId is automatically set from the authenticated user and should not be provided in the request',
         properties: {
           name: { type: 'string' },
           description: { type: 'string' },
@@ -5829,6 +5830,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           sortOrder: { type: 'integer' },
           isActive: { type: 'boolean' },
           productCount: { type: 'integer' },
+          userId: { type: 'string', format: 'uuid', description: 'ID of the user who created/updated the category' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -6105,7 +6107,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         properties: {
           id: { type: 'string', format: 'uuid' },
           productId: { type: 'string', format: 'uuid' },
-          VendorId: { type: 'string', format: 'uuid' },
+          userId: { type: 'string', format: 'uuid', description: 'Owner user ID for this inventory record' },
           sku: { type: 'string' },
           totalStock: { type: 'integer' },
           availableStock: { type: 'integer' },

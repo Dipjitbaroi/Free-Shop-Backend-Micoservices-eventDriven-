@@ -133,6 +133,7 @@ export interface ICategory {
   sortOrder: number;
   isActive: boolean;
   productCount: number;
+  userId: string;
   createdAt: Date;
   updatedAt: Date;
 }

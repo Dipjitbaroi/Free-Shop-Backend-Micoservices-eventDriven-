@@ -38,7 +38,44 @@ interface PaymentRefundedPayload {
   amount: number;
 }
 
+interface ProductCreatedPayload {
+  productId: string;
+  createdBy: string;
+  vendorId: string | null;
+  name: string;
+  price: number;
+  categoryId: string;
+}
+
 export const setupEventSubscribers = async (): Promise<void> => {
+  await messageBroker.subscribe<ProductCreatedPayload>(
+    EXCHANGES.PRODUCT,
+    QUEUES.INVENTORY_PRODUCT_CREATED,
+    getRoutingKey('PRODUCT', 'CREATED'),
+    async (payload) => {
+      try {
+        logger.info('Processing product created event for inventory', { 
+          productId: payload.productId,
+          createdBy: payload.createdBy 
+        });
+
+        // Initialize inventory for the newly created product with the userId who created it
+        await inventoryService.initializeInventory(
+          payload.productId,
+          payload.createdBy,
+          0 // Initial stock is 0, will be updated separately
+        );
+
+        logger.info('Inventory initialized for product', { productId: payload.productId });
+      } catch (error) {
+        logger.error('Error initializing inventory for product', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          productId: payload.productId,
+        });
+      }
+    }
+  );
+
   await messageBroker.subscribe<OrderCreatedPayload>(
     EXCHANGES.ORDER,
     QUEUES.INVENTORY_ORDER_CREATED,

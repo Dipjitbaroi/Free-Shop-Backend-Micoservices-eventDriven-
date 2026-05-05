@@ -28,7 +28,7 @@ class InventoryService {
   // Initialize inventory for a product
   async initializeInventory(
     productId: string,
-    vendorId: string,
+    userId: string,
     initialStock: number = 0,
     lowStockThreshold?: number
   ): Promise<Inventory> {
@@ -43,7 +43,7 @@ class InventoryService {
     const inventory = await prisma.inventory.create({
       data: {
         productId,
-        vendorId,
+        userId,
         totalStock: initialStock,
         availableStock: initialStock,
         lowStockThreshold: lowStockThreshold || config.inventory.defaultLowStockThreshold,
@@ -85,13 +85,38 @@ class InventoryService {
     return inventory;
   }
 
-  async getVendorInventory(
-    vendorId: string,
+  async getUserInventoryByUserId(
+    userId: string,
     page: number = 1,
     limit: number = 20,
     lowStockOnly: boolean = false
   ): Promise<IPaginatedResult<Inventory>> {
-    const where: Prisma.InventoryWhereInput = { vendorId };
+    const where: Prisma.InventoryWhereInput = { userId };
+    
+    if (lowStockOnly) {
+      where.OR = [{ isLowStock: true }, { isOutOfStock: true }];
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.inventory.findMany({
+        where,
+        skip: calculateOffset(page, limit),
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.inventory.count({ where }),
+    ]);
+
+    return createPaginatedResponse(items, total, page, limit);
+  }
+
+  async getUserInventory(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    lowStockOnly: boolean = false
+  ): Promise<IPaginatedResult<Inventory>> {
+    const where: Prisma.InventoryWhereInput = { userId };
     
     if (lowStockOnly) {
       where.OR = [{ isLowStock: true }, { isOutOfStock: true }];
@@ -527,7 +552,7 @@ class InventoryService {
         data: {
           inventoryId: inventory.id,
           productId: inventory.productId,
-          vendorId: inventory.vendorId,
+          userId: inventory.userId,
           type: 'OUT_OF_STOCK',
           message: `Product ${inventory.productId} is out of stock`,
         },
@@ -535,7 +560,7 @@ class InventoryService {
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
         productId: inventory.productId,
-        vendorId: inventory.vendorId,
+        userId: inventory.userId,
         availableStock: 0,
         type: 'OUT_OF_STOCK',
       });
@@ -544,7 +569,7 @@ class InventoryService {
         data: {
           inventoryId: inventory.id,
           productId: inventory.productId,
-          vendorId: inventory.vendorId,
+          userId: inventory.userId,
           type: 'LOW_STOCK',
           message: `Product ${inventory.productId} is running low (${inventory.availableStock} remaining)`,
         },
@@ -552,7 +577,7 @@ class InventoryService {
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
         productId: inventory.productId,
-        vendorId: inventory.vendorId,
+        userId: inventory.userId,
         availableStock: inventory.availableStock,
         type: 'LOW_STOCK',
       });

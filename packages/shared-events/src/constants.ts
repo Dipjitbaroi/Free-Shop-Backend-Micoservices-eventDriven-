@@ -143,6 +143,7 @@ export const Queues = {
   VENDOR_PRODUCT_DELETED: 'vendor.product_deleted',
   
   // Inventory Service Cross-Domain Queues
+  INVENTORY_PRODUCT_CREATED: 'inventory.product_created',
   INVENTORY_ORDER_CREATED: 'inventory.order_created',
   INVENTORY_ORDER_CANCELLED: 'inventory.order_cancelled',
   INVENTORY_ORDER_COMPLETED: 'inventory.order_completed',

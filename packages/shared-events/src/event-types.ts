@@ -37,6 +37,7 @@ export interface IUserVerifiedPayload {
 // Product Event Payloads
 export interface IProductCreatedPayload {
   productId: string;
+  createdBy: string;
   vendorId: string | null;
   name: string;
   price: number;
