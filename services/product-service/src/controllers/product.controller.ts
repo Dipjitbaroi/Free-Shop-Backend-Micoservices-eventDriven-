@@ -34,10 +34,29 @@ export const productController = {
   async createProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const userId = req.user?.id || req.user?.userId;
-      const vendorId = req.user?.userId || req.user?.id;
       
       if (!userId) {
         throw new Error('User not authenticated');
+      }
+
+      // Resolve vendorId only if user is a vendor, otherwise null
+      let vendorId: string | null = null;
+      try {
+        const vendorServiceUrl = process.env.VENDOR_SERVICE_URL || 'http://vendor-service:3007';
+        const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+        if (serviceToken) {
+          const resp = await axios.get(`${vendorServiceUrl}/api/vendors/internal/user/${userId}`, {
+            timeout: 3000,
+            headers: { Authorization: `Bearer ${serviceToken}` },
+          });
+          const vendorData = resp.data?.data || null;
+          if (vendorData && vendorData.id) {
+            vendorId = vendorData.id;
+          }
+        }
+      } catch (err) {
+        // User is not a vendor, vendorId remains null
+        console.log(`User ${userId} is not a vendor or vendor lookup failed`);
       }
       
       const product = await productService.createProduct({

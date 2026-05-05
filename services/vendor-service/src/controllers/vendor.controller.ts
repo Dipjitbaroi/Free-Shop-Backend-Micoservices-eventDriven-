@@ -26,10 +26,11 @@ export const vendorController = {
 
   async getMyVendor(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.id;
+      // Support both user auth (req.user?.id) and internal service calls (req.params.userId)
+      const userId = (req.params.userId as string) || req.user?.id;
       if (!userId) throw new UnauthorizedError('User not authenticated');
 
-      const vendor = await vendorService.getVendorByUserId(userId);
+      const vendor = await vendorService.getVendorByUserId(userId as string);
       if (!vendor) throw new NotFoundError('vendor account not found');
 
       res.json(successResponse(vendor, 'vendor account retrieved'));

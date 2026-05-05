@@ -51,7 +51,7 @@ model Category {
 
 model Product {
   id                  String        @id @default(uuid())
-  vendorId            String
+  vendorId            String?
   name                String
   slug                String        @unique
   description         String
