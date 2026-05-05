@@ -37,7 +37,7 @@ export interface IUserVerifiedPayload {
 // Product Event Payloads
 export interface IProductCreatedPayload {
   productId: string;
-  vendorId: string;
+  vendorId: string | null;
   name: string;
   price: number;
   categoryId: string;
@@ -45,13 +45,13 @@ export interface IProductCreatedPayload {
 
 export interface IProductUpdatedPayload {
   productId: string;
-  vendorId: string;
+  vendorId: string | null;
   changes: Record<string, unknown>;
 }
 
 export interface IProductStatusChangedPayload {
   productId: string;
-  vendorId: string;
+  vendorId: string | null;
   previousStatus: string;
   newStatus: string;
   reason?: string;
