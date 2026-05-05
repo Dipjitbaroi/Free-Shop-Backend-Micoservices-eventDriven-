@@ -1,14 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { inventoryService } from '../services/inventory.service.js';
-import { successResponse } from '@freeshop/shared-utils';
+import { successResponse, ForbiddenError } from '@freeshop/shared-utils';
 
 export const inventoryController = {
   async initializeInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId, vendorId, initialStock, lowStockThreshold } = req.body;
+      const { productId, userId, initialStock, lowStockThreshold } = req.body;
       const inventory = await inventoryService.initializeInventory(
         productId,
-        vendorId,
+        userId,
         initialStock,
         lowStockThreshold
       );
@@ -27,19 +27,27 @@ export const inventoryController = {
     }
   },
 
-  async getVendorInventory(req: Request, res: Response, next: NextFunction) {
+  async getUserInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendorId = req.params.vendorId as string || req.user?.id as string;
+      const userId = req.params.userId as string;
+      const authenticatedUserId = req.user?.id as string;
+      
+      // Allow if user is viewing their own inventory
+      // For viewing other users' inventory, a separate permission check would be needed
+      if (userId !== authenticatedUserId) {
+        throw new ForbiddenError('You can only view your own inventory');
+      }
+      
       const { page, limit, lowStockOnly } = req.query;
       
-      const inventory = await inventoryService.getVendorInventory(
-        vendorId,
+      const inventory = await inventoryService.getUserInventory(
+        userId,
         page ? parseInt(page as string) : 1,
         limit ? parseInt(limit as string) : 20,
         lowStockOnly === 'true'
       );
       
-      res.json(successResponse(inventory, 'Vendor inventory retrieved'));
+      res.json(successResponse(inventory, 'User inventory retrieved'));
     } catch (error) {
       next(error);
     }

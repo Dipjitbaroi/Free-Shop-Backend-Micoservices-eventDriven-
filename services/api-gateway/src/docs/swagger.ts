@@ -4604,20 +4604,20 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
-    '/inventory/vendor/{vendorId}': {
+    '/inventory/user/{userId}': {
       get: {
         tags: ['Inventory'],
-        summary: "Get a Vendor's full inventory (Vendor / admin / manager)",
+        summary: "Get a User's full inventory (If vendor, returns vendor inventory; otherwise empty)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'User ID to fetch inventory for' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'lowStockOnly', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Return only low-stock or out-of-stock items' },
         ],
         responses: {
           200: {
-            description: 'Vendor inventory list',
+            description: 'User inventory list',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedInventory' } } },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
