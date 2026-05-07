@@ -2050,6 +2050,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Products'],
         summary: 'Create a new product (Vendor / admin)',
+        description: `Create a new product and initialize its inventory. The stock field initializes the Inventory Service record (single source of truth for stock management).\n\n**Inventory Initialization**\n- ✓ Publishes PRODUCT_CREATED event with stock parameter\n- ✓ Inventory Service automatically creates initial inventory record\n- ✓ Stock is immediately managed by Inventory Service, not Product Service`,
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -2059,7 +2060,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           201: {
-            description: 'Product created',
+            description: 'Product created and inventory initialized',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
@@ -2147,7 +2148,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       patch: {
         tags: ['Products'],
         summary: 'Update a product (owner or permission)',
-        description: 'A product can be updated by its owner, or by a user with PRODUCT_UPDATE permission. Retail price updates still require PRODUCT_UPDATE_PRICE or an admin/manager role.',
+        description: `Update product details. A product can be updated by its owner, or by a user with PRODUCT_UPDATE permission. Retail price updates still require PRODUCT_UPDATE_PRICE or an admin/manager role.\n\n**Note on Stock Updates**\n- Stock modifications are NOT directly applied to this product\n- Use the Inventory Service API to update stock/reservedStock/lowStockThreshold\n- The Inventory Service maintains real-time stock accuracy`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2160,7 +2161,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           200: {
-            description: 'Product updated',
+            description: 'Product updated (stock fields ignored, use Inventory Service API)',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
@@ -2678,6 +2679,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Orders'],
         summary: 'Create a new order',
+        description: `Create a new order from the authenticated user's cart. The system automatically validates that all items have sufficient inventory before creating the order. If any item is out of stock or has insufficient available quantity, the order creation will fail with a 409 Conflict response.
+
+**Inventory Validation**
+- ✓ Checks each item's availability from the inventory service (single source of truth)
+- ✓ Ensures requested quantity ≤ available stock
+- ✓ Blocks order creation if inventory insufficient
+- ✓ Prevents overselling with real-time stock checks`,
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -2687,11 +2695,44 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           201: {
-            description: 'Order created',
+            description: 'Order created successfully after inventory validation',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
+          409: {
+            description: 'Conflict — insufficient inventory for one or more items',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: { type: 'string', example: 'Insufficient inventory for product: Product name' },
+                    error: { type: 'string', example: 'CONFLICT' },
+                    details: {
+                      type: 'object',
+                      properties: {
+                        productId: { type: 'string', format: 'uuid' },
+                        requested: { type: 'integer', example: 5 },
+                        available: { type: 'integer', example: 2 },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  success: false,
+                  message: 'Insufficient inventory for product: Organic Bananas',
+                  error: 'CONFLICT',
+                  details: {
+                    productId: '550e8400-e29b-41d4-a716-446655440001',
+                    requested: 5,
+                    available: 2,
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -3627,6 +3668,12 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Cart'],
         summary: 'Add item to cart and return updated cart with free items',
+        description: `Add or update an item in the cart. The system validates inventory availability before adding the item to ensure the requested quantity is in stock.
+
+**Inventory Validation**
+- ✓ Checks availability with inventory service before adding to cart
+- ✓ Returns 409 if insufficient stock
+- ✓ Prevents adding items that are out of stock`,
         parameters: [
           {
             name: 'x-guest-id',
@@ -3669,11 +3716,31 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           200: {
-            description: 'Item added / quantity updated, returns cart with free items',
+            description: 'Item added / quantity updated (after inventory validation), returns cart with free items',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/CartResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
           404: { $ref: '#/components/responses/NotFound' },
+          409: {
+            description: 'Conflict — product out of stock or insufficient inventory for requested quantity',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: { type: 'string' },
+                    error: { type: 'string', example: 'CONFLICT' },
+                  },
+                },
+                example: {
+                  success: false,
+                  message: 'Product is out of stock',
+                  error: 'CONFLICT',
+                },
+              },
+            },
+          },
         },
       },
       delete: {
@@ -5463,8 +5530,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           discountPrice: { type: 'number' },
           discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
           discountValue: { type: 'number' },
-          stock: { type: 'integer', minimum: 0 },
-          lowStockThreshold: { type: 'integer', minimum: 0 },
+          stock: { type: 'integer', minimum: 0, description: 'Initial stock value — only used during product creation to initialize Inventory Service record' },
           weight: { type: 'number' },
           unit: { type: 'string', example: 'kg' },
           isOrganic: { type: 'boolean' },
@@ -5488,8 +5554,6 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           discountPrice: { type: 'number' },
           discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
           discountValue: { type: 'number' },
-          stock: { type: 'integer', minimum: 0 },
-          lowStockThreshold: { type: 'integer', minimum: 0 },
           weight: { type: 'number' },
           unit: { type: 'string' },
           isOrganic: { type: 'boolean' },
@@ -5782,9 +5846,6 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           discountPrice: { type: 'number' },
           discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
           discountValue: { type: 'number' },
-          stock: { type: 'integer' },
-          reservedStock: { type: 'integer' },
-          lowStockThreshold: { type: 'integer' },
           weight: { type: 'number' },
           unit: { type: 'string' },
           isOrganic: { type: 'boolean' },
