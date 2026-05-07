@@ -120,10 +120,13 @@ jobs:
           for SERVICE_DIR in services/*/; do
             if [ -f "$SERVICE_DIR/tsconfig.json" ]; then
               echo "--- Checking $SERVICE_DIR ---"
-              npx tsc -p "$SERVICE_DIR" --noEmit 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+              npx tsc -p "$SERVICE_DIR" --noEmit 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || EXIT=$?
             fi
           done
-          exit $EXIT
+          if [ $EXIT -ne 0 ]; then
+            echo "❌ TypeScript errors found!"
+            exit 1
+          fi
 
   # ─────────────────────────────────────────────────────────────
   # Lint Dockerfiles with hadolint
