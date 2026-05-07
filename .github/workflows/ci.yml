@@ -117,15 +117,24 @@ jobs:
         run: |
           # Type-check all services using tsc from the workspace root
           EXIT=0
+          ERRORS=""
           for SERVICE_DIR in services/*/; do
             if [ -f "$SERVICE_DIR/tsconfig.json" ]; then
               echo "--- Checking $SERVICE_DIR ---"
-              npx tsc -p "$SERVICE_DIR" --noEmit 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || EXIT=$?
+              OUTPUT=$(npx tsc -p "$SERVICE_DIR" --noEmit 2>&1)
+              if [ $? -ne 0 ]; then
+                EXIT=1
+                ERRORS="$ERRORS$OUTPUT"$'\n'
+              fi
             fi
           done
+          
           if [ $EXIT -ne 0 ]; then
-            echo "❌ TypeScript errors found!"
+            echo "❌ TypeScript errors found:"
+            echo "$ERRORS" | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
             exit 1
+          else
+            echo "✅ All services type-check passed!"
           fi
 
   # ─────────────────────────────────────────────────────────────
