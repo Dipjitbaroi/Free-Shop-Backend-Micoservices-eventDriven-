@@ -271,6 +271,13 @@ jobs:
 
             cd "$REPO_PATH"
 
+            # ── Step 3.5: Cleanup Orphaned Resources ───────────────────────
+            # Remove deprecated/removed services that no longer exist
+            echo ""
+            echo "--- Cleaning up orphaned resources ---"
+            kubectl delete hpa seller-service-hpa -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
+            echo "  ✓ Orphaned HPA cleaned (database data remains safe)"
+
             # ── Step 4: Deploy Infrastructure (Postgres, Redis, RabbitMQ) ──────
             # These StatefulSets must exist and be ready before services deploy
             echo ""
