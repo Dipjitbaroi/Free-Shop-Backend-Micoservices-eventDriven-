@@ -48,11 +48,11 @@ jobs:
 
       - name: Generate Prisma client for all services
         run: |
-          # Generate Prisma clients using npx directly (avoids pnpm validation issues)
+          # Generate Prisma clients using local prisma binary (avoids pnpm validation issues)
           for SERVICE in services/*/; do
             if [ -f "$SERVICE/prisma/schema.prisma" ]; then
               echo "Generating Prisma client for $SERVICE"
-              npx prisma generate --schema "$SERVICE/prisma/schema.prisma" 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+              ./node_modules/.bin/prisma generate --schema "$SERVICE/prisma/schema.prisma" 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
             fi
           done
 
@@ -91,7 +91,21 @@ jobs:
         run: |
           for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
             echo "Building $PKG..."
-            npx tsc -p "$PKG" 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+            # Compile TypeScript directly to dist/
+            (cd "$PKG" && npx tsc) 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+          done
+
+      - name: Verify shared packages built
+        run: |
+          echo "Checking shared package dist files..."
+          for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
+            if [ -d "$PKG/dist" ]; then
+              echo "✓ $PKG/dist exists"
+              ls -la "$PKG/dist" | head -5
+            else
+              echo "✗ $PKG/dist NOT FOUND - build may have failed"
+              ls -la "$PKG" | grep -E "^d"
+            fi
           done
 
       - name: Type-check all services
