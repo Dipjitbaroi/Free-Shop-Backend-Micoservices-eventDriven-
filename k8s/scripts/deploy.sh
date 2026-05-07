@@ -18,6 +18,13 @@ echo "========================================"
 echo "[1/7] Applying namespace..."
 kubectl apply -f "$K8S_DIR/namespace.yaml"
 
+# --- 1.5. Cleanup Orphaned Resources ---
+echo "[1.5/7] Cleaning up orphaned resources..."
+# Remove orphaned HPA only (seller-service deployment already at 0 replicas, no pods running)
+# ⚠ This only removes Kubernetes scaling rules, NOT database data
+kubectl delete hpa seller-service-hpa -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
+echo "  ✓ Orphaned HPA cleaned (database data is safe)"
+
 # --- 2. Secrets ---
 echo "[2/7] Applying secrets..."
 if [ ! -f "$K8S_DIR/secrets/app-secrets.yaml" ]; then
