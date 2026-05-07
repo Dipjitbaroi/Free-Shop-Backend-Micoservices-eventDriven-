@@ -14,9 +14,6 @@ export interface IProduct {
   discountPrice?: number;
   discountType?: DiscountType;
   discountValue?: number;
-  stock: number;
-  reservedStock: number;
-  lowStockThreshold: number;
   weight?: number;
   unit: string;
   isOrganic: boolean;
@@ -52,8 +49,8 @@ export interface IProductCreate {
   discountPrice?: number;
   discountType?: DiscountType;
   discountValue?: number;
-  stock: number;
-  lowStockThreshold?: number;
+  // stock: used only to initialize inventory, NOT stored in product model
+  stock?: number;
   weight?: number;
   unit?: string;
   isOrganic?: boolean;
@@ -101,8 +98,6 @@ export interface IProductUpdate {
   discountPrice?: number;
   discountType?: DiscountType;
   discountValue?: number;
-  stock?: number;
-  lowStockThreshold?: number;
   weight?: number;
   unit?: string;
   isOrganic?: boolean;

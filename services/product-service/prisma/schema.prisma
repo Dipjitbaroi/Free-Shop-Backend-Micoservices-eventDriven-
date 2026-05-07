@@ -65,9 +65,6 @@ model Product {
   discountPrice       Decimal?      @db.Decimal(10, 2)
   discountType        DiscountType?
   discountValue       Decimal?      @db.Decimal(10, 2)
-  stock               Int           @default(0)
-  reservedStock       Int           @default(0)
-  lowStockThreshold   Int           @default(10)
   weight              Decimal?      @db.Decimal(10, 3)
   unit                String        @default("piece")
   isOrganic           Boolean       @default(false)

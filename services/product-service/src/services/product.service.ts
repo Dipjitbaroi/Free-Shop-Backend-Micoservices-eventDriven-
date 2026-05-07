@@ -650,8 +650,6 @@ class ProductService {
         discountPrice: data.discountPrice ? new Prisma.Decimal(data.discountPrice) : null,
         discountType: data.discountType,
         discountValue: data.discountValue ? new Prisma.Decimal(data.discountValue) : null,
-        stock: data.stock || 0,
-        lowStockThreshold: data.lowStockThreshold || 10,
         weight: data.weight ? new Prisma.Decimal(data.weight) : null,
         unit: data.unit || 'piece',
         isOrganic: data.isOrganic || false,
@@ -678,16 +676,14 @@ class ProductService {
       freeItemIds: data.freeItemIds,
     }, createdBy || data.vendorId);
 
-    // Publish event
+    // Publish event with stock information for inventory service initialization
     await eventPublisher.productCreated({
       productId: product.id,
       createdBy: createdBy || product.id,
       vendorId: product.vendorId,
       name: product.name,
       price: Number(product.price),
-      stock: product.stock as unknown as number,
-      reservedStock: product.reservedStock as unknown as number,
-      lowStockThreshold: product.lowStockThreshold as unknown as number,
+      stock: data.stock || 0,
       categoryId: product.categoryId,
     });
 
@@ -1064,8 +1060,6 @@ class ProductService {
     if (data.discountValue !== undefined) {
       updateData.discountValue = data.discountValue ? new Prisma.Decimal(data.discountValue) : null;
     }
-    if (data.stock !== undefined) updateData.stock = data.stock;
-    if (data.lowStockThreshold !== undefined) updateData.lowStockThreshold = data.lowStockThreshold;
     if (data.weight !== undefined) updateData.weight = data.weight ? new Prisma.Decimal(data.weight) : null;
     if (data.unit !== undefined) updateData.unit = data.unit;
     if (data.isOrganic !== undefined) updateData.isOrganic = data.isOrganic;

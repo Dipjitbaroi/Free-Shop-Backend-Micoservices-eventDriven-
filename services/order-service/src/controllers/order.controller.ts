@@ -6,6 +6,8 @@ import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 import { fetchAddressById } from '../lib/user-client.js';
 import { zoneService } from '../services/zone.service.js';
 import { BadRequestError } from '@freeshop/shared-utils';
+import axios from 'axios';
+import config from '../config/index.js';
 
 export const orderController = {
   async createOrder(req: Request, res: Response, next: NextFunction) {
@@ -21,9 +23,34 @@ export const orderController = {
           if (product.status !== 'ACTIVE') {
             throw new BadRequestError(`Product "${product.name}" is not available for purchase`);
           }
-          if (product.stock < item.quantity) {
-            throw new BadRequestError(`Insufficient stock for "${product.name}". Available: ${product.stock}`);
+          
+          // Check inventory availability
+          try {
+            const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+            const inventoryResponse = await axios.get(
+              `${config.inventoryServiceUrl}/internal/check-availability/${item.productId}`,
+              {
+                timeout: 3000,
+                headers: serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {},
+              }
+            );
+            const availableStock = inventoryResponse.data?.data?.availableStock ?? 0;
+            if (availableStock < item.quantity) {
+              throw new BadRequestError(`Insufficient stock for "${product.name}". Available: ${availableStock}`);
+            }
+          } catch (error: unknown) {
+            if (axios.isAxiosError(error)) {
+              if (error.response?.status === 404) {
+                throw new BadRequestError('Product inventory not found');
+              }
+              if (error.response?.data?.message) {
+                throw new BadRequestError(error.response.data.message);
+              }
+            }
+            // Fallback: if inventory service is unreachable, reject the request
+            throw new BadRequestError('Could not verify inventory availability');
           }
+          
           // Validate freeItemIds if provided; limit to 1 for now
           const incomingFreeIds: string[] | undefined = Array.isArray(item.freeItemIds)
             ? item.freeItemIds

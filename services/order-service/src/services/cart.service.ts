@@ -5,6 +5,7 @@ import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis.js';
 import config from '../config/index.js';
 import { settingsService } from './settings.service.js';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
+import axios from 'axios';
 
 type CartWithItems = Prisma.CartGetPayload<{
   include: { items: true };
@@ -152,9 +153,10 @@ class CartService {
     if (product.status !== 'ACTIVE') {
       throw new BadRequestError(`Product is not available for purchase (status: ${product.status})`);
     }
-    if (product.stock < data.quantity) {
-      throw new BadRequestError(`Insufficient stock. Available: ${product.stock}`);
-    }
+    
+    // Check inventory availability instead of product stock
+    const inventory = await this.checkInventoryAvailability(data.productId, data.quantity);
+    
     const price = resolveEffectivePrice(product);
     const selectedFreeItems = this.resolveSelectedFreeItems(product.freeItems || [], data.freeItemIds);
 
@@ -432,6 +434,35 @@ class CartService {
         `
       )
     );
+  }
+
+  private async checkInventoryAvailability(productId: string, quantity: number): Promise<{ availableStock: number }> {
+    try {
+      const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+      const response = await axios.get(
+        `${config.inventoryServiceUrl}/internal/check-availability/${productId}`,
+        {
+          timeout: 3000,
+          headers: serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {},
+        }
+      );
+
+      const availableStock = response.data?.data?.availableStock ?? 0;
+      if (availableStock < quantity) {
+        throw new BadRequestError(`Insufficient stock. Available: ${availableStock}`);
+      }
+
+      return { availableStock };
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        throw new BadRequestError('Product inventory not found');
+      }
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      // Fallback: if inventory service is unreachable, reject the request
+      throw new BadRequestError('Could not verify inventory availability');
+    }
   }
 }
 

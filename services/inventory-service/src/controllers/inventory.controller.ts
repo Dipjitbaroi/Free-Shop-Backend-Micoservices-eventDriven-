@@ -182,5 +182,21 @@ export const inventoryController = {
       next(error);
     }
   },
+
+  async checkSingleProductAvailability(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { productId } = req.params;
+      const inventory = await inventoryService.getInventory(productId as string);
+      
+      res.json(successResponse({
+        productId: inventory.productId,
+        availableStock: inventory.availableStock,
+        totalStock: inventory.totalStock,
+        isOutOfStock: inventory.isOutOfStock,
+      }, 'Availability checked'));
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 
