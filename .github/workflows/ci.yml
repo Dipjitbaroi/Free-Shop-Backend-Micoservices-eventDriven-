@@ -48,11 +48,16 @@ jobs:
 
       - name: Generate Prisma client for all services
         run: |
-          # Generate Prisma clients using local prisma binary (avoids pnpm validation issues)
+          # Generate Prisma clients using each service's local binary
           for SERVICE in services/*/; do
             if [ -f "$SERVICE/prisma/schema.prisma" ]; then
-              echo "Generating Prisma client for $SERVICE"
-              ./node_modules/.bin/prisma generate --schema "$SERVICE/prisma/schema.prisma" 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+              SERVICE_NAME=$(basename "$SERVICE")
+              echo "Generating Prisma client for $SERVICE_NAME..."
+              if [ -f "$SERVICE/node_modules/.bin/prisma" ]; then
+                $SERVICE/node_modules/.bin/prisma generate --schema "$SERVICE/prisma/schema.prisma" 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+              else
+                echo "⚠️ Warning: prisma not found in $SERVICE_NAME, skipping..."
+              fi
             fi
           done
 
