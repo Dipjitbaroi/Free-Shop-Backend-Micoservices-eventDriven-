@@ -5,6 +5,7 @@ import compression from 'compression';
 import { errorHandler, requestLogger, notFoundHandler } from '@freeshop/shared-middleware';
 
 import inventoryRoutes from './routes/inventory.routes.js';
+import internalRoutes from './routes/internal.routes.js';
 import healthRoutes from './routes/health.routes.js';
 
 const app: Application = express();
@@ -18,6 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
 app.use('/api/inventory', inventoryRoutes);
+app.use('/internal', internalRoutes);
 app.use('/', healthRoutes);
 
 app.use(notFoundHandler);

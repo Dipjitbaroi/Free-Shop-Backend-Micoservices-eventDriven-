@@ -32,9 +32,6 @@ export async function setupEventSubscribers(): Promise<void> {
       const updatedProduct = await prisma.product.update({
         where: { id: event.productId },
         data: {
-          stock: event.newStock,
-          reservedStock: event.reservedStock ?? product.reservedStock,
-          lowStockThreshold: event.lowStockThreshold ?? product.lowStockThreshold,
           status: nextStatus,
         },
       });
