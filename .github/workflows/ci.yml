@@ -91,7 +91,7 @@ jobs:
         run: |
           for PKG in packages/shared-types packages/shared-utils packages/shared-events packages/shared-middleware; do
             echo "Building $PKG..."
-            (cd $PKG && pnpm run build) || true
+            (cd $PKG && pnpm run build 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS") || true
           done
 
       - name: Type-check all services
