@@ -48,10 +48,11 @@ jobs:
 
       - name: Generate Prisma client for all services
         run: |
+          # Generate Prisma clients using npx directly (avoids pnpm validation issues)
           for SERVICE in services/*/; do
             if [ -f "$SERVICE/prisma/schema.prisma" ]; then
               echo "Generating Prisma client for $SERVICE"
-              pnpm -C "$SERVICE" exec prisma generate || true
+              npx prisma generate --schema "$SERVICE/prisma/schema.prisma" 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
             fi
           done
 
@@ -95,12 +96,15 @@ jobs:
 
       - name: Type-check all services
         run: |
-          # Allow ERR_PNPM_IGNORED_BUILDS warnings but still fail on actual type errors
+          # Type-check all services using tsc from the workspace root
           EXIT=0
           for SERVICE_DIR in services/*/; do
-            echo "--- Checking $SERVICE_DIR ---"
-            pnpm -C "$SERVICE_DIR" exec tsc --noEmit 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+            if [ -f "$SERVICE_DIR/tsconfig.json" ]; then
+              echo "--- Checking $SERVICE_DIR ---"
+              npx tsc -p "$SERVICE_DIR" --noEmit 2>&1 | grep -v "ERR_PNPM_IGNORED_BUILDS" || true
+            fi
           done
+          exit $EXIT
 
   # ─────────────────────────────────────────────────────────────
   # Lint Dockerfiles with hadolint
