@@ -149,6 +149,14 @@ export const setupRoutes = (app: Application): void => {
     })
   );
 
+  app.use(
+    '/api/v1/webhooks/steadfast',
+    createProxyMiddleware({
+      ...getProxyOptions('order', config.services.order.url),
+      pathRewrite: async (path) => `/webhooks/steadfast${path === '/' ? '' : path}`,
+    })
+  );
+
   // Inventory Service routes
   app.use(
     '/api/v1/inventory',

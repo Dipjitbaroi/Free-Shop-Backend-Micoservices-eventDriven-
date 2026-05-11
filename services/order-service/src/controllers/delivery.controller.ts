@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { deliveryService } from '../services/delivery.service.js';
-import { successResponse, BadRequestError, NotFoundError } from '@freeshop/shared-utils';
+import { successResponse, BadRequestError, NotFoundError, ServiceUnavailableError, UnauthorizedError } from '@freeshop/shared-utils';
+import config from '../config/index.js';
 
 export const deliveryController = {
   async createDelivery(req: Request, res: Response, next: NextFunction) {
@@ -185,6 +186,32 @@ export const deliveryController = {
       const stats = await deliveryService.getDeliveryStats();
 
       res.json(successResponse(stats, 'Delivery statistics retrieved successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async handleSteadfastWebhook(req: Request, res: Response, next: NextFunction) {
+    try {
+      const configuredToken = config.steadfast.webhookBearerToken;
+
+      if (!configuredToken) {
+        throw new ServiceUnavailableError('Steadfast webhook token is not configured');
+      }
+
+      const authorization = String(req.headers.authorization || '');
+      if (authorization !== `Bearer ${configuredToken}`) {
+        throw new UnauthorizedError('Invalid Steadfast webhook token');
+      }
+
+      const result = await deliveryService.handleSteadfastWebhook(req.body as Record<string, unknown>);
+
+      if (!result.matched) {
+        res.json(successResponse(result, 'Steadfast webhook received but no matching delivery was found'));
+        return;
+      }
+
+      res.json(successResponse(result, 'Steadfast delivery status processed'));
     } catch (error) {
       next(error);
     }

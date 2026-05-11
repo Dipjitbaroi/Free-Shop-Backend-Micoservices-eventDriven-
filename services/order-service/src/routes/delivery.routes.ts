@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate, webhookRateLimiter } from '@freeshop/shared-middleware';
 import { deliveryController } from '../controllers/delivery.controller.js';
 import { body, param, query } from 'express-validator';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
@@ -161,6 +161,18 @@ router.get(
   '/deliveries/stats',
   authenticate,
   deliveryController.getDeliveryStats
+);
+
+// ── Steadfast webhook route ───────────────────────────────────────────────
+
+/**
+ * Receive Steadfast delivery updates
+ * POST /webhooks/steadfast
+ */
+router.post(
+  '/webhooks/steadfast',
+  webhookRateLimiter,
+  deliveryController.handleSteadfastWebhook
 );
 
 export default router;

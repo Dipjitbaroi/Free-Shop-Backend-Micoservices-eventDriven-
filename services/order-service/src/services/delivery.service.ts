@@ -1,9 +1,10 @@
 import { DeliveryInfo } from '../../generated/client/client.js';
-import { BadRequestError, NotFoundError } from '@freeshop/shared-utils';
+import { BadRequestError, NotFoundError, ServiceUnavailableError } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { DeliveryProvider, DeliveryStatus } from '@freeshop/shared-types';
 import { OrderStatus, PaymentMethod, PaymentStatus } from '../../generated/client/client.js';
 import { completeCODPayment } from '../lib/payment-client.js';
+import { steadfastClient } from '../lib/steadfast-client.js';
 
 interface DeliveryManProfile {
   id: string;
@@ -25,8 +26,157 @@ interface IDeliveryInfoData {
   estimatedDeliveryDate?: Date;
 }
 
+interface SteadfastWebhookPayload {
+  consignment_id?: string | number;
+  invoice?: string;
+  tracking_code?: string;
+  status?: string;
+  cod_amount?: number | string;
+  note?: string | null;
+  updated_at?: string;
+  [key: string]: unknown;
+}
+
+interface SteadfastWebhookResult {
+  matched: boolean;
+  deliveryId?: string;
+  orderId?: string;
+  internalStatus?: DeliveryStatus;
+}
+
 class DeliveryService {
   private deliveryManCache = new Map<string, DeliveryManProfile>();
+
+  private normalizeText(value: unknown): string {
+    if (typeof value === 'string') {
+      return value.trim();
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value).trim();
+    }
+
+    return '';
+  }
+
+  private getShippingAddressValue(address: Record<string, unknown> | null | undefined, keys: string[]): string {
+    if (!address) {
+      return '';
+    }
+
+    for (const key of keys) {
+      const value = this.normalizeText(address[key]);
+      if (value) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
+  private formatSteadfastAddress(address: Record<string, unknown> | null | undefined): string {
+    if (!address) {
+      return 'No address provided';
+    }
+
+    const parts = [
+      this.getShippingAddressValue(address, ['addressLine1', 'addressLine', 'street', 'house', 'road']),
+      this.getShippingAddressValue(address, ['addressLine2', 'area', 'locality', 'thana', 'upazila']),
+      this.getShippingAddressValue(address, ['district', 'city']),
+      this.getShippingAddressValue(address, ['state', 'division']),
+      this.getShippingAddressValue(address, ['postalCode', 'postcode', 'zip']),
+    ].filter(Boolean);
+
+    if (parts.length > 0) {
+      return parts.join(', ');
+    }
+
+    const fallback = this.normalizeText(address.fullAddress || address.address || address.location || address.note);
+    return fallback || 'No address provided';
+  }
+
+  private getSteadfastRecipientName(order: any): string {
+    const shippingAddress = (order.shippingAddress || {}) as Record<string, unknown>;
+    const name = this.getShippingAddressValue(shippingAddress, ['name', 'fullName', 'full_name', 'recipientName']);
+    if (name) {
+      return name;
+    }
+
+    const firstName = this.getShippingAddressValue(shippingAddress, ['firstName', 'first_name']);
+    const lastName = this.getShippingAddressValue(shippingAddress, ['lastName', 'last_name']);
+    const combined = `${firstName} ${lastName}`.trim();
+    if (combined) {
+      return combined;
+    }
+
+    if (order.guestEmail) {
+      return order.guestEmail;
+    }
+
+    return 'Customer';
+  }
+
+  private getSteadfastRecipientPhone(order: any): string {
+    const shippingAddress = (order.shippingAddress || {}) as Record<string, unknown>;
+    const phone = this.getShippingAddressValue(shippingAddress, ['phone', 'mobile', 'phoneNumber', 'recipientPhone']);
+    return phone || this.normalizeText(order.guestPhone) || '0000000000';
+  }
+
+  private getSteadfastCodAmount(order: any): number {
+    if (order.paymentMethod === PaymentMethod.COD) {
+      return Number(order.total || 0);
+    }
+
+    return 0;
+  }
+
+  private getSteadfastOrderNote(order: any): string | null {
+    const note = this.normalizeText(order.customerNote || order.sellerNote || order.adminNote);
+    return note || null;
+  }
+
+  private buildSteadfastPayload(order: any) {
+    const shippingAddress = (order.shippingAddress || {}) as Record<string, unknown>;
+
+    return {
+      invoice: order.orderNumber,
+      recipient_name: this.getSteadfastRecipientName(order),
+      recipient_phone: this.getSteadfastRecipientPhone(order),
+      recipient_address: this.formatSteadfastAddress(shippingAddress),
+      cod_amount: this.getSteadfastCodAmount(order),
+      note: this.getSteadfastOrderNote(order),
+    };
+  }
+
+  private normalizeSteadfastStatus(status: string): string {
+    const normalized = status.trim().toLowerCase();
+
+    switch (normalized) {
+      case 'delivered':
+        return 'DELIVERED';
+      case 'in_transit':
+        return 'IN_TRANSIT';
+      case 'out_for_delivery':
+        return 'OUT_FOR_DELIVERY';
+      case 'pending':
+      case 'in_review':
+      case 'hold':
+        return 'ASSIGNED';
+      case 'failed':
+      case 'cancelled':
+      case 'returned':
+        return 'FAILED';
+      case 'delivered_approval_pending':
+      case 'partial_delivered':
+      case 'partial_delivered_approval_pending':
+        return 'OUT_FOR_DELIVERY';
+      case 'cancelled_approval_pending':
+      case 'unknown_approval_pending':
+      case 'unknown':
+      default:
+        return 'ASSIGNED';
+    }
+  }
 
   private async completeCODPaymentOnDelivery(orderId: string): Promise<void> {
     try {
@@ -218,7 +368,6 @@ class DeliveryService {
   }
 
   async createDelivery(orderId: string, data: IDeliveryInfoData): Promise<DeliveryInfo> {
-    // Check if order exists
     const order = await prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -227,7 +376,6 @@ class DeliveryService {
       throw new NotFoundError('Order not found');
     }
 
-    // Check if delivery already exists
     const existingDelivery = await prisma.deliveryInfo.findUnique({
       where: { orderId },
     });
@@ -236,47 +384,184 @@ class DeliveryService {
       throw new BadRequestError('Delivery already exists for this order');
     }
 
-    let deliveryData: any = {
+    const baseDeliveryData: any = {
       orderId,
       weight: data.weight,
       fragile: data.fragile,
       estimatedDeliveryDate: data.estimatedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      status: 'PENDING',
     };
 
-    // Handle INHOUSE delivery
     if (data.type === 'INHOUSE') {
-      deliveryData = {
-        ...deliveryData,
-        provider: 'INHOUSE',
-        deliveryManId: data.deliveryManId,
-        status: 'ASSIGNED', // Auto-assign status when man is assigned
-      };
-    }
-    // Handle THIRD_PARTY delivery
-    else if (data.type === 'THIRD_PARTY') {
-      deliveryData = {
-        ...deliveryData,
-        provider: data.provider,
-        externalProvider: data.provider,
-        externalTrackingId: data.trackingId,
-        externalApiRef: data.apiRef,
-        status: 'ASSIGNED', // Auto-assign status when provider is set
-      };
-    } else {
-      throw new BadRequestError('Invalid delivery type');
+      const delivery = await prisma.deliveryInfo.create({
+        data: {
+          ...baseDeliveryData,
+          status: 'ASSIGNED',
+          provider: 'INHOUSE',
+          deliveryManId: data.deliveryManId,
+          carrier: 'INHOUSE',
+        },
+      });
+
+      await this.syncDeliveryOrderStatus(delivery.id, 'ASSIGNED' as DeliveryStatus);
+      return delivery;
     }
 
-    const delivery = await prisma.deliveryInfo.create({
-      data: deliveryData,
+    if (data.type === 'THIRD_PARTY') {
+      if (data.provider === 'STEADFAST') {
+        const draftDelivery = await prisma.deliveryInfo.create({
+          data: {
+            ...baseDeliveryData,
+            status: 'PENDING',
+            provider: 'STEADFAST',
+            externalProvider: 'STEADFAST',
+            carrier: 'STEADFAST',
+          },
+        });
+
+        try {
+          const steadfastResponse = await steadfastClient.placeOrder(this.buildSteadfastPayload(order));
+          const responseData = steadfastResponse as any;
+          const consignment = responseData.consignment || responseData.data?.consignment || responseData.result?.consignment || responseData;
+          const trackingCode = consignment?.tracking_code?.toString?.() || responseData.tracking_code?.toString?.() || '';
+          const consignmentId = consignment?.consignment_id?.toString?.() || responseData.consignment_id?.toString?.() || '';
+
+          if (!trackingCode && !consignmentId) {
+            throw new ServiceUnavailableError('Steadfast booking succeeded but did not return tracking details', {
+              response: steadfastResponse,
+            });
+          }
+
+          const updatedDelivery = await prisma.deliveryInfo.update({
+            where: { id: draftDelivery.id },
+            data: {
+              status: 'ASSIGNED',  // ✓ Assigned to Steadfast - booking confirmed
+              externalTrackingId: trackingCode || null,
+              externalApiRef: consignmentId || null,
+              trackingNumber: trackingCode || null,
+              carrier: 'STEADFAST',
+              notes: this.normalizeText(consignment?.note) || draftDelivery.notes,
+            },
+          });
+
+          console.log(`✓ Steadfast booking successful: Consignment ID=${consignmentId}, Tracking Code=${trackingCode}`);
+          return updatedDelivery;
+        } catch (error) {
+          await prisma.deliveryInfo.delete({ where: { id: draftDelivery.id } }).catch(() => undefined);
+          throw error;
+        }
+      }
+
+      const delivery = await prisma.deliveryInfo.create({
+        data: {
+          ...baseDeliveryData,
+          provider: data.provider,
+          externalProvider: data.provider,
+          externalTrackingId: data.trackingId,
+          externalApiRef: data.apiRef,
+          trackingNumber: data.trackingId,
+          carrier: data.provider,
+          status: 'ASSIGNED',
+        },
+      });
+
+      await this.syncDeliveryOrderStatus(delivery.id, 'ASSIGNED' as DeliveryStatus);
+      return delivery;
+    }
+
+    throw new BadRequestError('Invalid delivery type');
+  }
+
+  async handleSteadfastWebhook(payload: SteadfastWebhookPayload): Promise<SteadfastWebhookResult> {
+    const consignmentId = this.normalizeText(payload.consignment_id);
+    const trackingCode = this.normalizeText(payload.tracking_code);
+    const invoice = this.normalizeText(payload.invoice);
+    const rawStatus = this.normalizeText(payload.status);
+
+    if (!consignmentId && !trackingCode && !invoice) {
+      throw new BadRequestError('Steadfast webhook requires consignment_id, tracking_code, or invoice');
+    }
+
+    const delivery = await prisma.deliveryInfo.findFirst({
+      where: {
+        provider: 'STEADFAST',
+        OR: [
+          ...(consignmentId ? [{ externalApiRef: consignmentId }] : []),
+          ...(trackingCode ? [{ externalTrackingId: trackingCode }] : []),
+          ...(invoice ? [{ order: { orderNumber: invoice } }] : []),
+        ],
+      },
     });
 
-    // Sync order status when delivery is created with ASSIGNED status
-    if (deliveryData.status === 'ASSIGNED') {
-      await this.syncDeliveryOrderStatus(delivery.id, 'ASSIGNED' as DeliveryStatus);
+    if (!delivery) {
+      console.warn(`⚠ Webhook unmatched: No delivery found for consignment_id=${consignmentId}, tracking_code=${trackingCode}, invoice=${invoice}`);
+      return { matched: false };
+    }
+    
+    console.log(`✓ Webhook matched: Delivery ID=${delivery.id}, Order ID=${delivery.orderId}`);
+
+    const internalStatus: any = rawStatus ? this.normalizeSteadfastStatus(rawStatus) : delivery.status;
+    const updateData: Record<string, unknown> = {};
+
+    if (consignmentId && !delivery.externalApiRef) {
+      updateData.externalApiRef = consignmentId;
     }
 
-    return delivery;
+    if (trackingCode && !delivery.externalTrackingId) {
+      updateData.externalTrackingId = trackingCode;
+      updateData.trackingNumber = trackingCode;
+    }
+
+    if (rawStatus) {
+      updateData.status = internalStatus;
+      
+      // Update timestamp based on status
+      switch (internalStatus) {
+        case 'PICKED_UP':
+          updateData.pickedUpAt = new Date();
+          break;
+        case 'IN_TRANSIT':
+          updateData.inTransitAt = new Date();
+          break;
+        case 'OUT_FOR_DELIVERY':
+          updateData.outForDeliveryAt = new Date();
+          break;
+        case 'DELIVERED':
+          updateData.actualDeliveryDate = new Date();
+          break;
+      }
+      
+      if (this.normalizeText(payload.note)) {
+        updateData.notes = this.normalizeText(payload.note);
+      }
+      
+      // Log webhook processing
+      console.log(`✓ Webhook: Delivery ${delivery.id} status updated to ${internalStatus}`);
+    } else {
+      console.warn(`⚠ Webhook received but no status change for delivery ${delivery.id}`);
+    }
+
+    const updatedDelivery = Object.keys(updateData).length > 0
+      ? await prisma.deliveryInfo.update({
+          where: { id: delivery.id },
+          data: updateData,
+        })
+      : delivery;
+
+    if (rawStatus && internalStatus !== delivery.status) {
+      await this.syncDeliveryOrderStatus(updatedDelivery.id, internalStatus);
+      
+      // Auto-complete COD payment if delivery is marked as DELIVERED
+      if (internalStatus === 'DELIVERED') {
+        await this.completeCODPaymentOnDelivery(updatedDelivery.orderId);
+      }
+    }
+
+    return {
+      matched: true,
+      deliveryId: updatedDelivery.id,
+      orderId: updatedDelivery.orderId,
+      internalStatus,
+    };
   }
 
   async getDeliveryByOrderId(orderId: string, search?: string): Promise<any> {
@@ -339,8 +624,8 @@ class DeliveryService {
         if (deliveryManProfile) {
           deliveryMan = {
             id: delivery.deliveryManId,
-            name: deliveryManProfile.firstName && deliveryManProfile.lastName 
-              ? `${deliveryManProfile.firstName} ${deliveryManProfile.lastName}` 
+            name: deliveryManProfile.firstName && deliveryManProfile.lastName
+              ? `${deliveryManProfile.firstName} ${deliveryManProfile.lastName}`
               : (deliveryManProfile.firstName || deliveryManProfile.lastName || ''),
             email: deliveryManProfile.email,
             phone: deliveryManProfile.phone,
@@ -352,7 +637,6 @@ class DeliveryService {
       }
     }
 
-    // Return serializable object
     return {
       id: delivery.id,
       orderId: delivery.orderId,
@@ -361,7 +645,11 @@ class DeliveryService {
       deliveryMan,
       order: delivery.order,
       provider: delivery.provider,
+      carrier: delivery.carrier,
       trackingId: delivery.externalTrackingId,
+      externalTrackingId: delivery.externalTrackingId,
+      externalApiRef: delivery.externalApiRef,
+      trackingNumber: delivery.trackingNumber,
       estimatedDeliveryDate: delivery.estimatedDeliveryDate,
       actualDeliveryDate: delivery.actualDeliveryDate,
       createdAt: delivery.createdAt,
@@ -377,8 +665,6 @@ class DeliveryService {
     return delivery;
   }
 
-
-
   async updateDeliveryStatus(
     deliveryId: string,
     status: DeliveryStatus,
@@ -386,7 +672,6 @@ class DeliveryService {
   ): Promise<DeliveryInfo> {
     const data: any = { status };
 
-    // Set timestamps based on status
     switch (status) {
       case 'PICKED_UP':
         data.pickedUpAt = new Date();
@@ -402,7 +687,6 @@ class DeliveryService {
         break;
     }
 
-    // Add any additional data provided
     if (additionalData) {
       Object.assign(data, additionalData);
     }
@@ -412,10 +696,8 @@ class DeliveryService {
       data,
     });
 
-    // Sync order status to maintain consistency
     await this.syncDeliveryOrderStatus(deliveryId, status);
 
-    // For COD orders, mark payment as paid when delivery is completed.
     if (status === 'DELIVERED') {
       await this.completeCODPaymentOnDelivery(updated.orderId);
     }
