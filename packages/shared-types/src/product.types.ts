@@ -51,6 +51,8 @@ export interface IProductCreate {
   discountValue?: number;
   // stock: used only to initialize inventory, NOT stored in product model
   stock?: number;
+  // Initial low-stock threshold used to initialize Inventory Service record
+  lowStockThreshold?: number;
   weight?: number;
   unit?: string;
   isOrganic?: boolean;
