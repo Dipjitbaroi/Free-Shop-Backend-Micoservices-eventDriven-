@@ -5,6 +5,12 @@ const config = {
   userServiceUrl: process.env.USER_SERVICE_URL || 'http://localhost:3001',
   paymentServiceUrl: process.env.PAYMENT_SERVICE_URL || 'http://localhost:3002',
   inventoryServiceUrl: process.env.INVENTORY_SERVICE_URL || 'http://localhost:3005',
+  steadfast: {
+    baseUrl: process.env.STEADFAST_BASE_URL || 'https://portal.steadfast.com.bd/api/v1',
+    apiKey: process.env.STEADFAST_API_KEY || '',
+    secretKey: process.env.STEADFAST_SECRET_KEY || '',
+    webhookBearerToken: process.env.STEADFAST_BEARER_TOKEN || '',
+  },
   
   jwt: {
     secret: process.env.JWT_SECRET || 'your-super-secret-jwt-key',
