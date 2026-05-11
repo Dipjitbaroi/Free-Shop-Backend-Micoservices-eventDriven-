@@ -684,6 +684,7 @@ class ProductService {
       name: product.name,
       price: Number(product.price),
       stock: data.stock || 0,
+      lowStockThreshold: (data as any).lowStockThreshold, // optional
       categoryId: product.categoryId,
     });
 

@@ -25,6 +25,7 @@ const createProductValidation = [
   body('images').optional().isArray({ max: config.upload.maxImages }).withMessage(`Maximum ${config.upload.maxImages} images allowed`),
   body('unit').optional().isString(),
   body('stock').optional().isInt({ min: 0 }),
+  body('lowStockThreshold').optional().isInt({ min: 0 }),
   body('isOrganic').optional().isBoolean(),
 ];
 
