@@ -298,6 +298,7 @@ export enum PermissionResource {
   SETTINGS = 'SETTINGS',
   ADMIN_PANEL = 'ADMIN_PANEL',
   COUPON = 'COUPON',
+  ANALYTICS = 'ANALYTICS',
 }
 
 export enum DeliveryProvider {
