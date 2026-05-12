@@ -224,6 +224,9 @@ importers:
       amqplib:
         specifier: ^0.10.9
         version: 0.10.9
+      axios:
+        specifier: ^1.4.0
+        version: 1.15.0
       compression:
         specifier: ^1.8.1
         version: 1.8.1
