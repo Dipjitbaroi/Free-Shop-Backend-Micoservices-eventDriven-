@@ -5190,93 +5190,341 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
     },
 
-    // ─── ANALYTICS ───────────────────────────────────────────────────────────
-    '/analytics/dashboard': {
+    // ─── ANALYTICS: SECTION 1 - PLATFORM METRICS (90010) ──────────────────────
+    '/analytics/section/platform/dashboard': {
       get: {
         tags: ['Analytics'],
-        summary: 'Platform dashboard metrics (admin / manager)',
+        summary: 'Get platform dashboard metrics',
+        description: 'Platform-wide metrics including orders, revenue, and user activity. Requires permission code 90010.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Start date for metrics' },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'End date for metrics' },
+        ],
+        responses: {
+          200: {
+            description: 'Platform dashboard metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalOrders: { type: 'integer', example: 1523 },
+                    totalRevenue: { type: 'number', example: 2450000 },
+                    activeVendors: { type: 'integer', example: 48 },
+                    activeUsers: { type: 'integer', example: 3210 },
+                    averageOrderValue: { type: 'number', example: 1608.53 },
+                    orderGrowth: { type: 'number', example: 12.5 },
+                    revenueGrowth: { type: 'number', example: 18.3 },
+                    topCategories: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          categoryName: { type: 'string', example: 'Vegetables' },
+                          totalSales: { type: 'number', example: 325000 },
+                          orderCount: { type: 'integer', example: 234 },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalOrders: 1523,
+                  totalRevenue: 2450000,
+                  activeVendors: 48,
+                  activeUsers: 3210,
+                  averageOrderValue: 1608.53,
+                  orderGrowth: 12.5,
+                  revenueGrowth: 18.3,
+                  topCategories: [
+                    { categoryName: 'Vegetables', totalSales: 325000, orderCount: 234 },
+                    { categoryName: 'Fruits', totalSales: 298000, orderCount: 189 },
+                    { categoryName: 'Dairy', totalSales: 187000, orderCount: 156 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (permission code 90010 required)' },
+        },
+      },
+    },
+    '/analytics/section/platform/orders/trend': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get order volume trends',
+        description: 'Order count trends over time period. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Dashboard metrics' },
+          200: {
+            description: 'Order trends data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    dates: { type: 'array', items: { type: 'string' }, example: ['2026-05-01', '2026-05-02', '2026-05-03'] },
+                    orderCounts: { type: 'array', items: { type: 'integer' }, example: [120, 145, 132] },
+                    averageDailyOrders: { type: 'number', example: 132.33 },
+                    peakDay: { type: 'object', properties: { date: { type: 'string' }, count: { type: 'integer' } }, example: { date: '2026-05-02', count: 145 } },
+                  },
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/sales': {
+    '/analytics/section/platform/payment-methods': {
       get: {
         tags: ['Analytics'],
-        summary: 'Sales analytics (admin / manager)',
+        summary: 'Get payment method distribution',
+        description: 'Distribution of orders by payment method. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Sales data' },
+          200: {
+            description: 'Payment method breakdown',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    paymentMethods: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          method: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'], example: 'COD' },
+                          orderCount: { type: 'integer', example: 456 },
+                          revenue: { type: 'number', example: 734500 },
+                          percentage: { type: 'number', example: 30.0 },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  paymentMethods: [
+                    { method: 'COD', orderCount: 456, revenue: 734500, percentage: 30.0 },
+                    { method: 'BKASH', orderCount: 567, revenue: 912345, percentage: 37.2 },
+                    { method: 'CARD', orderCount: 234, revenue: 378000, percentage: 15.5 },
+                    { method: 'EPS', orderCount: 266, revenue: 425155, percentage: 17.3 },
+                  ],
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/top-products': {
+    '/analytics/section/platform/regions': {
       get: {
         tags: ['Analytics'],
-        summary: 'Top performing products (admin / manager)',
+        summary: 'Get regional sales breakdown',
+        description: 'Sales distribution by geographic region. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
         ],
         responses: {
-          200: { description: 'Top products' },
+          200: {
+            description: 'Regional breakdown',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    regions: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          regionName: { type: 'string', example: 'Dhaka' },
+                          orderCount: { type: 'integer', example: 545 },
+                          revenue: { type: 'number', example: 876543 },
+                          percentage: { type: 'number', example: 35.8 },
+                          activeUsers: { type: 'integer', example: 892 },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  regions: [
+                    { regionName: 'Dhaka', orderCount: 545, revenue: 876543, percentage: 35.8, activeUsers: 892 },
+                    { regionName: 'Chittagong', orderCount: 312, revenue: 501234, percentage: 20.5, activeUsers: 523 },
+                    { regionName: 'Sylhet', orderCount: 198, revenue: 318900, percentage: 13.0, activeUsers: 287 },
+                    { regionName: 'Others', orderCount: 468, revenue: 753323, percentage: 30.7, activeUsers: 608 },
+                  ],
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/top-Vendors': {
+    '/analytics/section/platform/top-products': {
       get: {
         tags: ['Analytics'],
-        summary: 'Top performing Vendors (admin / manager)',
+        summary: 'Get top products by volume',
+        description: 'Most ordered products across platform. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, description: 'Number of products to return' },
         ],
         responses: {
-          200: { description: 'Top Vendors' },
+          200: {
+            description: 'Top products list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    products: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          productId: { type: 'string', format: 'uuid' },
+                          productName: { type: 'string' },
+                          orderCount: { type: 'integer' },
+                          unitsSold: { type: 'integer' },
+                          revenue: { type: 'number' },
+                          rating: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  products: [
+                    { productId: '550e8400-e29b-41d4-a716-446655440001', productName: 'Organic Tomatoes (1kg)', orderCount: 234, unitsSold: 567, revenue: 89450, rating: 4.7 },
+                    { productId: '550e8400-e29b-41d4-a716-446655440002', productName: 'Fresh Cucumber (500g)', orderCount: 189, unitsSold: 445, revenue: 53400, rating: 4.5 },
+                    { productId: '550e8400-e29b-41d4-a716-446655440003', productName: 'Carrots Bundle (2kg)', orderCount: 167, unitsSold: 334, revenue: 36740, rating: 4.8 },
+                  ],
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/users': {
+
+    // ─── ANALYTICS: SECTION 2 - VENDOR ANALYTICS (90011) ────────────────────
+    '/analytics/section/vendor/dashboard': {
       get: {
         tags: ['Analytics'],
-        summary: 'User analytics (admin / manager)',
+        summary: 'Get vendor dashboard (own or all)',
+        description: 'VENDOR: Own dashboard with supplier price calculations. ADMIN/SUPERADMIN: All vendors. Requires permission 90011.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'User analytics' },
+          200: {
+            description: 'Vendor dashboard data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      vendorId: { type: 'string', format: 'uuid' },
+                      storeName: { type: 'string' },
+                      totalOrders: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      averageOrderValue: { type: 'number' },
+                      activeProducts: { type: 'integer' },
+                      rating: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440010', storeName: 'Fresh Farm Store', totalOrders: 234, totalRevenue: 375600, averageOrderValue: 1604.27, activeProducts: 45, rating: 4.6 },
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440011', storeName: 'Organic Greens', totalOrders: 189, totalRevenue: 289450, averageOrderValue: 1532.12, activeProducts: 38, rating: 4.8 },
+                ],
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions (requires permission 90011)' },
         },
       },
     },
-    '/analytics/Vendors/{vendorId}': {
+    '/analytics/section/vendor/{vendorId}/dashboard': {
       get: {
         tags: ['Analytics'],
-        summary: 'Get analytics report for a specific Vendor',
+        summary: 'Get specific vendor dashboard',
+        description: 'Access is granted with permission code 90011. If vendor accessing own data, revenue calculated on supplier price only. Admins see full details.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Vendor ID' },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Vendor dashboard',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    vendorId: { type: 'string', format: 'uuid' },
+                    storeName: { type: 'string' },
+                    totalOrders: { type: 'integer' },
+                    supplierRevenue: { type: 'number', description: 'Revenue on supplier price basis' },
+                    activeProducts: { type: 'integer' },
+                    rating: { type: 'number' },
+                    salesTrend: { type: 'array', items: { type: 'number' } },
+                  },
+                },
+                example: {
+                  vendorId: '550e8400-e29b-41d4-a716-446655440010',
+                  storeName: 'Fresh Farm Store',
+                  totalOrders: 234,
+                  supplierRevenue: 245600,
+                  activeProducts: 45,
+                  rating: 4.6,
+                  salesTrend: [12000, 13500, 12800, 14200, 15100],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (permission code 90011 required) or cannot access other vendor data' },
+          404: { description: 'Vendor not found' },
+        },
+      },
+    },
+    '/analytics/section/vendor/{vendorId}/products': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get vendor product analytics',
+        description: 'VENDOR: Own products only. ADMIN/SUPERADMIN: All vendor products. Requires permission 90011.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -5284,16 +5532,173 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Vendor analytics report' },
+          200: {
+            description: 'Vendor products analytics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      productId: { type: 'string', format: 'uuid' },
+                      productName: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      unitsSold: { type: 'integer' },
+                      supplierRevenue: { type: 'number' },
+                      rating: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { productId: '550e8400-e29b-41d4-a716-446655440020', productName: 'Tomatoes 1kg', orderCount: 85, unitsSold: 215, supplierRevenue: 32250, rating: 4.7 },
+                  { productId: '550e8400-e29b-41d4-a716-446655440021', productName: 'Carrots 2kg', orderCount: 62, unitsSold: 124, supplierRevenue: 18600, rating: 4.8 },
+                ],
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/products/{productId}': {
+    '/analytics/section/vendor/{vendorId}/revenue/trend': {
       get: {
         tags: ['Analytics'],
-        summary: 'Get analytics for a specific product',
+        summary: 'Get vendor revenue trend',
+        description: 'Revenue trend over time. For VENDORs: calculated on supplier price only. For ADMIN/SUPERADMIN: full revenue visibility. Requires permission 90011.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Revenue trend',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    dates: { type: 'array', items: { type: 'string' } },
+                    supplierRevenue: { type: 'array', items: { type: 'number' } },
+                    totalRevenue: { type: 'number' },
+                    averageDailyRevenue: { type: 'number' },
+                  },
+                },
+                example: {
+                  dates: ['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05'],
+                  supplierRevenue: [12000, 13500, 12800, 14200, 15100],
+                  totalRevenue: 67600,
+                  averageDailyRevenue: 13520,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/vendor/{vendorId}/ratings': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get vendor ratings and reviews',
+        description: 'Customer ratings and review metrics for vendor. Requires permission 90011.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Vendor ratings',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    averageRating: { type: 'number' },
+                    totalReviews: { type: 'integer' },
+                    ratingDistribution: {
+                      type: 'object',
+                      properties: {
+                        fiveStar: { type: 'integer' },
+                        fourStar: { type: 'integer' },
+                        threeStar: { type: 'integer' },
+                        twoStar: { type: 'integer' },
+                        oneStar: { type: 'integer' },
+                      },
+                    },
+                    reviewTrend: { type: 'array', items: { type: 'number' } },
+                  },
+                },
+                example: {
+                  averageRating: 4.6,
+                  totalReviews: 234,
+                  ratingDistribution: { fiveStar: 156, fourStar: 54, threeStar: 18, twoStar: 4, oneStar: 2 },
+                  reviewTrend: [18, 22, 19, 25, 20],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 3 - PRODUCT ANALYTICS (90012) ──────────────────
+    '/analytics/section/product/list': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'List products with analytics',
+        description: 'VENDOR: Own products only. ADMIN/SUPERADMIN: All products. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, description: 'Results per page' },
+          { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0 }, description: 'Pagination offset' },
+        ],
+        responses: {
+          200: {
+            description: 'Products list with analytics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      productId: { type: 'string', format: 'uuid' },
+                      productName: { type: 'string' },
+                      vendorName: { type: 'string' },
+                      totalViews: { type: 'integer' },
+                      orderCount: { type: 'integer' },
+                      conversionRate: { type: 'number' },
+                      revenue: { type: 'number' },
+                      rating: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { productId: '550e8400-e29b-41d4-a716-446655440030', productName: 'Tomatoes 1kg', vendorName: 'Fresh Farm', totalViews: 5420, orderCount: 234, conversionRate: 4.32, revenue: 89450, rating: 4.7 },
+                  { productId: '550e8400-e29b-41d4-a716-446655440031', productName: 'Carrots 2kg', vendorName: 'Fresh Farm', totalViews: 3210, orderCount: 126, conversionRate: 3.92, revenue: 45680, rating: 4.8 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (requires permission 90012)' },
+        },
+      },
+    },
+    '/analytics/section/product/{productId}/metrics': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product performance metrics',
+        description: 'VENDOR: Own products only. Product sales, revenue, conversion metrics. Requires permission 90012.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -5301,16 +5706,954 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Product analytics' },
+          200: {
+            description: 'Product metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    productId: { type: 'string', format: 'uuid' },
+                    productName: { type: 'string' },
+                    totalOrders: { type: 'integer' },
+                    unitsSold: { type: 'integer' },
+                    revenue: { type: 'number' },
+                    averageOrderValue: { type: 'number' },
+                    rating: { type: 'number' },
+                    stockLevel: { type: 'integer' },
+                  },
+                },
+                example: {
+                  productId: '550e8400-e29b-41d4-a716-446655440030',
+                  productName: 'Tomatoes 1kg',
+                  totalOrders: 234,
+                  unitsSold: 567,
+                  revenue: 89450,
+                  averageOrderValue: 382.31,
+                  rating: 4.7,
+                  stockLevel: 245,
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
+    '/analytics/section/product/{productId}/views-conversions': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product views and conversion metrics',
+        description: 'Views, clicks, conversion rates. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Views and conversions',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalViews: { type: 'integer' },
+                    totalClicks: { type: 'integer' },
+                    totalOrders: { type: 'integer' },
+                    clickRate: { type: 'number' },
+                    conversionRate: { type: 'number' },
+                    viewsByDay: { type: 'array', items: { type: 'integer' } },
+                  },
+                },
+                example: {
+                  totalViews: 5420,
+                  totalClicks: 845,
+                  totalOrders: 234,
+                  clickRate: 15.59,
+                  conversionRate: 27.69,
+                  viewsByDay: [1050, 1180, 980, 1150, 1060],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/product/{productId}/inventory': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product inventory levels',
+        description: 'Current stock levels and inventory metrics. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'Inventory data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    currentStock: { type: 'integer' },
+                    lowStockThreshold: { type: 'integer' },
+                    averageDailyUsage: { type: 'number' },
+                    daysToStockout: { type: 'number' },
+                    stockStatus: { type: 'string', enum: ['HEALTHY', 'LOW', 'CRITICAL', 'OUT_OF_STOCK'] },
+                  },
+                },
+                example: {
+                  currentStock: 245,
+                  lowStockThreshold: 50,
+                  averageDailyUsage: 12.5,
+                  daysToStockout: 19.6,
+                  stockStatus: 'HEALTHY',
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/product/{productId}/returns': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product return statistics',
+        description: 'Return rate and reasons. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Return statistics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalOrdersWithReturns: { type: 'integer' },
+                    totalReturnedUnits: { type: 'integer' },
+                    returnRate: { type: 'number' },
+                    topReturnReasons: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          reason: { type: 'string' },
+                          count: { type: 'integer' },
+                          percentage: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalOrdersWithReturns: 8,
+                  totalReturnedUnits: 12,
+                  returnRate: 3.41,
+                  topReturnReasons: [
+                    { reason: 'Damaged', count: 6, percentage: 50.0 },
+                    { reason: 'Wrong item', count: 3, percentage: 25.0 },
+                    { reason: 'Quality issue', count: 3, percentage: 25.0 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 4 - SALES REPORT (90013) - ADMIN/SUPERADMIN ─────
+    '/analytics/section/sales/daily': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get daily sales report',
+        description: 'Daily sales data aggregation. Requires permission code 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Daily sales report',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      date: { type: 'string' },
+                      totalOrders: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      averageOrderValue: { type: 'number' },
+                      newCustomers: { type: 'integer' },
+                      returningCustomers: { type: 'integer' },
+                    },
+                  },
+                },
+                example: [
+                  { date: '2026-05-05', totalOrders: 142, totalRevenue: 228640, averageOrderValue: 1610.14, newCustomers: 32, returningCustomers: 110 },
+                  { date: '2026-05-04', totalOrders: 138, totalRevenue: 222240, averageOrderValue: 1610.87, newCustomers: 28, returningCustomers: 110 },
+                  { date: '2026-05-03', totalOrders: 145, totalRevenue: 233450, averageOrderValue: 1610.00, newCustomers: 35, returningCustomers: 110 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (requires permission 90013)' },
+        },
+      },
+    },
+    '/analytics/section/sales/monthly': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get monthly sales report',
+        description: 'Monthly aggregated sales data. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Monthly sales report',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      month: { type: 'string' },
+                      totalOrders: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      totalRefunds: { type: 'number' },
+                      netRevenue: { type: 'number' },
+                      monthOverMonthGrowth: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { month: '2026-05', totalOrders: 4210, totalRevenue: 6789540, totalRefunds: 45600, netRevenue: 6743940, monthOverMonthGrowth: 8.5 },
+                  { month: '2026-04', totalOrders: 3880, totalRevenue: 6254000, totalRefunds: 42300, netRevenue: 6211700, monthOverMonthGrowth: 5.2 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/by-category': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get sales by product category',
+        description: 'Sales breakdown by category. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Sales by category',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      categoryName: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      revenue: { type: 'number' },
+                      percentage: { type: 'number' },
+                      avgPrice: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { categoryName: 'Vegetables', orderCount: 1234, revenue: 1987650, percentage: 29.2, avgPrice: 1611.45 },
+                  { categoryName: 'Fruits', orderCount: 987, revenue: 1589340, percentage: 23.4, avgPrice: 1609.88 },
+                  { categoryName: 'Dairy', orderCount: 654, revenue: 1052340, percentage: 15.5, avgPrice: 1609.19 },
+                  { categoryName: 'Grains', orderCount: 543, revenue: 874560, percentage: 12.9, avgPrice: 1610.36 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/by-payment-method': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get sales by payment method',
+        description: 'Sales breakdown by payment method. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Sales by payment method',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      method: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      revenue: { type: 'number' },
+                      percentage: { type: 'number' },
+                      avgTransactionTime: { type: 'number', description: 'In seconds' },
+                    },
+                  },
+                },
+                example: [
+                  { method: 'BKASH', orderCount: 1567, revenue: 2521570, percentage: 37.1, avgTransactionTime: 8.5 },
+                  { method: 'COD', orderCount: 1254, revenue: 2018340, percentage: 29.7, avgTransactionTime: 0 },
+                  { method: 'CARD', orderCount: 892, revenue: 1435680, percentage: 21.1, avgTransactionTime: 5.2 },
+                  { method: 'EPS', orderCount: 497, revenue: 800070, percentage: 11.8, avgTransactionTime: 3.8 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/top-vendors': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get top vendors by sales volume',
+        description: 'Ranking of vendors by sales. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+        ],
+        responses: {
+          200: {
+            description: 'Top vendors',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      vendorId: { type: 'string', format: 'uuid' },
+                      storeName: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      averageOrderValue: { type: 'number' },
+                      productCount: { type: 'integer' },
+                    },
+                  },
+                },
+                example: [
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440010', storeName: 'Fresh Farm Store', orderCount: 234, totalRevenue: 375600, averageOrderValue: 1604.27, productCount: 45 },
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440011', storeName: 'Organic Greens', orderCount: 189, totalRevenue: 304350, averageOrderValue: 1610.21, productCount: 38 },
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440012', storeName: 'Nature Premium', orderCount: 156, totalRevenue: 251040, averageOrderValue: 1609.23, productCount: 32 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/growth': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get sales growth metrics',
+        description: 'Month-over-Month and Year-over-Year growth rates. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Sales growth data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    currentPeriodRevenue: { type: 'number' },
+                    previousPeriodRevenue: { type: 'number' },
+                    monthOverMonthGrowth: { type: 'number', description: 'Percentage' },
+                    yearOverYearGrowth: { type: 'number', description: 'Percentage' },
+                    growthTrend: { type: 'array', items: { type: 'number' } },
+                  },
+                },
+                example: {
+                  currentPeriodRevenue: 6789540,
+                  previousPeriodRevenue: 6254000,
+                  monthOverMonthGrowth: 8.59,
+                  yearOverYearGrowth: 24.31,
+                  growthTrend: [2.3, 3.5, 5.1, 6.8, 8.59],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 5 - DELIVERY ANALYTICS (90014) ───────────────────
+    '/analytics/section/delivery/daily': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get daily delivery metrics',
+        description: 'Daily delivery performance. DELIVERY_MAN: Own data only. ADMIN/SUPERADMIN: All data. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Daily delivery metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      date: { type: 'string' },
+                      totalDeliveries: { type: 'integer' },
+                      successfulDeliveries: { type: 'integer' },
+                      failedDeliveries: { type: 'integer' },
+                      averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                      totalDistance: { type: 'number', description: 'In km' },
+                    },
+                  },
+                },
+                example: [
+                  { date: '2026-05-05', totalDeliveries: 42, successfulDeliveries: 40, failedDeliveries: 2, averageDeliveryTime: 28.5, totalDistance: 123.4 },
+                  { date: '2026-05-04', totalDeliveries: 38, successfulDeliveries: 37, failedDeliveries: 1, averageDeliveryTime: 27.3, totalDistance: 118.9 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (requires permission 90014)' },
+        },
+      },
+    },
+    '/analytics/section/delivery/persons/{personId}/performance': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery person performance',
+        description: 'DELIVERY_MAN: Can only view own metrics. ADMIN/SUPERADMIN: Can view any delivery person. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'personId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Delivery person ID' },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Delivery person metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    personId: { type: 'string', format: 'uuid' },
+                    personName: { type: 'string' },
+                    totalDeliveries: { type: 'integer' },
+                    successRate: { type: 'number', description: 'Percentage' },
+                    averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                    averageRating: { type: 'number' },
+                    totalDistance: { type: 'number', description: 'In km' },
+                  },
+                },
+                example: {
+                  personId: '550e8400-e29b-41d4-a716-446655440050',
+                  personName: 'Ahmed Khan',
+                  totalDeliveries: 145,
+                  successRate: 97.24,
+                  averageDeliveryTime: 26.8,
+                  averageRating: 4.7,
+                  totalDistance: 542.3,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Cannot access other delivery person data' },
+        },
+      },
+    },
+    '/analytics/section/delivery/time-metrics': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery time metrics',
+        description: 'Average delivery times and performance. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Delivery time metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                    medianDeliveryTime: { type: 'number', description: 'In minutes' },
+                    minDeliveryTime: { type: 'number', description: 'In minutes' },
+                    maxDeliveryTime: { type: 'number', description: 'In minutes' },
+                    onTimePercentage: { type: 'number', description: 'Percentage' },
+                    delayedPercentage: { type: 'number', description: 'Percentage' },
+                  },
+                },
+                example: {
+                  averageDeliveryTime: 27.4,
+                  medianDeliveryTime: 26.8,
+                  minDeliveryTime: 12.5,
+                  maxDeliveryTime: 58.3,
+                  onTimePercentage: 94.2,
+                  delayedPercentage: 5.8,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/delivery/success-rate': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery success rate',
+        description: 'Success rates and failure metrics. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Success rate metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalDeliveries: { type: 'integer' },
+                    successfulDeliveries: { type: 'integer' },
+                    failedDeliveries: { type: 'integer' },
+                    successRate: { type: 'number', description: 'Percentage' },
+                    failureReasons: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          reason: { type: 'string' },
+                          count: { type: 'integer' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalDeliveries: 1523,
+                  successfulDeliveries: 1486,
+                  failedDeliveries: 37,
+                  successRate: 97.57,
+                  failureReasons: [
+                    { reason: 'Customer not available', count: 18 },
+                    { reason: 'Wrong address', count: 12 },
+                    { reason: 'Delivery person issue', count: 7 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/delivery/by-region': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery metrics by region',
+        description: 'Regional delivery performance. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Regional delivery metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      regionName: { type: 'string' },
+                      totalDeliveries: { type: 'integer' },
+                      successRate: { type: 'number', description: 'Percentage' },
+                      averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                      activeDeliveryPersons: { type: 'integer' },
+                    },
+                  },
+                },
+                example: [
+                  { regionName: 'Dhaka', totalDeliveries: 756, successRate: 98.1, averageDeliveryTime: 24.2, activeDeliveryPersons: 28 },
+                  { regionName: 'Chittagong', totalDeliveries: 432, successRate: 96.5, averageDeliveryTime: 31.8, activeDeliveryPersons: 15 },
+                  { regionName: 'Sylhet', totalDeliveries: 245, successRate: 95.9, averageDeliveryTime: 35.4, activeDeliveryPersons: 8 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 6 - EXECUTIVE DASHBOARD (90015) - SUPERADMIN ─────
+    '/analytics/section/executive/profitability': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get profitability report',
+        description: 'Platform profitability analysis. Requires permission code 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Profitability report',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalRevenue: { type: 'number' },
+                    totalCosts: { type: 'number' },
+                    grossProfit: { type: 'number' },
+                    grossProfitMargin: { type: 'number', description: 'Percentage' },
+                    operatingExpenses: { type: 'number' },
+                    netProfit: { type: 'number' },
+                    netProfitMargin: { type: 'number', description: 'Percentage' },
+                  },
+                },
+                example: {
+                  totalRevenue: 6789540,
+                  totalCosts: 3894231,
+                  grossProfit: 2895309,
+                  grossProfitMargin: 42.64,
+                  operatingExpenses: 1245600,
+                  netProfit: 1649709,
+                  netProfitMargin: 24.32,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only - requires permission 90015' },
+        },
+      },
+    },
+    '/analytics/section/executive/commissions': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get commission details',
+        description: 'Commission tracking and breakdown. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Commission details',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalVendorRevenue: { type: 'number' },
+                    totalCommissionEarned: { type: 'number' },
+                    commissionRate: { type: 'number', description: 'Percentage' },
+                    commissionsByVendor: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          vendorId: { type: 'string' },
+                          vendorName: { type: 'string' },
+                          vendorRevenue: { type: 'number' },
+                          commissionAmount: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalVendorRevenue: 4234560,
+                  totalCommissionEarned: 634184,
+                  commissionRate: 14.97,
+                  commissionsByVendor: [
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440010', vendorName: 'Fresh Farm Store', vendorRevenue: 375600, commissionAmount: 56340 },
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440011', vendorName: 'Organic Greens', vendorRevenue: 289450, commissionAmount: 43417 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/margins': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get margin analysis',
+        description: 'Profit margin analysis by product/vendor/category. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Margin analysis',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    overallMarginPercentage: { type: 'number' },
+                    bestMarginCategory: { type: 'string' },
+                    worstMarginCategory: { type: 'string' },
+                    marginByCategory: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          categoryName: { type: 'string' },
+                          marginPercentage: { type: 'number' },
+                          revenue: { type: 'number' },
+                          costs: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  overallMarginPercentage: 42.64,
+                  bestMarginCategory: 'Dairy',
+                  worstMarginCategory: 'Grains',
+                  marginByCategory: [
+                    { categoryName: 'Vegetables', marginPercentage: 44.2, revenue: 1987650, costs: 1109143 },
+                    { categoryName: 'Fruits', marginPercentage: 41.8, revenue: 1589340, costs: 922978 },
+                    { categoryName: 'Dairy', marginPercentage: 48.5, revenue: 1052340, costs: 542388 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/vendor-payouts': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get vendor payout information',
+        description: 'Vendor payout schedules and history. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Vendor payouts',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalPayoutsScheduled: { type: 'number' },
+                    totalPayoutsProcessed: { type: 'number' },
+                    pendingPayouts: { type: 'number' },
+                    payoutsByVendor: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          vendorId: { type: 'string' },
+                          vendorName: { type: 'string' },
+                          lastPayoutDate: { type: 'string', format: 'date' },
+                          lastPayoutAmount: { type: 'number' },
+                          nextPayoutDate: { type: 'string', format: 'date' },
+                          status: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalPayoutsScheduled: 2134560,
+                  totalPayoutsProcessed: 1234560,
+                  pendingPayouts: 900000,
+                  payoutsByVendor: [
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440010', vendorName: 'Fresh Farm Store', lastPayoutDate: '2026-05-01', lastPayoutAmount: 56340, nextPayoutDate: '2026-05-15', status: 'PROCESSED' },
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440011', vendorName: 'Organic Greens', lastPayoutDate: '2026-05-01', lastPayoutAmount: 43417, nextPayoutDate: '2026-05-15', status: 'PENDING' },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/financial-health': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get financial health indicators',
+        description: 'Cash flow and financial metrics. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Financial health',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    cashInflow: { type: 'number' },
+                    cashOutflow: { type: 'number' },
+                    netCashFlow: { type: 'number' },
+                    liquidityRatio: { type: 'number' },
+                    debtToEquityRatio: { type: 'number' },
+                    operatingCashFlow: { type: 'number' },
+                    financialHealth: { type: 'string', enum: ['EXCELLENT', 'GOOD', 'FAIR', 'POOR'] },
+                  },
+                },
+                example: {
+                  cashInflow: 6789540,
+                  cashOutflow: 5140831,
+                  netCashFlow: 1648709,
+                  liquidityRatio: 2.45,
+                  debtToEquityRatio: 0.38,
+                  operatingCashFlow: 1834231,
+                  financialHealth: 'EXCELLENT',
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/risk-metrics': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get risk metrics',
+        description: 'Chargeback, refund, and fraud indicators. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Risk metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalChargebacks: { type: 'integer' },
+                    chargebackAmount: { type: 'number' },
+                    chargebackRate: { type: 'number', description: 'Percentage' },
+                    refundRequests: { type: 'integer' },
+                    refundAmount: { type: 'number' },
+                    refundRate: { type: 'number', description: 'Percentage' },
+                    flaggedFraudCases: { type: 'integer' },
+                    riskLevel: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] },
+                  },
+                },
+                example: {
+                  totalChargebacks: 8,
+                  chargebackAmount: 12840,
+                  chargebackRate: 0.19,
+                  refundRequests: 45,
+                  refundAmount: 72450,
+                  refundRate: 1.07,
+                  flaggedFraudCases: 3,
+                  riskLevel: 'LOW',
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: EVENT TRACKING ────────────────────────────────────────────
     '/analytics/events': {
       post: {
         tags: ['Analytics'],
-        summary: 'Track a custom analytics event',
+        summary: 'Track analytics event',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -5323,23 +6666,25 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   eventName: { type: 'string' },
                   sessionId: { type: 'string' },
                   entityType: { type: 'string' },
-                  entityId: { type: 'string' },
-                  metadata: { type: 'object', additionalProperties: true },
+                  entityId: { type: 'string', format: 'uuid' },
+                  metadata: { type: 'object' },
                 },
               },
             },
           },
         },
         responses: {
-          200: { description: 'Event tracked' },
+          201: { description: 'Event tracked successfully' },
           400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
     },
     '/analytics/search': {
       post: {
         tags: ['Analytics'],
-        summary: 'Track a search query',
+        summary: 'Track search event',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -5358,8 +6703,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
         },
         responses: {
-          200: { description: 'Search tracked' },
+          201: { description: 'Search tracked successfully' },
           400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
     },

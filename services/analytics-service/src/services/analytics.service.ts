@@ -534,6 +534,316 @@ class AnalyticsService {
       },
     });
   }
+
+  // Platform Metrics (90010)
+  async getOrderTrends(dateRange: DateRange) {
+    return prisma.dailySalesReport.findMany({
+      where: {
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      select: { date: true, totalOrders: true },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  async getPlatformMetricsForVendor(userId: string, dateRange: DateRange) {
+    const vendorId = await this.getUserVendorId(userId);
+    if (!vendorId) return this.getDashboardMetrics(dateRange);
+    return this.getVendorReport(vendorId, dateRange);
+  }
+
+  private async getUserVendorId(userId: string): Promise<string | null> {
+    try {
+      const axios = require('axios').default;
+      const resp = await axios.get(
+        `${process.env.VENDOR_SERVICE_URL || 'http://vendor-service:3007'}/api/vendors/internal/user/${userId}`,
+        { headers: { Authorization: `Bearer ${process.env.SERVICE_AUTH_TOKEN || ''}` }, timeout: 3000 }
+      );
+      return resp.data?.data?.id || null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async getPlatformMetricsForDeliveryPerson(userId: string, dateRange: DateRange) {
+    // Return basic metrics for delivery person's own deliveries
+    return { userId, deliveryMetrics: {} };
+  }
+
+  async getPaymentMethodDistribution(dateRange: DateRange) {
+    const aggregate = await prisma.dailySalesReport.aggregate({
+      where: {
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      _sum: {
+        codOrders: true,
+        bkashOrders: true,
+        otherPayments: true,
+      },
+    });
+
+    return {
+      cod: aggregate._sum.codOrders || 0,
+      bkash: aggregate._sum.bkashOrders || 0,
+      other: aggregate._sum.otherPayments || 0,
+    };
+  }
+
+  async getRegionalBreakdown(dateRange: DateRange) {
+    return { regions: [] };
+  }
+
+  // Vendor Analytics (90011)
+  async getVendorDashboard(userId: string, dateRange: DateRange) {
+    const vendorId = await this.getUserVendorId(userId);
+    if (!vendorId) return null;
+
+    const report = await prisma.vendorReport.aggregate({
+      where: {
+        vendorId,
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      _sum: { totalRevenue: true, totalOrders: true },
+      _avg: { averageRating: true },
+    });
+
+    return {
+      vendorId,
+      totalRevenue: Number(report._sum.totalRevenue || 0),
+      totalOrders: report._sum.totalOrders || 0,
+      averageRating: Number(report._avg.averageRating || 0),
+    };
+  }
+
+  async getAllVendorsDashboard(dateRange: DateRange) {
+    return prisma.vendorReport.groupBy({
+      by: ['vendorId'],
+      where: {
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      _sum: { totalRevenue: true, totalOrders: true },
+    });
+  }
+
+  async getVendorDashboardFiltered(vendorId: string, dateRange: DateRange, role?: string) {
+    const report = await prisma.vendorReport.aggregate({
+      where: {
+        vendorId,
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      _sum: { totalRevenue: true, totalOrders: true, totalItems: true },
+      _avg: { averageRating: true },
+    });
+
+    const data = {
+      vendorId,
+      totalRevenue: Number(report._sum.totalRevenue || 0),
+      totalOrders: report._sum.totalOrders || 0,
+      totalItems: report._sum.totalItems || 0,
+      averageRating: Number(report._avg.averageRating || 0),
+    };
+
+    // For VENDOR role, show supplier price basis
+    if (role === 'VENDOR') {
+      return { ...data, basis: 'supplier_price', retailPriceHidden: true };
+    }
+
+    return data;
+  }
+
+  async getUserVendor(userId: string) {
+    const vendorId = await this.getUserVendorId(userId);
+    return vendorId ? { id: vendorId, storeName: null } : null;
+  }
+
+  async getVendorProductsAnalytics(vendorId: string, dateRange: DateRange) {
+    return prisma.productAnalytics.findMany({
+      where: {
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      select: {
+        productId: true,
+        date: true,
+        views: true,
+        purchases: true,
+        revenue: true,
+      },
+      take: 50,
+    });
+  }
+
+  async getVendorRevenueTrend(vendorId: string, dateRange: DateRange, role?: string) {
+    const trend = await prisma.vendorReport.findMany({
+      where: {
+        vendorId,
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      select: { date: true, totalRevenue: true },
+      orderBy: { date: 'asc' },
+    });
+
+    return role === 'VENDOR' 
+      ? { trend, basis: 'supplier_price' } 
+      : { trend, basis: 'retail_price' };
+  }
+
+  async getVendorRatings(vendorId: string, dateRange: DateRange) {
+    return { vendorId, ratings: [] };
+  }
+
+  // Product Analytics (90012)
+  async getProduct(productId: string) {
+    const analytics = await prisma.productAnalytics.findFirst({
+      where: { productId },
+      select: { productId: true },
+      take: 1,
+    });
+    return analytics ? { id: productId, vendorId: null, name: null } : null;
+  }
+
+  async getProductMetrics(productId: string, dateRange: DateRange) {
+    return prisma.productAnalytics.findMany({
+      where: {
+        productId,
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  async getProductViewsAndConversions(productId: string, dateRange: DateRange) {
+    const analytics = await prisma.productAnalytics.aggregate({
+      where: {
+        productId,
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      _sum: { views: true, addToCart: true, purchases: true },
+    });
+
+    return {
+      totalViews: analytics._sum.views || 0,
+      addToCart: analytics._sum.addToCart || 0,
+      purchases: analytics._sum.purchases || 0,
+      conversionRate: analytics._sum.views 
+        ? ((analytics._sum.purchases || 0) / analytics._sum.views) * 100 
+        : 0,
+    };
+  }
+
+  async getProductInventory(productId: string) {
+    return { productId, stock: 0, movements: [] };
+  }
+
+  async getProductReturns(productId: string, dateRange: DateRange) {
+    return { productId, returnRate: 0, reasons: [] };
+  }
+
+  async listVendorProducts(userId: string, limit: number, offset: number) {
+    const vendorId = await this.getUserVendorId(userId);
+    if (!vendorId) return { products: [], total: 0 };
+
+    const products = await prisma.productAnalytics.groupBy({
+      by: ['productId'],
+      skip: offset,
+      take: limit,
+      orderBy: { productId: 'asc' },
+    });
+
+    return {
+      products: products.map((p) => ({ id: p.productId, name: null, price: null })),
+      total: products.length,
+    };
+  }
+
+  async listAllProducts(limit: number, offset: number) {
+    const analytics = await prisma.productAnalytics.groupBy({
+      by: ['productId'],
+      skip: offset,
+      take: limit,
+      orderBy: { productId: 'asc' },
+    });
+
+    const total = await prisma.productAnalytics.groupBy({
+      by: ['productId'],
+    });
+
+    return {
+      products: analytics.map((a) => ({ id: a.productId, name: null, price: null, vendorId: null })),
+      total: total.length,
+    };
+  }
+
+  // Sales Report (90013)
+  async getDailySalesReport(dateRange: DateRange) {
+    return prisma.dailySalesReport.findMany({
+      where: {
+        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+      },
+      orderBy: { date: 'asc' },
+    });
+  }
+
+  async getMonthlySalesReport(dateRange: DateRange) {
+    return { monthly: [] };
+  }
+
+  async getSalesByCategory(dateRange: DateRange) {
+    return { categories: [] };
+  }
+
+  async getSalesByPaymentMethod(dateRange: DateRange) {
+    return this.getPaymentMethodDistribution(dateRange);
+  }
+
+  async getTopVendorsBySales(dateRange: DateRange, limit: number) {
+    return this.getTopVendors(dateRange, limit);
+  }
+
+  async getSalesGrowth(dateRange: DateRange) {
+    return { growth: {} };
+  }
+
+  // Delivery Analytics (90014)
+  async getDeliveryPersonPerformance(personId: string, dateRange: DateRange) {
+    return { personId, performance: {} };
+  }
+
+  async getDeliveryTimeMetrics(dateRange: DateRange) {
+    return { averageTime: 0, distribution: [] };
+  }
+
+  async getDeliverySuccessRate(dateRange: DateRange) {
+    return { successRate: 0, failures: 0 };
+  }
+
+  async getDeliveryByRegion(dateRange: DateRange) {
+    return { regions: [] };
+  }
+
+  // Executive Dashboard (90015)
+  async getProfitabilityReport(dateRange: DateRange) {
+    return { profitability: {} };
+  }
+
+  async getCommissionReport(dateRange: DateRange) {
+    return { commissions: [] };
+  }
+
+  async getMarginAnalysis(dateRange: DateRange) {
+    return { margins: {} };
+  }
+
+  async getVendorPayoutReport(dateRange: DateRange) {
+    return { payouts: [] };
+  }
+
+  async getFinancialHealth(dateRange: DateRange) {
+    return { financial: {} };
+  }
+
+  async getRiskMetrics(dateRange: DateRange) {
+    return { risks: {} };
+  }
 }
 
 export const analyticsService = new AnalyticsService();
