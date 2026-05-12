@@ -52,7 +52,19 @@ export class RBACService {
                           ? { resource: 'REPORT', action: PermissionAction.REJECT, description: 'Export reports' }
                           : code === 'ADMIN_PANEL_ACCESS'
                             ? { resource: 'ADMIN_PANEL', action: PermissionAction.APPROVE, description: 'Access admin panel' }
-                            : null;
+                            : code === 'ANALYTICS_VIEW_PLATFORM_METRICS'
+                              ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View platform-wide metrics (orders, revenue, trends)' }
+                              : code === 'ANALYTICS_VIEW_VENDOR'
+                                ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View vendor performance analytics' }
+                                : code === 'ANALYTICS_VIEW_PRODUCT'
+                                  ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View product analytics (sales, views, inventory)' }
+                                  : code === 'ANALYTICS_VIEW_SALES_REPORT'
+                                    ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View admin sales reports (category, payment, growth)' }
+                                    : code === 'ANALYTICS_VIEW_DELIVERY'
+                                      ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View delivery metrics (performance, time, success)' }
+                                      : code === 'ANALYTICS_VIEW_EXECUTIVE'
+                                        ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View executive dashboard (profitability, financial health)' }
+                                        : null;
 
           if (specialPermission) {
             let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
