@@ -9,8 +9,35 @@ import { PERMISSION_CODES } from '@freeshop/shared-types';
 export function authorizeAnalyticsSection(requiredPermissionCode: number) {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const userId = req.user?.id;
-      const permissions = (req.user as any)?.permissions || [];
+      const userId = (req.user as any)?.id as string | undefined;
+      let permissions: number[] = (req.user as any)?.permissions || (req.user as any)?.permissionCodes || [];
+
+      // If permissions are not present on the request (JWT doesn't carry them),
+      // fetch from auth-service for an up-to-date permission snapshot.
+      if ((!permissions || permissions.length === 0) && userId) {
+        try {
+          const authUrl = (process.env.AUTH_SERVICE_URL || 'http://auth-service:3001') + `/rbac/users/${userId}/roles`;
+          const resp = await fetch(authUrl, {
+            headers: {
+              Authorization: req.headers.authorization as string || `Bearer ${process.env.SERVICE_AUTH_TOKEN || ''}`,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (resp.ok) {
+            const body: any = await resp.json();
+            permissions = (body && body.data && Array.isArray(body.data.permissionCodes)) ? body.data.permissionCodes : [];
+            // Attach back to req.user for downstream usage
+            (req.user as any).permissions = permissions;
+            (req.user as any).permissionCodes = permissions;
+          }
+        } catch (err) {
+          console.warn('Failed to fetch user permissions from auth-service:', err);
+        }
+      }
+
+      // Ensure we have arrays
+      permissions = permissions || [];
 
       if (!userId) {
         return res.status(401).json({
