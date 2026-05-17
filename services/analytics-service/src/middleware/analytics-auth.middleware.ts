@@ -1,6 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 
+async function getUserVendorId(userId: string): Promise<string | null> {
+  try {
+    const vendorServiceUrl = (process.env.VENDOR_SERVICE_URL || 'http://vendor-service:3007') + `/api/vendors/internal/user/${userId}`;
+    const resp = await fetch(vendorServiceUrl, {
+      headers: {
+        Authorization: `Bearer ${process.env.SERVICE_AUTH_TOKEN || ''}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!resp.ok) {
+      return null;
+    }
+
+    const body: any = await resp.json();
+    return body?.data?.id || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Middleware to check if user has permission to access analytics sections
  * Access is determined by permission codes (90010-90015), not by role.
@@ -11,6 +32,21 @@ export function authorizeAnalyticsSection(requiredPermissionCode: number) {
     try {
       const userId = (req.user as any)?.id as string | undefined;
       let permissions: number[] = (req.user as any)?.permissions || (req.user as any)?.permissionCodes || [];
+      const requestedVendorId = (req.params as any)?.vendorId as string | undefined;
+
+      // VENDOR_ANALYTICS is special: vendors can access their own data without
+      // needing an explicit analytics permission, but must still pass ownership.
+      if (requiredPermissionCode === PERMISSION_CODES.ANALYTICS_VIEW_VENDOR && userId) {
+        const userVendorId = await getUserVendorId(userId);
+        const isOwnVendorRequest = !requestedVendorId || userVendorId === requestedVendorId;
+
+        if (userVendorId && isOwnVendorRequest) {
+          (req as any).analyticsPermission = requiredPermissionCode;
+          (req as any).vendorId = userVendorId;
+          next();
+          return;
+        }
+      }
 
       // If permissions are not present on the request (JWT doesn't carry them),
       // fetch from auth-service for an up-to-date permission snapshot.
