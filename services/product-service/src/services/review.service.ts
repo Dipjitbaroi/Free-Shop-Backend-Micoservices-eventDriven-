@@ -225,17 +225,7 @@ class ReviewService {
   }
 
   private async recalculateProductRating(productId: string): Promise<void> {
-    const stats = await this.getProductRatingStats(productId);
-
-    await prisma.product.update({
-      where: { id: productId },
-      data: {
-        averageRating: stats.averageRating,
-        totalReviews: stats.totalReviews,
-      },
-    });
-
-    // Update via product service to clear cache
+    // Delegate rating aggregation and cache clearing to productService
     await productService.updateProductRating(productId);
   }
 }
