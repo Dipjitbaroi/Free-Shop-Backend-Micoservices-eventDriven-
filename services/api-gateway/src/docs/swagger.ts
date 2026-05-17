@@ -3217,8 +3217,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/orders/{orderId}/delivery': {
       post: {
         tags: ['Orders'],
-        summary: 'Create delivery for an order (Unified endpoint)',
-        description: 'Create delivery with automatic routing - supports both INHOUSE and THIRD_PARTY delivery types',
+        summary: 'Create delivery for an order - supports all delivery scenarios',
+        description: `Create delivery with automatic routing for all delivery providers.
+
+**Delivery Scenarios:**
+
+1. **INHOUSE Delivery** - Assign to your own delivery staff
+   - Type: INHOUSE
+   - Requires: deliveryManId (UUID of your delivery person)
+   - Status: ASSIGNED immediately
+   
+2. **THIRD_PARTY Delivery - Supported Providers**
+   - **STEADFAST** - Bangladesh-based courier (COD support)
+   - **PATHAO** - Popular Bangladesh delivery service
+   - **REDX** - Express delivery service
+   - **SUNDARBAN** - Regional delivery partner
+   - **OTHER** - Custom/unknown third-party provider
+   
+   - Type: THIRD_PARTY
+   - Requires: provider (one of above)
+   - Status: PENDING (becomes ASSIGNED when provider confirms)
+   - Tracking: Automatically filled when provider responds
+
+**Permission Required:** DELIVERY_CREATE
+
+**Automatic Features:**
+- Sends order data to provider API
+- Stores tracking IDs and consignment numbers
+- Syncs delivery status → Order status
+- Handles webhooks for real-time updates
+- COD payments auto-complete on DELIVERED status`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3259,22 +3287,60 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               },
               examples: {
                 inhouse: {
-                  summary: 'INHOUSE delivery example',
+                  summary: 'INHOUSE Delivery - Assign to your delivery staff',
                   value: {
                     type: 'INHOUSE',
                     deliveryManId: '550e8400-e29b-41d4-a716-446655440000',
                     weight: 2.5,
                     fragile: false,
+                    estimatedDeliveryDate: '2026-05-20T18:00:00Z',
                   },
                 },
-                thirdParty: {
-                  summary: 'THIRD_PARTY delivery example',
+                steadfast: {
+                  summary: 'STEADFAST Delivery - Bangladesh courier (COD support)',
                   value: {
                     type: 'THIRD_PARTY',
                     provider: 'STEADFAST',
-                    trackingId: 'ST123456',
-                    apiRef: 'ref-123',
                     weight: 1.8,
+                    fragile: false,
+                  },
+                },
+                pathao: {
+                  summary: 'PATHAO Delivery - Popular BD delivery service',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'PATHAO',
+                    weight: 1.5,
+                    fragile: false,
+                  },
+                },
+                redx: {
+                  summary: 'REDX Delivery - Express delivery service',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'REDX',
+                    weight: 2.0,
+                    fragile: false,
+                  },
+                },
+                sundarban: {
+                  summary: 'SUNDARBAN Delivery - Regional delivery partner',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'SUNDARBAN',
+                    weight: 1.2,
+                    fragile: false,
+                  },
+                },
+                other: {
+                  summary: 'OTHER - Custom/unknown third-party provider',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'OTHER',
+                    trackingId: 'CUSTOM-123456',
+                    apiRef: 'custom-ref-001',
+                    weight: 2.5,
+                    fragile: true,
                   },
                 },
               },
@@ -3316,8 +3382,22 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery by order (returns unassigned and assigned deliveries with enriched details)',
-        description: 'Retrieve delivery information for an order, including delivery man details and complete order information. Returns delivery even if no delivery man is assigned. Supports optional search by delivery ID, tracking ID, or order number.',
+        summary: 'Get delivery details by order - with full enriched data',
+        description: `Retrieve complete delivery information for an order including:
+- **Delivery Type & Provider:** INHOUSE (with delivery man details) or THIRD_PARTY (with tracking info)
+- **Current Status:** PENDING → ASSIGNED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
+- **Tracking:** Tracking IDs, consignment numbers, carrier info
+- **Related Data:** Full order info, delivery man profile, customer details
+- **Dates:** Estimated & actual delivery dates, status timestamps
+
+**Response includes:**
+- Delivery details (ID, status, provider, tracking)
+- Delivery man profile (name, email, phone, avatar) - if INHOUSE
+- Complete order data (items, totals, addresses, payment status)
+- Timestamps for all status changes
+
+**Optional Search:**
+Filter by delivery ID, tracking ID, or order number using \`search\` query parameter.`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3403,7 +3483,27 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/{deliveryId}': {
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery details by ID',
+        summary: 'Get complete delivery details by ID',
+        description: `Retrieve full delivery information including all related data and history.
+
+**Response Includes:**
+- **Delivery Info:** ID, status, provider type, tracking numbers
+- **Order Details:** Order number, customer, items, total, payment status
+- **Delivery Address:** Full shipping address with formatting
+- **Dates & Timeline:** Created, estimated delivery, actual delivery, status changes
+- **Provider Data:** External tracking IDs, consignment numbers, API references
+- **Delivery Man:** If INHOUSE delivery - name, contact, avatar
+- **Financial:** Delivery charge, discount applied
+- **Logistics:** Weight, dimensions, fragile flag
+
+**Status Flow Timeline:**
+The response shows the progression:
+PENDING → ASSIGNED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
+
+**Provider-Specific:**
+- **INHOUSE:** Shows assigned delivery man profile
+- **STEADFAST:** Shows Steadfast consignment ID and tracking code
+- **PATHAO/REDX/SUNDARBAN/OTHER:** Shows provider-specific tracking info`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3418,7 +3518,31 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/{deliveryId}/status': {
       put: {
         tags: ['Orders'],
-        summary: 'Update delivery status',
+        summary: 'Update delivery status - triggers automatic order & payment sync',
+        description: `Update delivery status and automatically trigger related actions:
+
+**Status Transitions & Automatic Actions:**
+
+| Status | Trigger | What Happens |
+|--------|---------|--------------|
+| PENDING | Initial state | Waiting for provider assignment |
+| ASSIGNED | Provider confirms | Order → PROCESSING, Tracking ID stored |
+| PICKED_UP | Carrier picks up | Order remains PROCESSING |
+| IN_TRANSIT | On the way | Order → SHIPPED |
+| OUT_FOR_DELIVERY | Same-day delivery | Order → OUT_FOR_DELIVERY |
+| DELIVERED | Completed | Order → DELIVERED, COD auto-marked PAID |
+| FAILED | Delivery failed | Order status unchanged (admin action needed) |
+| RETURNED | Package returned | Order → CANCELLED |
+
+**Automatic Syncing:**
+- Order status updates to match delivery status
+- COD payments are marked as PAID when status=DELIVERED
+- Notifications sent to customer and admin
+- Timestamps recorded for each status change
+- Third-party webhooks update these statuses automatically
+
+**Manual Updates:**
+You can manually update status for INHOUSE deliveries or after failed attempts. For THIRD_PARTY, statuses are usually updated via provider webhooks.`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3449,7 +3573,32 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/{deliveryId}/failed-attempt': {
       post: {
         tags: ['Orders'],
-        summary: 'Record a failed delivery attempt',
+        summary: 'Record failed delivery attempt with reason',
+        description: `Record why a delivery attempt failed and let system auto-retry or escalate.
+
+**Common Failure Reasons:**
+- Customer not home / not available
+- Invalid/incomplete address
+- Customer refused delivery
+- Weather conditions / accessibility issues
+- Security gate locked
+- Package damaged upon inspection
+- Customer not responding to calls
+- Wrong recipient details
+
+**What Happens:**
+1. Failure reason is recorded
+2. Delivery status remains IN_TRANSIT or OUT_FOR_DELIVERY
+3. System logs the failed attempt count
+4. Admin can manually retry or reassign
+5. For THIRD_PARTY providers: may auto-retry per their policy
+6. Order status remains PROCESSING/SHIPPED (not yet failed)
+
+**Best For:**
+- INHOUSE deliveries with customer contact issues
+- Logging reasons for audit/analytics
+- Triggering admin review or customer contact
+- Historical tracking of delivery attempts`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3479,8 +3628,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/delivery-man/{deliveryManId}': {
       get: {
         tags: ['Orders'],
-        summary: 'Get deliveries assigned to a delivery man (includes enriched data)',
-        description: 'Returns paginated list of deliveries with complete delivery man profile and order information. Supports filtering by date range, delivery status, and full-text search by order number, customer name, email, or phone.',
+        summary: 'Get all deliveries assigned to a delivery man with enriched data',
+        description: `Retrieve all INHOUSE deliveries assigned to a specific delivery man, including complete context.
+
+**Delivery Man Context:**
+- Shows who is assigned (name, email, phone, avatar)
+- Helps track workload and performance per delivery staff member
+
+**Response Data for Each Delivery:**
+- Status and progress (PENDING → DELIVERED)
+- Order details (customer, items, total)
+- Customer information from shipping address
+- Dates (assigned, picked up, delivered)
+- Package details (weight, fragility, dimensions)
+
+**Filtering Options:**
+- \`status\`: Filter by delivery status (PENDING, IN_TRANSIT, DELIVERED, FAILED, etc.)
+- \`startDate\`: Deliveries created from this date (ISO 8601)
+- \`endDate\`: Deliveries created until this date
+- \`search\`: Find by order number, customer name, email, or phone
+
+**Pagination:**
+- \`page\`: Which page of results (default: 1)
+- \`limit\`: Results per page, max 100 (default: 10)
+
+**Use Cases:**
+- View delivery man's daily workload
+- Track specific delivery man's performance
+- Filter deliveries by date range for weekly/monthly reports
+- Search customer details within a delivery man's assignments
+- Mobile app: show delivery man their assigned orders`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Delivery man ID' },
@@ -3575,7 +3752,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/provider/{provider}': {
       get: {
         tags: ['Orders'],
-        summary: 'Get deliveries by provider',
+        summary: 'Get all deliveries by provider with filtering & analytics',
+        description: `Retrieve all deliveries handled by a specific provider (both INHOUSE and THIRD_PARTY).
+
+**Available Providers:**
+
+| Provider | Type | Coverage | Features |
+|----------|------|----------|----------|
+| **INHOUSE** | Internal | Your own staff | Full control, real-time GPS tracking |
+| **STEADFAST** | 3rd Party | Bangladesh | COD support, SMS tracking, phone delivery |
+| **PATHAO** | 3rd Party | Bangladesh | Eco-friendly, fast urban delivery |
+| **REDX** | 3rd Party | Bangladesh | Express service, premium packaging |
+| **SUNDARBAN** | 3rd Party | Regional | Regional coverage, cost-effective |
+| **OTHER** | 3rd Party | Custom | For any other courier service |
+
+**Use Cases:**
+- View all INHOUSE deliveries for team analytics
+- Monitor STEADFAST deliveries (COD collections)
+- Check provider-specific performance metrics
+- Filter by status to see pending vs completed
+- Pagination for large datasets
+
+**Filters:**
+- \`status\`: PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, FAILED
+- \`page\` & \`limit\`: For pagination (default: page=1, limit=10)
+
+**Response Includes:**
+- All delivery details for that provider
+- Order information, customer details
+- Tracking IDs and external references
+- Status timeline and timestamps`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'provider', in: 'path', required: true, schema: { type: 'string', enum: ['INHOUSE', 'STEADFAST', 'PATHAO', 'REDX', 'SUNDARBAN', 'OTHER'] } },
@@ -3613,7 +3819,40 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/stats': {
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery statistics (admin only)',
+        summary: 'Get comprehensive delivery statistics & analytics (admin only)',
+        description: `Get system-wide delivery metrics and performance analytics.
+
+**Metrics Provided:**
+
+1. **Volume Statistics**
+   - Total deliveries across all providers
+   - Breakdown by provider (INHOUSE, STEADFAST, PATHAO, REDX, SUNDARBAN, OTHER)
+
+2. **Status Distribution**
+   - Count of deliveries in each status
+   - Success rate (DELIVERED / Total)
+   - Failure rate (FAILED / Total)
+
+3. **Performance Metrics**
+   - Average delivery time (hours from ASSIGNED to DELIVERED)
+   - On-time delivery percentage
+   - Success vs failed comparison
+
+4. **Provider Performance**
+   - Breakdown of deliveries by provider
+   - Each provider's success rate
+   - Average delivery time per provider
+
+**Use Cases:**
+- Dashboard analytics
+- Provider performance comparison
+- SLA tracking and reporting
+- Identify bottlenecks or issues
+- Monthly/weekly delivery reports
+
+**Permission Required:**
+- Admin or Manager role
+- Access to DELIVERY_READ permission`,
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
@@ -3645,7 +3884,141 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
     },
 
-    // ─── CART ────────────────────────────────────────────────────────────────
+    // ─── WEBHOOKS (FOR DELIVERY PROVIDERS) ────────────────────────────────
+    '/webhooks/steadfast': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Steadfast Webhook - Delivery status updates (no auth required)',
+        description: `Receive real-time delivery status updates from Steadfast courier service.
+
+**Authentication:**
+- Use \`Authorization: Bearer {STEADFAST_BEARER_TOKEN}\` header
+- Token must match \`STEADFAST_BEARER_TOKEN\` environment variable
+- No user authentication needed (service-to-service)
+
+**Webhook Payload from Steadfast:**
+\`\`\`json
+{
+  "consignment_id": 54321,
+  "invoice": "ORD-2026-001",
+  "tracking_code": "SF-2026-54321",
+  "status": "delivered",
+  "cod_amount": 3500,
+  "updated_at": "2026-05-17T14:30:00Z"
+}
+\`\`\`
+
+**Status Values from Steadfast:**
+- \`pending\` / \`in_review\` → DeliveryStatus: \`ASSIGNED\`
+- \`in_transit\` → DeliveryStatus: \`IN_TRANSIT\`
+- \`out_for_delivery\` → DeliveryStatus: \`OUT_FOR_DELIVERY\`
+- \`delivered\` → DeliveryStatus: \`DELIVERED\` (triggers COD auto-payment)
+- \`failed\` / \`cancelled\` → DeliveryStatus: \`FAILED\`
+
+**Automatic Actions on Receipt:**
+1. Match consignment by \`consignment_id\`
+2. Update \`DeliveryInfo.status\` based on Steadfast status
+3. Sync order status (e.g., DELIVERED → Order.status = DELIVERED)
+4. If COD & status=DELIVERED: Auto-mark payment as PAID
+5. Update \`externalTrackingId\` and timestamps
+
+**Rate Limiting:**
+- Limited to prevent abuse (webhook rate limiter enabled)
+- Duplicate deliveries are idempotent (safe to retry)
+
+**Setup in Steadfast Dashboard:**
+1. Login to Steadfast portal
+2. Go to Settings → Webhook Configuration
+3. Set URL: \`https://api.yourdomain.com/api/v1/webhooks/steadfast\`
+4. Method: POST
+5. Headers: \`Authorization: Bearer {your-token}\``,
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  consignment_id: { type: ['string', 'number'], description: 'Steadfast consignment ID' },
+                  invoice: { type: 'string', description: 'Order number / invoice reference' },
+                  tracking_code: { type: 'string', description: 'Tracking code for end-customer' },
+                  status: { type: 'string', enum: ['pending', 'in_review', 'in_transit', 'out_for_delivery', 'delivered', 'failed', 'cancelled', 'hold'], description: 'Delivery status from Steadfast' },
+                  cod_amount: { type: ['string', 'number'], description: 'COD amount if applicable' },
+                  note: { type: 'string', nullable: true, description: 'Optional notes from courier' },
+                  updated_at: { type: 'string', format: 'date-time', description: 'When status was updated' },
+                },
+              },
+              examples: {
+                delivered: {
+                  summary: 'Delivery completed (triggers COD payment)',
+                  value: {
+                    consignment_id: '54321',
+                    invoice: 'ORD-2026-001',
+                    tracking_code: 'SF-2026-54321',
+                    status: 'delivered',
+                    cod_amount: '3500',
+                    updated_at: '2026-05-17T14:30:00Z',
+                  },
+                },
+                inTransit: {
+                  summary: 'Package in transit',
+                  value: {
+                    consignment_id: '54321',
+                    invoice: 'ORD-2026-001',
+                    tracking_code: 'SF-2026-54321',
+                    status: 'in_transit',
+                    cod_amount: '3500',
+                    updated_at: '2026-05-17T10:15:00Z',
+                  },
+                },
+                failed: {
+                  summary: 'Delivery attempt failed',
+                  value: {
+                    consignment_id: '54321',
+                    invoice: 'ORD-2026-001',
+                    tracking_code: 'SF-2026-54321',
+                    status: 'failed',
+                    cod_amount: '3500',
+                    note: 'Customer not available',
+                    updated_at: '2026-05-17T16:45:00Z',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Webhook processed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        matched: { type: 'boolean', description: 'Whether a matching delivery was found' },
+                        deliveryId: { type: 'string', format: 'uuid', description: 'Delivery ID that was updated' },
+                        orderId: { type: 'string', format: 'uuid', description: 'Related order ID' },
+                        internalStatus: { type: 'string', description: 'Internal status we set (e.g., DELIVERED)' },
+                      },
+                    },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    // ─── CART ────────────────────────────────────────────────────────────
     '/cart': {
       get: {
         tags: ['Cart'],
