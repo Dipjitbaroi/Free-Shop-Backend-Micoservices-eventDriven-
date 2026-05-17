@@ -75,7 +75,7 @@ export const productController = {
       const {
         search,
         categoryId,
-        vendorId,
+        createdBy,
         minPrice,
         maxPrice,
         isOrganic,
@@ -89,7 +89,7 @@ export const productController = {
       const products = await productService.getProducts({
         search: search as string,
         categoryId: categoryId as string,
-        vendorId: vendorId as string,
+        createdBy: createdBy as string,
         minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
         isOrganic: isOrganic === 'true' ? true : isOrganic === 'false' ? false : undefined,

@@ -172,6 +172,7 @@ export interface IReviewCreate {
 
 export interface IProductFilter {
   categoryId?: string;
+  createdBy?: string;
   vendorId?: string;
   minPrice?: number;
   maxPrice?: number;

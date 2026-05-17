@@ -872,6 +872,7 @@ class ProductService {
     }
 
     if (filter.categoryId) where.categoryId = filter.categoryId;
+    if (filter.createdBy) where.createdBy = filter.createdBy;
     if (filter.vendorId) where.vendorId = filter.vendorId;
     if (filter.isOrganic !== undefined) where.isOrganic = filter.isOrganic;
     if (filter.isFeatured !== undefined) where.isFeatured = filter.isFeatured;
@@ -932,6 +933,10 @@ class ProductService {
 
     // Get all createdBy and lastUpdatedBy IDs
     const productIds = products.map(p => p.id);
+    if (productIds.length === 0) {
+      return createPaginatedResponse([], totalItems, { page, limit });
+    }
+
     const [createdByRows, lastUpdatedByRows] = await Promise.all([
       prisma.$queryRaw<Array<{ id: string; createdBy: string | null }>>`
         SELECT "id", "createdBy" FROM "products" WHERE "id" IN (${Prisma.join(productIds)})
