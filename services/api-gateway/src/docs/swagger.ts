@@ -2344,12 +2344,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'verified', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Filter by verified purchase' },
         ],
         responses: {
-          200: { description: 'Paginated reviews' },
+          200: { description: 'Paginated reviews', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedReviews' } } } },
         },
       },
       post: {
         tags: ['Products'],
         summary: 'Create a review (authenticated)',
+        description: 'Create a review for a product. Reviews are created with PENDING status by default; public product ratings include only APPROVED reviews.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -2370,7 +2371,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
         },
         responses: {
-          201: { description: 'Review created' },
+          201: { description: 'Review created', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
         },
@@ -2386,7 +2387,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { $ref: '#/components/parameters/limit' },
         ],
         responses: {
-          200: { description: 'Product reviews' },
+          200: { description: 'Product reviews', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedReviews' } } } },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -2412,7 +2413,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Review details' },
+          200: { description: 'Review details', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -2440,7 +2441,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
         },
         responses: {
-          200: { description: 'Review updated' },
+          200: { description: 'Review updated', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
@@ -2454,7 +2455,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Review deleted' },
+          200: { description: 'Review deleted', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, message: { type: 'string' } } } } } },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
@@ -2470,7 +2471,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Vote recorded' },
+          200: { description: 'Vote recorded', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
@@ -7731,6 +7732,43 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             properties: {
               code: { type: 'string', example: 'UNAUTHORIZED' },
               message: { type: 'string', example: 'Unauthorized' },
+            },
+          },
+        },
+      },
+      Review: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          productId: { type: 'string', format: 'uuid' },
+          userId: { type: 'string', format: 'uuid' },
+          rating: { type: 'integer', minimum: 1, maximum: 5 },
+          title: { type: 'string', maxLength: 100 },
+          comment: { type: 'string', maxLength: 2000 },
+          status: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'], description: 'PENDING: newly created, APPROVED: visible in product ratings, REJECTED: hidden' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ReviewResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          data: { $ref: '#/components/schemas/Review' },
+        },
+      },
+      PaginatedReviews: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          data: { type: 'array', items: { $ref: '#/components/schemas/Review' } },
+          pagination: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer' },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              pages: { type: 'integer' },
             },
           },
         },
