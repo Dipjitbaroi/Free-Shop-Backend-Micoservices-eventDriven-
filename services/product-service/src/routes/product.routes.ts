@@ -61,7 +61,7 @@ const productFilterValidation = [
   ...paginationValidation,
   query('search').optional().isString().trim(),
   query('categoryId').optional().isUUID(),
-  query('vendorId').optional().isUUID(),
+  query('createdBy').optional().isUUID(),
   query('minPrice').optional().isFloat({ min: 0 }),
   query('maxPrice').optional().isFloat({ min: 0 }),
   query('isOrganic').optional().isIn(['true', 'false']),

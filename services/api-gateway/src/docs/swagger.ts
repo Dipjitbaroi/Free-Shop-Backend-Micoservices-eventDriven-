@@ -2029,7 +2029,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'categoryId', in: 'query', schema: { type: 'string' }, description: 'Filter by category ID' },
-          { name: 'vendorId', in: 'query', schema: { type: 'string' }, description: 'Filter by Vendor ID' },
+          { name: 'createdBy', in: 'query', schema: { type: 'string' }, description: 'Filter by creator user ID' },
           { name: 'minPrice', in: 'query', schema: { type: 'number' } },
           { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
           { name: 'isOrganic', in: 'query', schema: { type: 'boolean' } },
