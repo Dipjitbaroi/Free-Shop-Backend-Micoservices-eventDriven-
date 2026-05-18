@@ -261,26 +261,49 @@ export const deliveryController = {
 
   async handleSteadfastWebhook(req: Request, res: Response, next: NextFunction) {
     try {
+      // Log incoming webhook data for debugging
+      logger.info('🔔 Steadfast webhook received', {
+        headers: req.headers,
+        body: req.body,
+        timestamp: new Date().toISOString(),
+      });
+      console.log('[STEADFAST WEBHOOK] Full payload:', JSON.stringify(req.body, null, 2));
+
       const configuredToken = config.steadfast.webhookBearerToken;
 
       if (!configuredToken) {
+        logger.error('Steadfast webhook token not configured');
         throw new ServiceUnavailableError('Steadfast webhook token is not configured');
       }
 
       const authorization = String(req.headers.authorization || '');
       if (authorization !== `Bearer ${configuredToken}`) {
+        logger.warn('🚫 Steadfast webhook unauthorized - invalid token', {
+          providedToken: authorization.substring(0, 20) + '...',
+          expectedPrefix: 'Bearer',
+        });
         throw new UnauthorizedError('Invalid Steadfast webhook token');
       }
 
+      logger.info('✅ Steadfast webhook authorized - processing...');
       const result = await deliveryService.handleSteadfastWebhook(req.body as Record<string, unknown>);
 
+      logger.info('Steadfast webhook processing result', {
+        matched: result.matched,
+        deliveryId: result.deliveryId,
+        orderId: result.orderId,
+        internalStatus: result.internalStatus,
+      });
+
       if (!result.matched) {
+        logger.warn('Steadfast webhook unmatched - no delivery found');
         res.json(successResponse(result, 'Steadfast webhook received but no matching delivery was found'));
         return;
       }
 
       res.json(successResponse(result, 'Steadfast delivery status processed'));
     } catch (error) {
+      logger.error('Steadfast webhook error', error);
       next(normalizeDeliveryError(error, 'Failed to process Steadfast webhook'));
     }
   },
