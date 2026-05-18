@@ -27,7 +27,8 @@ const createDeliveryValidation = [
 ];
 
 const updateStatusValidation = [
-  body('status').isIn(['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED']),
+  body('status').isIn(['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'])
+    .withMessage('Delivery status must be one of PENDING, ASSIGNED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED, or CANCELLED'),
   body('notes').optional().isString(),
 ];
 
