@@ -1,7 +1,55 @@
 import { Request, Response, NextFunction } from 'express';
 import { deliveryService } from '../services/delivery.service.js';
-import { successResponse, BadRequestError, NotFoundError, ServiceUnavailableError, UnauthorizedError } from '@freeshop/shared-utils';
+import {
+  successResponse,
+  AppError,
+  BadRequestError,
+  ConflictError,
+  InternalServerError,
+  NotFoundError,
+  ServiceUnavailableError,
+  UnauthorizedError,
+} from '@freeshop/shared-utils';
 import config from '../config/index.js';
+
+const STEADFAST_ERROR_MARKERS = ['Steadfast', 'fetch failed', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND'];
+
+function normalizeDeliveryError(error: unknown, context: string): Error {
+  if (error instanceof AppError) {
+    return error;
+  }
+
+  const err = error as { name?: string; message?: string; code?: string; meta?: { target?: string[] } };
+  const message = typeof err?.message === 'string' && err.message ? err.message : 'Unknown error';
+
+  if (err?.name === 'PrismaClientValidationError') {
+    return new BadRequestError(`${context}: invalid delivery data`, { reason: message });
+  }
+
+  if (err?.name === 'PrismaClientKnownRequestError') {
+    switch (err.code) {
+      case 'P2002':
+        return new ConflictError(`${context}: delivery already exists`, {
+          target: err.meta?.target,
+        });
+      case 'P2025':
+        return new NotFoundError(`${context}: delivery or related resource not found`);
+      case 'P2003':
+      case 'P2014':
+        return new BadRequestError(`${context}: related resource not found`, { reason: message });
+      default:
+        return new InternalServerError(`${context}: database error`, { reason: message, code: err.code });
+    }
+  }
+
+  if (STEADFAST_ERROR_MARKERS.some((marker) => message.includes(marker))) {
+    return new ServiceUnavailableError(`${context}: Steadfast or network service unavailable`, {
+      reason: message,
+    });
+  }
+
+  return new InternalServerError(`${context}: unexpected delivery error`, { reason: message });
+}
 
 export const deliveryController = {
   async createDelivery(req: Request, res: Response, next: NextFunction) {
@@ -30,7 +78,7 @@ export const deliveryController = {
 
       res.status(201).json(successResponse(delivery, 'Delivery created successfully'));
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to create delivery'));
     }
   },
 
@@ -49,7 +97,7 @@ export const deliveryController = {
 
       res.json(successResponse(delivery, 'Delivery retrieved successfully'));
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to get delivery by order'));
     }
   },
 
@@ -65,7 +113,7 @@ export const deliveryController = {
 
       res.json(successResponse(delivery, 'Delivery retrieved successfully'));
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to get delivery by id'));
     }
   },
 
@@ -82,7 +130,7 @@ export const deliveryController = {
 
       res.json(successResponse(delivery, 'Delivery status updated successfully'));
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to update delivery status'));
     }
   },
 
@@ -95,7 +143,7 @@ export const deliveryController = {
 
       res.json(successResponse(delivery, 'Failed attempt recorded successfully'));
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to record delivery attempt'));
     }
   },
 
@@ -140,7 +188,7 @@ export const deliveryController = {
         )
       );
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to get deliveries for delivery man'));
     }
   },
 
@@ -177,7 +225,7 @@ export const deliveryController = {
         )
       );
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to get deliveries by provider'));
     }
   },
 
@@ -187,7 +235,7 @@ export const deliveryController = {
 
       res.json(successResponse(stats, 'Delivery statistics retrieved successfully'));
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to get delivery statistics'));
     }
   },
 
@@ -213,7 +261,7 @@ export const deliveryController = {
 
       res.json(successResponse(result, 'Steadfast delivery status processed'));
     } catch (error) {
-      next(error);
+      next(normalizeDeliveryError(error, 'Failed to process Steadfast webhook'));
     }
   },
 };

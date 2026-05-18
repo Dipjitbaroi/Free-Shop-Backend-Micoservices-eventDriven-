@@ -3362,7 +3362,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                         id: { type: 'string', format: 'uuid', description: 'Delivery ID' },
                         orderId: { type: 'string', format: 'uuid' },
                         provider: { type: 'string', enum: ['INHOUSE', 'STEADFAST', 'PATHAO', 'REDX', 'SUNDARBAN', 'OTHER'] },
-                        status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'] },
+                        status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
                         deliveryManId: { type: 'string', format: 'uuid', nullable: true },
                         externalProvider: { type: 'string', nullable: true },
                         externalTrackingId: { type: 'string', nullable: true },
@@ -3532,7 +3532,7 @@ PENDING → ASSIGNED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIV
 | OUT_FOR_DELIVERY | Same-day delivery | Order → OUT_FOR_DELIVERY |
 | DELIVERED | Completed | Order → DELIVERED, COD auto-marked PAID |
 | FAILED | Delivery failed | Order status unchanged (admin action needed) |
-| RETURNED | Package returned | Order → CANCELLED |
+| CANCELLED | Delivery cancelled | Order → CANCELLED |
 
 **Automatic Syncing:**
 - Order status updates to match delivery status
@@ -3555,7 +3555,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                 type: 'object',
                 required: ['status'],
                 properties: {
-                  status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'] },
+                  status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
                   notes: { type: 'string', description: 'Optional notes about the status update' },
                 },
               },
