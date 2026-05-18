@@ -223,6 +223,8 @@ class DeliveryService {
 
   private async completeCODPaymentOnDelivery(orderId: string): Promise<void> {
     try {
+      logger.info('[COD PAYMENT] Processing COD payment completion for delivered order', { orderId });
+
       const order = await prisma.order.findUnique({
         where: { id: orderId },
         select: {
@@ -234,26 +236,41 @@ class DeliveryService {
       });
 
       if (!order) {
-        console.warn(`Order not found while completing COD payment for delivery: ${orderId}`);
+        logger.warn(`[COD PAYMENT] Order not found while completing COD payment for delivery: ${orderId}`);
         return;
       }
 
+      logger.info('[COD PAYMENT] Order found', {
+        orderId: order.id,
+        paymentMethod: order.paymentMethod,
+        currentPaymentStatus: order.paymentStatus,
+        total: order.total,
+      });
+
       if (order.paymentMethod !== PaymentMethod.COD) {
+        logger.info('[COD PAYMENT] Skipping - payment method is not COD', {
+          orderId,
+          paymentMethod: order.paymentMethod,
+        });
         return;
       }
 
       if (order.paymentStatus === PaymentStatus.PAID) {
+        logger.info('[COD PAYMENT] Skipping - payment already PAID', { orderId });
         return;
       }
 
+      logger.info('[COD PAYMENT] Calling payment service to complete COD payment', { orderId, amount: order.total });
       const paymentResult = await completeCODPayment(order.id, Number(order.total));
 
       if (!paymentResult.success) {
-        console.error(
-          `Failed to complete COD payment for delivered order ${order.id}: ${paymentResult.error || 'Unknown error'}`
+        logger.error(
+          `[COD PAYMENT] Failed to complete COD payment for delivered order ${order.id}: ${paymentResult.error || 'Unknown error'}`
         );
         return;
       }
+
+      logger.info('[COD PAYMENT] Payment service completed - updating order status', { orderId, paymentId: paymentResult.paymentId });
 
       await prisma.order.update({
         where: { id: order.id },
@@ -263,9 +280,9 @@ class DeliveryService {
         },
       });
 
-      console.log(`✓ COD payment marked as PAID for delivered order ${order.id}`);
+      logger.info(`✓ [COD PAYMENT] COD payment marked as PAID for delivered order ${order.id}`);
     } catch (error) {
-      console.error(`Failed COD payment sync for delivered order ${orderId}:`, error);
+      logger.error(`[COD PAYMENT] Failed COD payment sync for delivered order ${orderId}:`, error);
     }
   }
 
@@ -539,12 +556,25 @@ class DeliveryService {
   }
 
   async handleSteadfastWebhook(payload: SteadfastWebhookPayload): Promise<SteadfastWebhookResult> {
+    logger.info('[WEBHOOK] Processing Steadfast webhook', {
+      payload,
+      allKeys: Object.keys(payload),
+    });
+
     const consignmentId = this.normalizeText(payload.consignment_id);
     const trackingCode = this.normalizeText(payload.tracking_code);
     const invoice = this.normalizeText(payload.invoice);
     const rawStatus = this.normalizeText(payload.status);
 
+    logger.info('[WEBHOOK] Extracted identifiers and status', {
+      consignmentId,
+      trackingCode,
+      invoice,
+      rawStatus,
+    });
+
     if (!consignmentId && !trackingCode && !invoice) {
+      logger.warn('[WEBHOOK] Missing all identifiers');
       throw new BadRequestError('Steadfast webhook requires consignment_id, tracking_code, or invoice');
     }
 
@@ -560,11 +590,11 @@ class DeliveryService {
     });
 
     if (!delivery) {
-      console.warn(`⚠ Webhook unmatched: No delivery found for consignment_id=${consignmentId}, tracking_code=${trackingCode}, invoice=${invoice}`);
+      logger.warn(`⚠ [WEBHOOK] Unmatched: No delivery found for consignment_id=${consignmentId}, tracking_code=${trackingCode}, invoice=${invoice}`);
       return { matched: false };
     }
     
-    console.log(`✓ Webhook matched: Delivery ID=${delivery.id}, Order ID=${delivery.orderId}`);
+    logger.info(`✓ [WEBHOOK] Matched: Delivery ID=${delivery.id}, Order ID=${delivery.orderId}`);
 
     const internalStatus: any = rawStatus ? this.normalizeSteadfastStatus(rawStatus) : delivery.status;
     const updateData: Record<string, unknown> = {};
@@ -602,9 +632,18 @@ class DeliveryService {
       }
       
       // Log webhook processing
-      console.log(`✓ Webhook: Delivery ${delivery.id} status updated to ${internalStatus}`);
+      logger.info(`✓ [WEBHOOK] Delivery ${delivery.id} status updating to ${internalStatus}`, {
+        deliveryId: delivery.id,
+        previousStatus: delivery.status,
+        newStatus: internalStatus,
+        updateDataKeys: Object.keys(updateData),
+      });
     } else {
-      console.warn(`⚠ Webhook received but no status change for delivery ${delivery.id}`);
+      logger.warn(`⚠ [WEBHOOK] Webhook received but no status change for delivery ${delivery.id}`, {
+        deliveryId: delivery.id,
+        currentStatus: delivery.status,
+        incomingStatus: internalStatus,
+      });
     }
 
     const updatedDelivery = Object.keys(updateData).length > 0
@@ -615,10 +654,21 @@ class DeliveryService {
       : delivery;
 
     if (rawStatus && internalStatus !== delivery.status) {
+      logger.info('[WEBHOOK] Status changed - syncing to order and checking COD payment', {
+        deliveryId: updatedDelivery.id,
+        orderId: updatedDelivery.orderId,
+        previousStatus: delivery.status,
+        newStatus: internalStatus,
+      });
+      
       await this.syncDeliveryOrderStatus(updatedDelivery.id, internalStatus);
       
       // Auto-complete COD payment if delivery is marked as DELIVERED
       if (internalStatus === 'DELIVERED') {
+        logger.info('[WEBHOOK] Delivery marked as DELIVERED - completing COD payment', {
+          deliveryId: updatedDelivery.id,
+          orderId: updatedDelivery.orderId,
+        });
         await this.completeCODPaymentOnDelivery(updatedDelivery.orderId);
       }
     }
