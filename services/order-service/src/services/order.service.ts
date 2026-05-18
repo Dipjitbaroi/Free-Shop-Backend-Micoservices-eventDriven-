@@ -6,6 +6,7 @@ import {
   createPaginatedResponse,
   calculateOffset,
   IPaginatedResult,
+  logger,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { zoneService } from './zone.service.js';
@@ -532,6 +533,28 @@ class OrderService {
     // Only publish PAYMENT_RECEIVED event if payment is actually paid
     // Other payment status changes should not trigger this event
     if (paymentStatus === PaymentStatus.PAID) {
+      // GUARD: For COD orders, only publish PAYMENT_RECEIVED if delivery is DELIVERED
+      if (order.paymentMethod === 'COD') {
+        const delivery = await prisma.deliveryInfo.findUnique({
+          where: { orderId: order.id },
+          select: { status: true },
+        });
+
+        if (!delivery || delivery.status !== 'DELIVERED') {
+          logger.warn('🚫 [ORDER SERVICE] Blocking PAYMENT_RECEIVED publish for COD - delivery not DELIVERED', {
+            orderId: order.id,
+            deliveryStatus: delivery?.status || 'no-delivery',
+            reason: !delivery ? 'No delivery record exists' : `Delivery status is ${delivery.status}, not DELIVERED`,
+          });
+          return this.hydrateOrder(order) as Promise<OrderWithItems>; // Don't publish event yet
+        }
+
+        logger.info('✅ [ORDER SERVICE] COD delivery is DELIVERED - proceeding to publish PAYMENT_RECEIVED', {
+          orderId: order.id,
+          deliveryStatus: delivery.status,
+        });
+      }
+
       await eventPublisher.publish(Events.PAYMENT_RECEIVED, {
         orderId: order.id,
         orderNumber: order.orderNumber,
