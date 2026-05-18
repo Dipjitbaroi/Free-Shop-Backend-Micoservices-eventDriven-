@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { paymentService } from '../services/payment.service.js';
-import { successResponse, logger } from '@freeshop/shared-utils';
+import { successResponse } from '@freeshop/shared-utils';
 import { PaymentMethod, PaymentStatus } from '../../generated/client/client.js';
 
 export const paymentController = {
@@ -153,32 +153,14 @@ export const paymentController = {
     try {
       const { orderId, amount, transactionId } = req.body;
       
-      logger.info('🚚 [CONTROLLER] POST /payments/cod/complete endpoint called', {
-        orderId,
-        amount,
-        transactionId,
-        timestamp: new Date().toISOString(),
-        callerService: req.headers['x-service-name'] || 'unknown',
-      });
-      
       const payment = await paymentService.completeCODPaymentForDelivery(
         orderId as string,
         amount as number,
         transactionId as string | undefined
       );
       
-      logger.info('🚚 [CONTROLLER] COD payment completed successfully', {
-        paymentId: payment.id,
-        orderId,
-        status: payment.status,
-      });
-      
       res.json(successResponse({ payment }, 'COD payment completed'));
     } catch (error) {
-      logger.error('🚚 [CONTROLLER] Error completing COD payment', {
-        orderId: req.body?.orderId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
       next(error);
     }
   },
