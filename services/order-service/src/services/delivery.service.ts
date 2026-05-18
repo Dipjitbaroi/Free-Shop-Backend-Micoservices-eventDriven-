@@ -1,10 +1,12 @@
 import { DeliveryInfo } from '../../generated/client/client.js';
-import { BadRequestError, NotFoundError, ServiceUnavailableError } from '@freeshop/shared-utils';
+import { BadRequestError, NotFoundError, ServiceUnavailableError, createServiceLogger } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { DeliveryProvider, DeliveryStatus } from '@freeshop/shared-types';
 import { OrderStatus, PaymentMethod, PaymentStatus } from '../../generated/client/client.js';
 import { completeCODPayment } from '../lib/payment-client.js';
 import { steadfastClient } from '../lib/steadfast-client.js';
+
+const logger = createServiceLogger('delivery-service');
 
 interface DeliveryManProfile {
   id: string;
@@ -419,7 +421,15 @@ class DeliveryService {
         });
 
         try {
-          const steadfastResponse = await steadfastClient.placeOrder(this.buildSteadfastPayload(order));
+          const payload = this.buildSteadfastPayload(order);
+          logger.info('Creating Steadfast delivery', {
+            orderId,
+            orderNumber: order.orderNumber,
+            provider: data.provider,
+            payload,
+          });
+
+          const steadfastResponse = await steadfastClient.placeOrder(payload);
           const responseData = steadfastResponse as any;
           const consignment = responseData.consignment || responseData.data?.consignment || responseData.result?.consignment || responseData;
           const trackingCode = consignment?.tracking_code?.toString?.() || responseData.tracking_code?.toString?.() || '';
@@ -446,6 +456,12 @@ class DeliveryService {
           console.log(`✓ Steadfast booking successful: Consignment ID=${consignmentId}, Tracking Code=${trackingCode}`);
           return updatedDelivery;
         } catch (error) {
+          logger.error('Steadfast delivery booking failed', error, {
+            orderId,
+            orderNumber: order.orderNumber,
+            provider: data.provider,
+            payload: this.buildSteadfastPayload(order),
+          });
           await prisma.deliveryInfo.delete({ where: { id: draftDelivery.id } }).catch(() => undefined);
           throw error;
         }

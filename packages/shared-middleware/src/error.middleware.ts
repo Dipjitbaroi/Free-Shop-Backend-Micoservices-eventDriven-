@@ -40,6 +40,11 @@ export const errorHandler: ErrorRequestHandler = (
     method: req.method,
     ip: req.ip,
     userId: req.user?.userId,
+    ...(error instanceof AppError && {
+      statusCode: error.statusCode,
+      errorCode: error.code,
+      details: error.details,
+    }),
   });
 
   if (socketGone) return;

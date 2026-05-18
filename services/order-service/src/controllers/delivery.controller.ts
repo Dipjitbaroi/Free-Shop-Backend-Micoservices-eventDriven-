@@ -11,6 +11,9 @@ import {
   UnauthorizedError,
 } from '@freeshop/shared-utils';
 import config from '../config/index.js';
+import { createServiceLogger } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('delivery-controller');
 
 const STEADFAST_ERROR_MARKERS = ['Steadfast', 'fetch failed', 'ECONNREFUSED', 'ETIMEDOUT', 'ENOTFOUND'];
 
@@ -57,6 +60,18 @@ export const deliveryController = {
       const orderId = Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId;
       const { type, deliveryManId, provider, trackingId, apiRef, weight, fragile, estimatedDeliveryDate } = req.body;
 
+      logger.info('Create delivery request received', {
+        orderId,
+        type,
+        provider,
+        deliveryManId,
+        weight,
+        fragile,
+        estimatedDeliveryDate,
+        hasTrackingId: Boolean(trackingId),
+        hasApiRef: Boolean(apiRef),
+      });
+
       // Validate required fields based on type
       if (type === 'INHOUSE' && !deliveryManId) {
         throw new BadRequestError('deliveryManId is required for INHOUSE delivery');
@@ -78,6 +93,11 @@ export const deliveryController = {
 
       res.status(201).json(successResponse(delivery, 'Delivery created successfully'));
     } catch (error) {
+      logger.error('Create delivery failed', error, {
+        orderId: Array.isArray(req.params.orderId) ? req.params.orderId[0] : req.params.orderId,
+        type: req.body?.type,
+        provider: req.body?.provider,
+      });
       next(normalizeDeliveryError(error, 'Failed to create delivery'));
     }
   },
