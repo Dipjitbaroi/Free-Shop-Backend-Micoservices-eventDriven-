@@ -7,6 +7,7 @@ import {
   createPaginatedResponse,
   calculateOffset,
   IPaginatedResult,
+  logger,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { eventPublisher } from '../lib/message-broker.js';
@@ -208,6 +209,13 @@ class PaymentService {
     transactionId: string,
     gatewayResponse?: Record<string, unknown>
   ): Promise<Payment> {
+    logger.info('💳 [PAYMENT] completePayment() called', {
+      paymentId,
+      transactionId,
+      timestamp: new Date().toISOString(),
+      stack: new Error().stack?.split('\n').slice(1, 5).join(' | '),
+    });
+
     const payment = await prisma.payment.update({
       where: { id: paymentId },
       data: {
@@ -218,7 +226,20 @@ class PaymentService {
       },
     });
 
+    logger.info('💳 [PAYMENT] Payment marked COMPLETED in database', {
+      paymentId: payment.id,
+      orderId: payment.orderId,
+      method: payment.method,
+    });
+
     // Publish payment completed event
+    logger.info('📢 [EVENT] Publishing PAYMENT_RECEIVED event', {
+      paymentId: payment.id,
+      orderId: payment.orderId,
+      method: payment.method,
+      amount: payment.amount,
+    });
+
     await eventPublisher.publish(Events.PAYMENT_RECEIVED, {
       paymentId: payment.id,
       orderId: payment.orderId,
@@ -495,10 +516,26 @@ class PaymentService {
     amount: number,
     transactionId?: string
   ): Promise<Payment> {
+    logger.info('🚚 [COD] completeCODPaymentForDelivery() called', {
+      orderId,
+      amount,
+      transactionId,
+      timestamp: new Date().toISOString(),
+      stack: new Error().stack?.split('\n').slice(1, 5).join(' | '),
+    });
+
     // Find or create payment for this order
     let payment = await prisma.payment.findFirst({
       where: { orderId },
       orderBy: { createdAt: 'desc' },
+    });
+
+    logger.info('🚚 [COD] Payment lookup result', {
+      orderId,
+      paymentFound: !!payment,
+      paymentId: payment?.id,
+      paymentStatus: payment?.status,
+      paymentMethod: payment?.method,
     });
 
     if (!payment) {
@@ -511,6 +548,11 @@ class PaymentService {
           status: PaymentStatus.PENDING,
         },
       });
+      logger.info('🚚 [COD] Created new payment record', {
+        paymentId: payment.id,
+        orderId,
+        amount,
+      });
     }
 
     if (payment.method !== PaymentMethod.COD) {
@@ -518,8 +560,18 @@ class PaymentService {
     }
 
     if (payment.status === PaymentStatus.COMPLETED) {
+      logger.info('🚚 [COD] Payment already completed, returning', {
+        paymentId: payment.id,
+        orderId,
+      });
       return payment; // Already completed, just return it
     }
+
+    logger.info('🚚 [COD] Calling completePayment() to finalize COD payment', {
+      paymentId: payment.id,
+      orderId,
+      currentStatus: payment.status,
+    });
 
     const txId = transactionId || `COD_${orderId}_${Date.now()}`;
 
