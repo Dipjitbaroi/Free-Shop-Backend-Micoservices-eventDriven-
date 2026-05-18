@@ -556,10 +556,17 @@ class DeliveryService {
   }
 
   async handleSteadfastWebhook(payload: SteadfastWebhookPayload): Promise<SteadfastWebhookResult> {
-    logger.info('[WEBHOOK] Processing Steadfast webhook', {
-      payload,
+    const webhookReceivedAt = new Date().toISOString();
+    
+    logger.info('[WEBHOOK] 🚀 RAW STEADFAST WEBHOOK RECEIVED', {
+      timestamp: webhookReceivedAt,
+      fullPayload: JSON.stringify(payload, null, 2),
       allKeys: Object.keys(payload),
+      payloadString: JSON.stringify(payload),
     });
+
+    console.log('[STEADFAST WEBHOOK RAW] Received webhook at', webhookReceivedAt);
+    console.log('[STEADFAST WEBHOOK RAW] Full payload:', JSON.stringify(payload, null, 2));
 
     const consignmentId = this.normalizeText(payload.consignment_id);
     const trackingCode = this.normalizeText(payload.tracking_code);
@@ -571,6 +578,7 @@ class DeliveryService {
       trackingCode,
       invoice,
       rawStatus,
+      extractedAt: new Date().toISOString(),
     });
 
     if (!consignmentId && !trackingCode && !invoice) {
@@ -665,6 +673,18 @@ class DeliveryService {
       
       // Auto-complete COD payment if delivery is marked as DELIVERED
       if (internalStatus === 'DELIVERED') {
+        logger.warn('⚠️⚠️⚠️ [WEBHOOK] ALERT: Delivery marked as DELIVERED IMMEDIATELY by webhook! This is unusual.', {
+          deliveryId: updatedDelivery.id,
+          orderId: updatedDelivery.orderId,
+          internalStatus,
+          rawStatus,
+          timeNow: new Date().toISOString(),
+          deliveryCreatedAt: updatedDelivery.createdAt,
+          timeSinceCreation: updatedDelivery.createdAt ? new Date().getTime() - new Date(updatedDelivery.createdAt).getTime() : 'unknown',
+          webhook_timestamp: (payload as any).timestamp,
+          webhook_status: (payload as any).status,
+        });
+
         logger.info('[WEBHOOK] Delivery marked as DELIVERED - completing COD payment', {
           deliveryId: updatedDelivery.id,
           orderId: updatedDelivery.orderId,
