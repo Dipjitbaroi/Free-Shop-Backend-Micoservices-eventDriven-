@@ -6,8 +6,10 @@ export interface SteadfastOrderPayload {
   recipient_name: string;
   recipient_phone: string;
   recipient_address: string;
+  district?: string;   // ← District should be sent separately
+  upazila?: string;    // ← Thana/Upazila (single field used for both)
   cod_amount: number;
-  note?: string | null;
+  note?: string | null; // ← Includes order notes + product descriptions
 }
 
 export interface SteadfastConsignment {

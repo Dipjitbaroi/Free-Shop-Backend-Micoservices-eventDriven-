@@ -81,11 +81,9 @@ class DeliveryService {
       return 'No address provided';
     }
 
+    // Only include street-level details, exclude district/area (sent as separate fields)
     const parts = [
       this.getShippingAddressValue(address, ['addressLine1', 'addressLine', 'street', 'house', 'road']),
-      this.getShippingAddressValue(address, ['addressLine2', 'area', 'locality', 'thana', 'upazila']),
-      this.getShippingAddressValue(address, ['district', 'city']),
-      this.getShippingAddressValue(address, ['state', 'division']),
       this.getShippingAddressValue(address, ['postalCode', 'postcode', 'zip']),
     ].filter(Boolean);
 
@@ -133,8 +131,49 @@ class DeliveryService {
   }
 
   private getSteadfastOrderNote(order: any): string | null {
-    const note = this.normalizeText(order.customerNote || order.sellerNote || order.adminNote);
-    return note || null;
+    const parts: string[] = [];
+    
+    // Add customer/seller/admin notes
+    const customNote = this.normalizeText(order.customerNote || order.sellerNote || order.adminNote);
+    if (customNote) {
+      parts.push(customNote);
+    }
+    
+    // Add product descriptions
+    try {
+      const items = Array.isArray(order.items) ? order.items : [];
+      if (items.length > 0) {
+        const productSummary = items
+          .map((item: any) => {
+            const name = this.normalizeText(item.productName || item.name);
+            const qty = item.quantity || 1;
+            return qty > 1 ? `${name} (x${qty})` : name;
+          })
+          .filter(Boolean)
+          .join(', ');
+        
+        if (productSummary) {
+          parts.push(`Items: ${productSummary}`);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to include product descriptions in note:', error);
+    }
+    
+    return parts.length > 0 ? parts.join(' | ') : null;
+  }
+
+  private getSteadfastDistrict(address: Record<string, unknown> | null | undefined): string | undefined {
+    if (!address) return undefined;
+    const district = this.getShippingAddressValue(address, ['district', 'city']);
+    return district || undefined;
+  }
+
+  private getSteadfastUpazila(address: Record<string, unknown> | null | undefined): string | undefined {
+    if (!address) return undefined;
+    // Single field used for both Thana/Upazila
+    const upazila = this.getShippingAddressValue(address, ['upazila']);
+    return upazila || undefined;
   }
 
   private buildSteadfastPayload(order: any) {
@@ -145,8 +184,10 @@ class DeliveryService {
       recipient_name: this.getSteadfastRecipientName(order),
       recipient_phone: this.getSteadfastRecipientPhone(order),
       recipient_address: this.formatSteadfastAddress(shippingAddress),
+      district: this.getSteadfastDistrict(shippingAddress),  // District
+      upazila: this.getSteadfastUpazila(shippingAddress),    // Thana/Upazila (single field)
       cod_amount: this.getSteadfastCodAmount(order),
-      note: this.getSteadfastOrderNote(order),
+      note: this.getSteadfastOrderNote(order),               // Includes order notes + product descriptions
     };
   }
 
@@ -372,6 +413,14 @@ class DeliveryService {
   async createDelivery(orderId: string, data: IDeliveryInfoData): Promise<DeliveryInfo> {
     const order = await prisma.order.findUnique({
       where: { id: orderId },
+      include: {
+        items: {
+          select: {
+            productName: true,
+            quantity: true,
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -427,6 +476,7 @@ class DeliveryService {
             orderNumber: order.orderNumber,
             provider: data.provider,
             payload,
+            productCount: Array.isArray(order.items) ? order.items.length : 0,
           });
 
           const steadfastResponse = await steadfastClient.placeOrder(payload);
@@ -461,6 +511,7 @@ class DeliveryService {
             orderNumber: order.orderNumber,
             provider: data.provider,
             payload: this.buildSteadfastPayload(order),
+            productCount: Array.isArray(order.items) ? order.items.length : 0,
           });
           await prisma.deliveryInfo.delete({ where: { id: draftDelivery.id } }).catch(() => undefined);
           throw error;
