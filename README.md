@@ -6,7 +6,7 @@ A scalable, microservices-based backend for organic grocery eCommerce with suppo
 
 ## Architecture
 
-This project follows an ***Event-Driven Microservices Architecture*** with the following services:
+This project follows an **Event-Driven Microservices Architecture** with the following services:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
