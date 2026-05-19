@@ -382,33 +382,23 @@ class CartService {
     const result = new Map<string, Array<{ id: string; name: string; sku?: string; image?: string }>>();
     if (cartItemIds.length === 0) return result;
 
-    const rows = await prisma.$queryRaw<Array<{
-      cartItemId: string;
-      freeItemId: string;
-      freeItemName: string;
-      sku: string | null;
-      image: string | null;
-    }>>`
-      SELECT
-        "cartItemId",
-        "freeItemId",
-        "freeItemName",
-        "sku",
-        "image"
-      FROM "CartItemFreeItem"
-      WHERE "cartItemId" IN (${Prisma.join(cartItemIds)})
-      ORDER BY "assignedAt" ASC
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety
+    const freeItems = await prisma.cartItemFreeItem.findMany({
+      where: {
+        cartItemId: { in: cartItemIds },
+      },
+      orderBy: { assignedAt: 'asc' },
+    });
 
-    for (const row of rows) {
-      const items = result.get(row.cartItemId) || [];
+    for (const item of freeItems) {
+      const items = result.get(item.cartItemId) || [];
       items.push({
-        id: row.freeItemId,
-        name: row.freeItemName,
-        sku: row.sku ?? undefined,
-        image: row.image ?? undefined,
+        id: item.freeItemId,
+        name: item.freeItemName,
+        sku: item.sku ?? undefined,
+        image: item.image ?? undefined,
       });
-      result.set(row.cartItemId, items);
+      result.set(item.cartItemId, items);
     }
 
     return result;
@@ -418,22 +408,27 @@ class CartService {
     cartItemId: string,
     freeItems: Array<{ id: string; name: string; sku?: string; image?: string }>
   ): Promise<void> {
-    await prisma.$executeRaw`
-      DELETE FROM "CartItemFreeItem"
-      WHERE "cartItemId" = ${cartItemId}
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety and consistency
+    
+    // Delete old free items
+    await prisma.cartItemFreeItem.deleteMany({
+      where: { cartItemId },
+    });
 
     if (freeItems.length === 0) return;
 
-    await Promise.all(
-      freeItems.map((item) =>
-        prisma.$executeRaw`
-          INSERT INTO "CartItemFreeItem" ("id", "cartItemId", "freeItemId", "freeItemName", "sku", "image", "assignedAt")
-          VALUES (${`${cartItemId}:${item.id}`}, ${cartItemId}, ${item.id}, ${item.name}, ${item.sku ?? null}, ${item.image ?? null}, NOW())
-          ON CONFLICT ("cartItemId", "freeItemId") DO NOTHING
-        `
-      )
-    );
+    // Insert new free items with skipDuplicates for upsert behavior
+    await prisma.cartItemFreeItem.createMany({
+      data: freeItems.map((item) => ({
+        id: `${cartItemId}:${item.id}`,
+        cartItemId,
+        freeItemId: item.id,
+        freeItemName: item.name,
+        sku: item.sku ?? null,
+        image: item.image ?? null,
+      })),
+      skipDuplicates: true, // Equivalent to ON CONFLICT ... DO NOTHING
+    });
   }
 
   private async checkInventoryAvailability(productId: string, quantity: number): Promise<{ availableStock: number }> {

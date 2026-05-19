@@ -145,33 +145,23 @@ class OrderService {
     const result = new Map<string, FreeItemSnapshot[]>();
     if (orderItemIds.length === 0) return result;
 
-    const rows = await prisma.$queryRaw<Array<{
-      orderItemId: string;
-      freeItemId: string;
-      freeItemName: string;
-      sku: string | null;
-      image: string | null;
-    }>>`
-      SELECT
-        "orderItemId",
-        "freeItemId",
-        "freeItemName",
-        "sku",
-        "image"
-      FROM "OrderItemFreeItem"
-      WHERE "orderItemId" IN (${Prisma.join(orderItemIds)})
-      ORDER BY "assignedAt" ASC
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety
+    const freeItems = await prisma.orderItemFreeItem.findMany({
+      where: {
+        orderItemId: { in: orderItemIds },
+      },
+      orderBy: { assignedAt: 'asc' },
+    });
 
-    for (const row of rows) {
-      const items = result.get(row.orderItemId) || [];
+    for (const item of freeItems) {
+      const items = result.get(item.orderItemId) || [];
       items.push({
-        id: row.freeItemId,
-        name: row.freeItemName,
-        sku: row.sku ?? undefined,
-        image: row.image ?? undefined,
+        id: item.freeItemId,
+        name: item.freeItemName,
+        sku: item.sku ?? undefined,
+        image: item.image ?? undefined,
       });
-      result.set(row.orderItemId, items);
+      result.set(item.orderItemId, items);
     }
 
     return result;
@@ -209,22 +199,27 @@ class OrderService {
     orderItemId: string,
     freeItems: FreeItemSnapshot[]
   ): Promise<void> {
-    await prisma.$executeRaw`
-      DELETE FROM "OrderItemFreeItem"
-      WHERE "orderItemId" = ${orderItemId}
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety and consistency
+    
+    // Delete old free items
+    await prisma.orderItemFreeItem.deleteMany({
+      where: { orderItemId },
+    });
 
     if (freeItems.length === 0) return;
 
-    await Promise.all(
-      freeItems.map((item) =>
-        prisma.$executeRaw`
-          INSERT INTO "OrderItemFreeItem" ("id", "orderItemId", "freeItemId", "freeItemName", "sku", "image", "assignedAt")
-          VALUES (${`${orderItemId}:${item.id}`}, ${orderItemId}, ${item.id}, ${item.name}, ${item.sku ?? null}, ${item.image ?? null}, NOW())
-          ON CONFLICT ("orderItemId", "freeItemId") DO NOTHING
-        `
-      )
-    );
+    // Insert new free items with skipDuplicates for upsert behavior
+    await prisma.orderItemFreeItem.createMany({
+      data: freeItems.map((item) => ({
+        id: `${orderItemId}:${item.id}`,
+        orderItemId,
+        freeItemId: item.id,
+        freeItemName: item.name,
+        sku: item.sku ?? null,
+        image: item.image ?? null,
+      })),
+      skipDuplicates: true, // Equivalent to ON CONFLICT ... DO NOTHING
+    });
   }
 
   /**
