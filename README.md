@@ -2,7 +2,7 @@
 
 ## Multi-Vendor Organic Grocery eCommerce Platform
 
-A scalable, microservices-based backend for organic grocery eCommerce with support for multiple vendors, guest checkout, and various payment methods..
+A scalable, microservices-based backend for organic grocery eCommerce with support for multiple vendors, guest checkout, and various payment methods.
 
 ## Architecture
 
