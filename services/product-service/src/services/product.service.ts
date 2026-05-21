@@ -538,32 +538,30 @@ class ProductService {
     } as any);
 
     // Initialize inventory for the free item (non-blocking on failure)
-    if (data.stock !== undefined || data.lowStockThreshold !== undefined) {
-      try {
-        const inventoryServiceUrl = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:3002';
-        const serviceToken = process.env.SERVICE_AUTH_TOKEN;
-        
-        await axios.post(
-          `${inventoryServiceUrl}/api/inventory/initialize`,
-          {
-            userId: creatorId,
-            initialStock: data.stock ?? 0,
-            lowStockThreshold: data.lowStockThreshold,
-            freeItemId: item.id,
-            // productId intentionally omitted for standalone free items
-          },
-          {
-            timeout: 5000,
-            headers: serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {},
-          }
-        );
-      } catch (err) {
-        // Log warning but don't fail free item creation
-        console.warn('Failed to initialize inventory for free item', {
+    try {
+      const inventoryServiceUrl = process.env.INVENTORY_SERVICE_URL || 'http://inventory-service:3002';
+      const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+
+      await axios.post(
+        `${inventoryServiceUrl}/internal/inventory/initialize`,
+        {
+          userId: creatorId,
+          initialStock: data.stock ?? 0,
+          lowStockThreshold: data.lowStockThreshold,
           freeItemId: item.id,
-          error: err instanceof Error ? err.message : 'Unknown error',
-        });
-      }
+          // productId intentionally omitted for standalone free items
+        },
+        {
+          timeout: 5000,
+          headers: serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {},
+        }
+      );
+    } catch (err) {
+      // Log warning but don't fail free item creation
+      console.warn('Failed to initialize inventory for free item', {
+        freeItemId: item.id,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
     }
 
     return this.hydrateFreeItem(item as FreeItemRow);
