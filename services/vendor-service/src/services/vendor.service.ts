@@ -42,6 +42,15 @@ interface VendorFilters {
   sortOrder?: 'asc' | 'desc';
 }
 
+interface UserProfile {
+  id: string;
+  email: string;
+  phone?: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+}
+
 class VendorService {
   private generateSlug(storeName: string): string {
     return storeName
@@ -314,6 +323,50 @@ class VendorService {
     return vendor;
   }
 
+  private async fetchUserProfile(userId: string): Promise<UserProfile | null> {
+    const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+    if (!serviceToken) {
+      return null;
+    }
+
+    const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+
+    try {
+      const response = await fetch(`${authServiceUrl}/internal/users/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${serviceToken}`,
+          'X-Service-Call': 'true',
+        },
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const payload = await response.json() as { data?: UserProfile };
+      const user = payload.data;
+
+      if (!user) {
+        return null;
+      }
+
+      return {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatar: user.avatar,
+      };
+    } catch (error) {
+      logger.error('Failed to fetch user profile for vendor list', {
+        userId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
+  }
+
   async listVendors(filters: VendorFilters) {
     const {
       status,
@@ -337,7 +390,7 @@ class VendorService {
       ];
     }
 
-    const [Vendors, total] = await Promise.all([
+    const [vendors, total] = await Promise.all([
       prisma.vendor.findMany({
         where,
         orderBy: { [sortBy]: sortOrder },
@@ -361,8 +414,24 @@ class VendorService {
       prisma.vendor.count({ where }),
     ]);
 
+    const userIds = [...new Set(vendors.map((vendor) => vendor.userId))];
+    const userProfiles = new Map<string, UserProfile | null>();
+
+    await Promise.all(
+      userIds.map(async (userId) => {
+        userProfiles.set(userId, await this.fetchUserProfile(userId));
+      })
+    );
+
     return {
-      Vendors,
+      Vendors: vendors.map((vendor) => ({
+        ...vendor,
+        user: userProfiles.get(vendor.userId) || null,
+      })),
+      vendors: vendors.map((vendor) => ({
+        ...vendor,
+        user: userProfiles.get(vendor.userId) || null,
+      })),
       pagination: {
         page,
         limit,

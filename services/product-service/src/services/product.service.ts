@@ -650,13 +650,32 @@ class ProductService {
         const vendorServiceUrl = process.env.VENDOR_SERVICE_URL || 'http://vendor-service:3007';
         const serviceToken = process.env.SERVICE_AUTH_TOKEN;
         if (serviceToken) {
-          const resp = await axios.get(`${vendorServiceUrl}/api/vendors/${data.vendorId}`, {
-            timeout: 3000,
-            headers: { Authorization: `Bearer ${serviceToken}` },
-          });
-          const vendorData = resp.data?.data || null;
-          if (vendorData && vendorData.userId) {
-            createdBy = vendorData.userId;
+          // First try to resolve vendor by its record id
+          try {
+            const resp = await axios.get(`${vendorServiceUrl}/api/vendors/${data.vendorId}`, {
+              timeout: 3000,
+              headers: { Authorization: `Bearer ${serviceToken}` },
+            });
+            const vendorData = resp.data?.data || null;
+            if (vendorData && vendorData.userId) {
+              createdBy = vendorData.userId;
+            }
+          } catch (firstErr) {
+            // If not found, the incoming vendorId may already be a user id (new behavior).
+            // Try the internal lookup by user id: /api/vendors/internal/user/:userId
+            try {
+              const resp2 = await axios.get(`${vendorServiceUrl}/api/vendors/internal/user/${data.vendorId}`, {
+                timeout: 3000,
+                headers: { Authorization: `Bearer ${serviceToken}` },
+              });
+              const vendorData2 = resp2.data?.data || null;
+              if (vendorData2 && vendorData2.userId) {
+                createdBy = vendorData2.userId;
+              }
+            } catch (secondErr) {
+              // swallow - we'll log below
+              throw secondErr;
+            }
           }
         }
       } catch (err) {
@@ -700,15 +719,17 @@ class ProductService {
       data: { productCount: { increment: 1 } },
     });
 
+    // Ensure we pass a non-null creator id for free items (fallback to 'system')
     await this.upsertProductFreeItems(prisma as any, product.id, {
       freeItems: data.freeItems,
       freeItemIds: data.freeItemIds,
-    }, createdBy || data.vendorId);
+    }, createdBy ?? 'system');
 
     // Publish event with stock information for inventory service initialization
+    // Ensure createdBy is a string for the event payload (fallback to 'system')
     await eventPublisher.productCreated({
       productId: product.id,
-      createdBy: createdBy || product.id,
+      createdBy: createdBy ?? 'system',
       vendorId: product.vendorId,
       name: product.name,
       price: Number(product.price),

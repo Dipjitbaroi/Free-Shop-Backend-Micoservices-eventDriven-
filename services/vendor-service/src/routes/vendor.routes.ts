@@ -62,6 +62,8 @@ router.post(
 
 router.get(
   '/',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
   [
     query('status').optional().isIn(['PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED', 'CLOSED']),
     query('verificationStatus').optional().isIn(['UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED']),
