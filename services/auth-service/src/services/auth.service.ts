@@ -10,6 +10,7 @@ import {
   generateGuestId,
   UnauthorizedError,
   ForbiddenError,
+  BadRequestError,
   comparePassword,
   hashPassword,
   NotFoundError,
@@ -617,6 +618,61 @@ class AuthService {
       logger.error('Failed to fetch RBAC info for user', { userId, error: (err as any)?.message });
       return user;
     }
+  }
+
+  async updateUserRole(
+    userId: string,
+    roleId?: string,
+    roleName?: string,
+    assignedBy: string = 'SYSTEM'
+  ) {
+    // Validate user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      throw new UnauthorizedError('User not found');
+    }
+
+    // Resolve role
+    let resolvedRoleId = roleId;
+    if (!resolvedRoleId && roleName) {
+      const role = await prisma.role.findUnique({
+        where: { name: roleName },
+        select: { id: true },
+      });
+
+      if (!role) {
+        throw new BadRequestError(`Role '${roleName}' not found`);
+      }
+
+      resolvedRoleId = role.id;
+    }
+
+    if (!resolvedRoleId) {
+      throw new BadRequestError('Unable to resolve role');
+    }
+
+    // Assign role using RBAC service
+    await RBACService.assignRoleToUser(userId, resolvedRoleId, assignedBy);
+
+    logger.info('User role updated', {
+      userId,
+      roleId: resolvedRoleId,
+      roleName,
+      assignedBy,
+    });
+
+    // Return updated user with RBAC info
+    const rbac = await RBACService.getUserRolesAndPermissions(userId);
+    return {
+      userId,
+      roles: sanitizeRoles(rbac.roles || []),
+      roleNames: rbac.roleNames,
+      permissionCodes: rbac.permissionCodes,
+    };
   }
 
   async getUsers(filters: {
