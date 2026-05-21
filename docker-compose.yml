@@ -286,6 +286,8 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
+      - USER_SERVICE_URL=http://user-service:3002
     depends_on:
       postgres:
         condition: service_healthy

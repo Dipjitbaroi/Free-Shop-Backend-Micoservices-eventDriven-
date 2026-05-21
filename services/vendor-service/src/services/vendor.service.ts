@@ -191,7 +191,8 @@ class VendorService {
     if (cached) {
       const vendor = JSON.parse(cached) as any;
 
-      if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
+      // If vendor has userId but no user data (or user is null), try to fetch user again
+      if (vendor.userId && (!vendor.user || vendor.user === null)) {
         const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
 
         if (hydratedVendor) {
@@ -227,7 +228,8 @@ class VendorService {
     if (cached) {
       const vendor = JSON.parse(cached) as any;
 
-      if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
+      // If vendor has userId but no user data (or user is null), try to fetch user again
+      if (vendor.userId && (!vendor.user || vendor.user === null)) {
         const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
 
         if (hydratedVendor) {
@@ -263,7 +265,8 @@ class VendorService {
     if (cached) {
       const vendor = JSON.parse(cached) as any;
 
-      if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
+      // If vendor has userId but no user data (or user is null), try to fetch user again
+      if (vendor.userId && (!vendor.user || vendor.user === null)) {
         const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
 
         if (hydratedVendor) {
@@ -395,20 +398,31 @@ class VendorService {
   private async fetchUserProfile(userId: string): Promise<UserProfile | null> {
     const serviceToken = process.env.SERVICE_AUTH_TOKEN;
     if (!serviceToken) {
+      logger.warn('SERVICE_AUTH_TOKEN not configured, cannot fetch user profile', { userId });
       return null;
     }
 
-    const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+    const userServiceUrl = process.env.USER_SERVICE_URL || 'http://user-service:3002';
 
     try {
-      const response = await fetch(`${authServiceUrl}/internal/users/${userId}`, {
+      logger.debug('Fetching user profile', { userId, userServiceUrl });
+      const response = await fetch(`${userServiceUrl}/internal/profile/${userId}`, {
         headers: {
           Authorization: `Bearer ${serviceToken}`,
           'X-Service-Call': 'true',
         },
       });
 
+      logger.debug('User profile fetch response', { userId, status: response.status, ok: response.ok });
+
       if (!response.ok) {
+        const errorText = await response.text();
+        logger.error('Failed to fetch user profile - non-ok response', {
+          userId,
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
         return null;
       }
 
@@ -416,8 +430,11 @@ class VendorService {
       const user = payload.data;
 
       if (!user) {
+        logger.warn('User profile response data is empty', { userId, payload });
         return null;
       }
+
+      logger.debug('User profile fetched successfully', { userId, user });
 
       return {
         id: user.id,
@@ -428,7 +445,7 @@ class VendorService {
         avatar: user.avatar,
       };
     } catch (error) {
-      logger.error('Failed to fetch user profile for vendor list', {
+      logger.error('Failed to fetch user profile for vendor', {
         userId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
