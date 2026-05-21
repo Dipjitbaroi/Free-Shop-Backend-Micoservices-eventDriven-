@@ -18,6 +18,24 @@ const router: Router = Router();
  */
 router.get('/internal/users/:userId', authenticateService, authController.getUserById);
 
+/**
+ * POST /internal/users/:userId/role
+ * Update user role (for service-to-service calls)
+ * @internal - Not exposed in public API docs
+ */
+router.post(
+  '/internal/users/:userId/role',
+  authenticateService,
+  [
+    param('userId').isUUID().withMessage('Invalid user ID'),
+    body('roleId').optional().isUUID().withMessage('Invalid role ID'),
+    body('roleName').optional().isString().withMessage('Role name must be a string'),
+    body('assignedBy').notEmpty().withMessage('assignedBy is required'),
+  ],
+  validate,
+  authController.updateUserRole
+);
+
 // ── Public routes ─────────────────────────────────────────────────────────────
 
 /**

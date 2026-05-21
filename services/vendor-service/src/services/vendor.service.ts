@@ -381,12 +381,75 @@ class VendorService {
 
     await this.invalidateVendorCache(id, vendor.userId, vendor.storeSlug);
 
+    // If approved, update user role to VENDOR via internal auth-service API
+    if (approved) {
+      try {
+        const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+        if (!serviceToken) {
+          logger.warn('SERVICE_AUTH_TOKEN not configured, cannot update user role', { vendorId: id, userId: vendor.userId });
+        } else {
+          const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+          const response = await fetch(`${authServiceUrl}/internal/users/${vendor.userId}/role`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${serviceToken}`,
+              'X-Service-Call': 'true',
+            },
+            body: JSON.stringify({
+              roleName: 'VENDOR',
+              assignedBy: 'SYSTEM_VENDOR_VERIFIED',
+            }),
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            logger.error('Failed to update user role after vendor approval', {
+              vendorId: id,
+              userId: vendor.userId,
+              status: response.status,
+              body: errorText,
+            });
+          } else {
+            const result = await response.json();
+            logger.info('User role successfully updated to VENDOR', {
+              vendorId: id,
+              userId: vendor.userId,
+              result,
+            });
+          }
+        }
+      } catch (error) {
+        logger.error('Exception while updating user role after vendor approval', {
+          vendorId: id,
+          userId: vendor.userId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    // Fetch user email for event payload
+    let userEmail: string | undefined;
+    try {
+      const userProfile = await this.fetchUserProfile(vendor.userId);
+      userEmail = userProfile?.email;
+    } catch (error) {
+      logger.warn('Failed to fetch user email for event payload', {
+        vendorId: id,
+        userId: vendor.userId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
+    // Publish event with enhanced payload
     await messageBroker.publish(
       EXCHANGES.VENDOR,
       getRoutingKey('Vendor', 'VERIFIED'),
       {
         vendorId: vendor.id,
         userId: vendor.userId,
+        storeName: vendor.storeName,
+        email: userEmail,
         verified: approved,
         reason,
       }

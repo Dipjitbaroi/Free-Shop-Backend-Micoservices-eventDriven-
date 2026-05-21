@@ -300,3 +300,36 @@ export const getUserById = asyncHandler(async (req: Request, res: Response) => {
 
   res.json(createApiResponse(user, 'User retrieved successfully', req.requestId));
 });
+
+/**
+ * POST /auth/internal/users/:userId/role
+ * Update user role (for service-to-service calls)
+ * @internal - Not exposed in public API docs
+ * Auth: SERVICE_AUTH_TOKEN only
+ * Body: { roleId?: string, roleName?: string, assignedBy: string }
+ */
+export const updateUserRole = asyncHandler(async (req: Request, res: Response) => {
+  const { userId } = req.params as { userId: string };
+  const { roleId, roleName, assignedBy } = req.body as { roleId?: string; roleName?: string; assignedBy: string };
+
+  logger.debug('updateUserRole → enter', { userId, roleId, roleName, assignedBy, requestId: req.requestId });
+
+  if (!assignedBy) {
+    throw new BadRequestError('assignedBy is required');
+  }
+
+  if (!roleId && !roleName) {
+    throw new BadRequestError('Either roleId or roleName is required');
+  }
+
+  const result = await authService.updateUserRole(userId, roleId, roleName, assignedBy);
+
+  logger.debug('updateUserRole → success', {
+    requestId: req.requestId,
+    userId,
+    roleId,
+    roleName,
+  });
+
+  res.json(createApiResponse(result, 'User role updated successfully', req.requestId));
+});
