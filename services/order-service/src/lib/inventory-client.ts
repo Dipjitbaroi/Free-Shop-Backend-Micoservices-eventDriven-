@@ -21,7 +21,8 @@ export interface InventoryAvailabilityResult {
 
 function buildInventoryKey(item: InventoryCheckItem): string {
   if (item.freeItemId) {
-    return `${item.productId}:free:${item.freeItemId}`;
+    // Standalone free items use "free:freeItemId" format
+    return `free:${item.freeItemId}`;
   }
 
   if (item.variantId) {

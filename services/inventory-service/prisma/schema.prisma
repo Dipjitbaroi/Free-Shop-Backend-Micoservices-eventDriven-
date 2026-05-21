@@ -9,9 +9,9 @@ datasource db {
 
 model Inventory {
   id              String   @id @default(uuid())
-  productId       String
+  productId       String?  // Optional: null for standalone free items
   variantId       String?  // For product variants
-  freeItemId      String?  // For free items
+  freeItemId      String?  // For free items (can be standalone or tied to product)
   userId          String
   
   // Stock levels
@@ -34,7 +34,11 @@ model Inventory {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // Unique constraints: 
+  // 1. productId:variantId:freeItemId (product variants or product free items)
+  // 2. freeItemId alone (standalone free items with productId=null)
   @@unique([productId, variantId, freeItemId])
+  @@unique([freeItemId]) // Standalone free items (productId is null)
   @@index([productId])
   @@index([userId])
   @@index([isLowStock])

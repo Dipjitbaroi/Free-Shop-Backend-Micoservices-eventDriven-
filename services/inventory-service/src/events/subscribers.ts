@@ -66,10 +66,10 @@ export const setupEventSubscribers = async (): Promise<void> => {
 
         // Initialize inventory for the newly created product with the userId who created it
         await inventoryService.initializeInventory(
-          payload.productId,
           payload.createdBy,
           payload.stock ?? 0,
-          payload.lowStockThreshold
+          payload.lowStockThreshold,
+          payload.productId // productId
         );
 
         logger.info('Inventory initialized for product', { productId: payload.productId });
@@ -95,19 +95,17 @@ export const setupEventSubscribers = async (): Promise<void> => {
         let hasAnyFailure = false;
 
         for (const item of payload.items) {
-          const chosenFreeId = Array.isArray(item.freeItemIds) && item.freeItemIds.length ? item.freeItemIds[0] : item.freeItemId;
-          const inventoryKey = chosenFreeId
-            ? `${item.productId}:free:${chosenFreeId}`
-            : item.variantId
-            ? `${item.productId}:${item.variantId}`
-            : item.productId;
+          const freeItemId = Array.isArray(item.freeItemIds) && item.freeItemIds.length ? item.freeItemIds[0] : item.freeItemId;
+          // Reserve quantity: 1 for free items (regardless of product quantity), or product quantity for regular items
+          const reserveQuantity = freeItemId ? 1 : item.quantity;
 
           try {
             const reserved = await inventoryService.reserveStock(
-              inventoryKey,
               payload.orderId,
-              item.quantity,
-              item.variantId
+              reserveQuantity,
+              item.productId,
+              item.variantId,
+              freeItemId
             );
 
             if (reserved) {

@@ -6,12 +6,14 @@ import { successResponse, ForbiddenError } from '@freeshop/shared-utils';
 export const inventoryController = {
   async initializeInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId, userId, initialStock, lowStockThreshold } = req.body;
+      const { productId, userId, initialStock, lowStockThreshold, variantId, freeItemId } = req.body;
       const inventory = await inventoryService.initializeInventory(
-        productId,
         userId,
         initialStock,
-        lowStockThreshold
+        lowStockThreshold,
+        productId,
+        variantId,
+        freeItemId
       );
       res.status(201).json(successResponse(inventory, 'Inventory initialized'));
     } catch (error) {
@@ -21,7 +23,8 @@ export const inventoryController = {
 
   async getInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const inventory = await inventoryService.getInventory(req.params.productId as string);
+      const { productId, variantId, freeItemId } = req.params;
+      const inventory = await inventoryService.getInventory(productId as string, variantId as string | undefined, freeItemId as string | undefined);
       res.json(successResponse(inventory, 'Inventory retrieved'));
     } catch (error) {
       next(error);
@@ -95,9 +98,9 @@ export const inventoryController = {
   async reserveStock(req: Request, res: Response, next: NextFunction) {
     try {
       const { productId } = req.params;
-      const { orderId, quantity } = req.body;
+      const { orderId, quantity, variantId, freeItemId } = req.body;
       
-      const reservation = await inventoryService.reserveStock(productId as string, orderId, quantity);
+      const reservation = await inventoryService.reserveStock(orderId, quantity, productId as string, variantId, freeItemId);
       
       res.json(successResponse(reservation, 'Stock reserved'));
     } catch (error) {
@@ -185,8 +188,8 @@ export const inventoryController = {
 
   async checkSingleProductAvailability(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId } = req.params;
-      const inventory = await inventoryService.getInventory(productId as string);
+      const { productId, variantId, freeItemId } = req.params;
+      const inventory = await inventoryService.getInventory(productId as string, variantId as string | undefined, freeItemId as string | undefined);
       
       res.json(successResponse({
         productId: inventory.productId,
