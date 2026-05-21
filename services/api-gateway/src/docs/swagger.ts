@@ -2028,16 +2028,14 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
-          { name: 'categoryId', in: 'query', schema: { type: 'string' }, description: 'Filter by category ID' },
-          { name: 'createdBy', in: 'query', schema: { type: 'string' }, description: 'Filter by creator user ID' },
+          { name: 'categoryId', in: 'query', schema: { type: 'string', format: 'uuid' }, description: 'Filter by category ID' },
+          { name: 'createdBy', in: 'query', schema: { type: 'string', format: 'uuid' }, description: 'Filter by creator user ID' },
           { name: 'minPrice', in: 'query', schema: { type: 'number' } },
           { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
           { name: 'isOrganic', in: 'query', schema: { type: 'boolean' } },
-          { name: 'isFeatured', in: 'query', schema: { type: 'boolean' } },
-          { name: 'isFlashSale', in: 'query', schema: { type: 'boolean' } },
           { name: 'status', in: 'query', description: 'Filter by status. If omitted, all statuses are returned.', schema: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
-          { name: 'sortBy', in: 'query', schema: { type: 'string', enum: ['price', 'createdAt', 'averageRating', 'totalSold'] } },
+          { name: 'sortBy', in: 'query', schema: { type: 'string', enum: ['price', 'createdAt', 'rating', 'sold'] } },
           { name: 'sortOrder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
         ],
         responses: {
@@ -2073,10 +2071,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Products'],
         summary: 'Get featured products',
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1 }, description: 'Maximum products to return. Defaults to 10.' },
+        ],
         responses: {
           200: {
             description: 'Featured products',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedProducts' } } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductListResponse' } } },
           },
         },
       },
@@ -2085,10 +2086,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Products'],
         summary: 'Get active flash-sale products',
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1 }, description: 'Maximum products to return. Defaults to 10.' },
+        ],
         responses: {
           200: {
             description: 'Flash-sale products',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedProducts' } } },
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductListResponse' } } },
           },
         },
       },
@@ -2109,16 +2113,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
+    '/products/vendor': {
+      get: {
+        tags: ['Products'],
+        summary: "List the authenticated Vendor's products",
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] } },
+        ],
+        responses: {
+          200: {
+            description: 'Vendor product list',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedProducts' } } },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
     '/products/vendor/{vendorId}': {
       get: {
         tags: ['Products'],
-        summary: "List a Vendor's own products (Vendor / admin / manager)",
+        summary: "List products for a specific Vendor/user",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Omit to default to the authenticated Vendor' },
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Vendor owner user ID' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED', 'INACTIVE'] } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING_APPROVAL', 'ACTIVE', 'INACTIVE', 'OUT_OF_STOCK', 'REJECTED'] } },
         ],
         responses: {
           200: {
@@ -2221,7 +2245,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
     },
     // ─── REVIEWS ─────────────────────────────────────────────────────────────
-    '/free-items': {
+    '/products/free-items': {
       get: {
         tags: ['Products'],
         summary: 'List free items',
@@ -2246,14 +2270,27 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           required: true,
           content: {
             'application/json': {
-              schema: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                  name: { type: 'string' },
-                  description: { type: 'string' },
-                  sku: { type: 'string' },
-                  image: { type: 'string', format: 'uri' },
+              schema: { $ref: '#/components/schemas/FreeItemCreate' },
+              examples: {
+                withInventory: {
+                  summary: 'Create free item with initial inventory',
+                  value: {
+                    name: 'Reusable Shopping Bag',
+                    description: 'Free eco bag included with selected grocery bundles',
+                    sku: 'FREE-BAG-001',
+                    image: 'https://cdn.freeshop.com/free-items/reusable-shopping-bag.png',
+                    stock: 500,
+                    lowStockThreshold: 25,
+                  },
+                },
+                catalogOnly: {
+                  summary: 'Create catalog-only free item',
+                  value: {
+                    name: 'Recipe Card',
+                    description: 'Printed recipe card for promotional bundles',
+                    sku: 'FREE-RECIPE-001',
+                    image: 'https://cdn.freeshop.com/free-items/recipe-card.png',
+                  },
                 },
               },
             },
@@ -2267,7 +2304,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
-    '/free-items/{id}': {
+    '/products/free-items/{id}': {
       get: {
         tags: ['Products'],
         summary: 'Get a free item by ID',
@@ -2302,6 +2339,17 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   description: { type: 'string' },
                   sku: { type: 'string' },
                   image: { type: 'string', format: 'uri' },
+                },
+              },
+              examples: {
+                updateDetails: {
+                  summary: 'Update free item details',
+                  value: {
+                    name: 'Reusable Cotton Bag',
+                    description: 'Updated reusable bag for Eid campaign bundles',
+                    sku: 'FREE-BAG-EID-001',
+                    image: 'https://cdn.freeshop.com/free-items/reusable-cotton-bag.png',
+                  },
                 },
               },
             },
@@ -4550,6 +4598,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
       get: {
         tags: ['Vendors'],
         summary: 'List Vendors',
+        security: [{ bearerAuth: [] }],
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -4557,6 +4606,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           { name: 'verificationStatus', in: 'query', schema: { type: 'string', enum: ['UNVERIFIED', 'PENDING', 'VERIFIED', 'REJECTED'] } },
           { name: 'search', in: 'query', schema: { type: 'string' } },
           { name: 'sortBy', in: 'query', schema: { type: 'string', enum: ['createdAt', 'rating', 'totalOrders', 'storeName'] } },
+          { name: 'sortOrder', in: 'query', schema: { type: 'string', enum: ['asc', 'desc'] } },
         ],
         responses: {
           200: {
@@ -4630,6 +4680,19 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           200: { description: 'Vendor statistics' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/vendors/me/request': {
+      delete: {
+        tags: ['Vendors'],
+        summary: 'Withdraw current Vendor application',
+        description: 'Deletes the authenticated user\'s pending vendor request/application.',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: { description: 'Vendor application withdrawn' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
@@ -4846,30 +4909,6 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
-      patch: {
-        tags: ['Vendors'],
-        summary: 'Update Vendor by ID (admin only)',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
-        ],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': { schema: { $ref: '#/components/schemas/updateVendorRequest' } },
-          },
-        },
-        responses: {
-          200: {
-            description: 'Vendor updated',
-            content: { 'application/json': { schema: { $ref: '#/components/schemas/VendorResponse' } } },
-          },
-          400: { $ref: '#/components/responses/BadRequest' },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
-          404: { $ref: '#/components/responses/NotFound' },
-        },
-      },
     },
     '/vendors/{id}/status': {
       patch: {
@@ -4940,7 +4979,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
     '/inventory/initialize': {
       post: {
         tags: ['Inventory'],
-        summary: 'Initialize inventory for a product (admin / vendor)',
+        summary: 'Initialize inventory for a product or free item (admin / vendor)',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -4948,9 +4987,11 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['productId', 'userId'],
+                required: ['userId'],
                 properties: {
-                  productId: { type: 'string', format: 'uuid' },
+                  productId: { type: 'string', format: 'uuid', description: 'Product ID. Required unless freeItemId is provided.' },
+                  freeItemId: { type: 'string', format: 'uuid', description: 'Free item ID. Required unless productId is provided.' },
+                  variantId: { type: 'string', format: 'uuid', description: 'Optional variant ID for variant-specific inventory.' },
                   userId: { type: 'string', format: 'uuid', description: 'Owner user ID for this inventory (creator/vendor)' },
                   initialStock: { type: 'integer', minimum: 0, default: 0 },
                   lowStockThreshold: { type: 'integer', minimum: 0, default: 10 },
@@ -4987,10 +5028,9 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                     minItems: 1,
                     items: {
                       type: 'object',
-                      required: ['quantity'],
+                      required: ['productId', 'quantity'],
                       properties: {
                         productId: { type: 'string', format: 'uuid', description: 'Base product ID when no composite inventory key is used' },
-                        inventoryKey: { type: 'string', description: 'Composite inventory key such as productId, productId:variantId, or productId:free:freeItemId' },
                         variantId: { type: 'string', format: 'uuid', nullable: true, description: 'Variant ID for variant-specific stock' },
                         freeItemId: { type: 'string', format: 'uuid', nullable: true, description: 'Free-item identifier for bundled/promotional stock' },
                         quantity: { type: 'integer', minimum: 1 },
@@ -5061,6 +5101,51 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/inventory/{productId}/reserve': {
+      post: {
+        tags: ['Inventory'],
+        summary: 'Reserve stock for an order',
+        parameters: [
+          { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['orderId', 'quantity'],
+                properties: {
+                  orderId: { type: 'string', format: 'uuid' },
+                  quantity: { type: 'integer', minimum: 1 },
+                  variantId: { type: 'string', format: 'uuid' },
+                  freeItemId: { type: 'string', format: 'uuid' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Stock reserved' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/inventory/release/{orderId}': {
+      post: {
+        tags: ['Inventory'],
+        summary: 'Release stock reservations for an order',
+        parameters: [
+          { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Reservation released' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
@@ -7376,16 +7461,17 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
       },
       CreateProductRequest: {
         type: 'object',
-        required: ['name', 'description', 'categoryId', 'price', 'stock'],
+        required: ['name', 'categoryId', 'supplierPrice', 'price'],
         properties: {
           name: { type: 'string' },
           description: { type: 'string' },
           shortDescription: { type: 'string' },
           sku: { type: 'string' },
           categoryId: { type: 'string', format: 'uuid' },
+          supplierPrice: { type: 'number', minimum: 0, description: 'Vendor/supplier cost price' },
           price: { type: 'number', minimum: 0 },
           discountPrice: { type: 'number' },
-          discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
+          discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED_AMOUNT'] },
           discountValue: { type: 'number' },
           stock: { type: 'integer', minimum: 0, description: 'Initial stock value used to initialize the Inventory Service record' },
           lowStockThreshold: { type: 'integer', minimum: 0, description: 'Initial low-stock threshold used to initialize the Inventory Service record' },
@@ -7408,9 +7494,10 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           description: { type: 'string' },
           shortDescription: { type: 'string' },
           categoryId: { type: 'string', format: 'uuid' },
+          supplierPrice: { type: 'number', minimum: 0, description: 'Vendor/supplier cost price' },
           price: { type: 'number', minimum: 0 },
           discountPrice: { type: 'number' },
-          discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
+          discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED_AMOUNT'] },
           discountValue: { type: 'number' },
           weight: { type: 'number' },
           unit: { type: 'string' },
@@ -7426,11 +7513,22 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
       FreeItemCreate: {
         type: 'object',
         description: 'Reusable free-item catalog entry. Create one here, then link it to one or more products with freeItemIds.',
+        required: ['name'],
         properties: {
           name: { type: 'string' },
           description: { type: 'string' },
           sku: { type: 'string' },
           image: { type: 'string', format: 'uri' },
+          stock: { type: 'integer', minimum: 0, description: 'Optional initial stock for this free item in Inventory Service' },
+          lowStockThreshold: { type: 'integer', minimum: 0, description: 'Optional initial low-stock threshold in Inventory Service' },
+        },
+        example: {
+          name: 'Reusable Shopping Bag',
+          description: 'Free eco bag included with selected grocery bundles',
+          sku: 'FREE-BAG-001',
+          image: 'https://cdn.freeshop.com/free-items/reusable-shopping-bag.png',
+          stock: 500,
+          lowStockThreshold: 25,
         },
       },
       FreeItem: {
@@ -7691,7 +7789,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
         type: 'object',
         properties: {
           id: { type: 'string', format: 'uuid' },
-          vendorId: { type: 'string', format: 'uuid' },
+          vendorId: { type: 'string', format: 'uuid', nullable: true },
           name: { type: 'string' },
           slug: { type: 'string' },
           description: { type: 'string' },
@@ -7702,7 +7800,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           category: { type: 'object', properties: { id: { type: 'string', format: 'uuid' }, name: { type: 'string' }, slug: { type: 'string' } } },
           price: { type: 'number' },
           discountPrice: { type: 'number' },
-          discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
+          discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED_AMOUNT'], nullable: true },
           discountValue: { type: 'number' },
           weight: { type: 'number' },
           unit: { type: 'string' },
@@ -7724,9 +7822,20 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           averageRating: { type: 'number', format: 'float' },
           totalReviews: { type: 'integer' },
           totalSold: { type: 'integer' },
-          lastUpdatedBy: { type: 'string', format: 'uuid', nullable: true },
+          createdBy: { $ref: '#/components/schemas/UserReference' },
+          lastUpdatedBy: { $ref: '#/components/schemas/UserReference' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      UserReference: {
+        type: 'object',
+        nullable: true,
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          name: { type: 'string' },
+          email: { type: 'string', format: 'email' },
+          avatar: { type: 'string', format: 'uri' },
         },
       },
       ProductResponse: {
@@ -7734,6 +7843,16 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
         properties: {
           success: { type: 'boolean' },
           data: { $ref: '#/components/schemas/Product' },
+        },
+      },
+      ProductListResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          data: { type: 'array', items: { $ref: '#/components/schemas/Product' } },
+          message: { type: 'string' },
+          timestamp: { type: 'string', format: 'date-time' },
+          requestId: { type: 'string' },
         },
       },
       Permission: {
