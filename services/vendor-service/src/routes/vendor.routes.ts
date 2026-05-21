@@ -91,6 +91,17 @@ router.get(
   vendorController.getVendorById
 );
 
+router.delete(
+  '/:id',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ADMIN_PANEL_ACCESS),
+  [
+    param('id').isUUID(),
+  ],
+  validate,
+  vendorController.deleteVendor
+);
+
 router.patch(
   '/:id/status',
   authenticate,

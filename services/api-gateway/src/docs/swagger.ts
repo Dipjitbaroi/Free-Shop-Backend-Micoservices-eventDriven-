@@ -4982,6 +4982,21 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
+      delete: {
+        tags: ['Vendors'],
+        summary: 'Delete Vendor by ID (admin)',
+        description: 'Permanently deletes a vendor account and all cascading vendor documents and reviews. Requires admin panel access.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Vendor deleted' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
     },
     '/vendors/{id}/status': {
       patch: {
@@ -8255,6 +8270,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
         properties: {
           id: { type: 'string', format: 'uuid' },
           userId: { type: 'string', format: 'uuid' },
+          user: { $ref: '#/components/schemas/User', nullable: true },
           businessName: { type: 'string' },
           slug: { type: 'string' },
           description: { type: 'string' },
