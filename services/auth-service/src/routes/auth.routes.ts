@@ -29,8 +29,8 @@ router.post(
   [
     param('userId').isUUID().withMessage('Invalid user ID'),
     body('roleId').optional().isUUID().withMessage('Invalid role ID'),
-    body('roleName').optional().isString().withMessage('Role name must be a string'),
-    body('assignedBy').notEmpty().withMessage('assignedBy is required'),
+    body('roleName').optional().isString().trim().withMessage('Role name must be a string'),
+    body('assignedBy').notEmpty().isString().trim().withMessage('assignedBy is required and must be a string'),
   ],
   validate,
   authController.updateUserRole

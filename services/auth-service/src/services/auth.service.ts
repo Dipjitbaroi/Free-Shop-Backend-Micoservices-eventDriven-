@@ -626,53 +626,70 @@ class AuthService {
     roleName?: string,
     assignedBy: string = 'SYSTEM'
   ) {
-    // Validate user exists
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true },
-    });
-
-    if (!user) {
-      throw new UnauthorizedError('User not found');
-    }
-
-    // Resolve role
-    let resolvedRoleId = roleId;
-    if (!resolvedRoleId && roleName) {
-      const role = await prisma.role.findUnique({
-        where: { name: roleName },
-        select: { id: true },
+    try {
+      // Validate user exists
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true },
       });
 
-      if (!role) {
-        throw new BadRequestError(`Role '${roleName}' not found`);
+      if (!user) {
+        logger.warn('User not found for role update', { userId });
+        throw new UnauthorizedError('User not found');
       }
 
-      resolvedRoleId = role.id;
+      // Resolve role
+      let resolvedRoleId = roleId;
+      if (!resolvedRoleId && roleName) {
+        logger.debug('Resolving role by name', { roleName });
+        const role = await prisma.role.findUnique({
+          where: { name: roleName },
+          select: { id: true },
+        });
+
+        if (!role) {
+          logger.warn('Role not found', { roleName });
+          throw new BadRequestError(`Role '${roleName}' not found`);
+        }
+
+        resolvedRoleId = role.id;
+        logger.debug('Role resolved', { roleName, roleId: resolvedRoleId });
+      }
+
+      if (!resolvedRoleId) {
+        logger.warn('Unable to resolve role', { roleId, roleName });
+        throw new BadRequestError('Unable to resolve role');
+      }
+
+      // Assign role using RBAC service
+      logger.debug('Assigning role to user', { userId, resolvedRoleId, assignedBy });
+      await RBACService.assignRoleToUser(userId, resolvedRoleId, assignedBy);
+
+      logger.info('User role updated', {
+        userId,
+        roleId: resolvedRoleId,
+        roleName,
+        assignedBy,
+      });
+
+      // Return updated user with RBAC info
+      const rbac = await RBACService.getUserRolesAndPermissions(userId);
+      return {
+        userId,
+        roles: sanitizeRoles(rbac.roles || []),
+        roleNames: rbac.roleNames,
+        permissionCodes: rbac.permissionCodes,
+      };
+    } catch (error) {
+      logger.error('Error updating user role', {
+        userId,
+        roleId,
+        roleName,
+        assignedBy,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
     }
-
-    if (!resolvedRoleId) {
-      throw new BadRequestError('Unable to resolve role');
-    }
-
-    // Assign role using RBAC service
-    await RBACService.assignRoleToUser(userId, resolvedRoleId, assignedBy);
-
-    logger.info('User role updated', {
-      userId,
-      roleId: resolvedRoleId,
-      roleName,
-      assignedBy,
-    });
-
-    // Return updated user with RBAC info
-    const rbac = await RBACService.getUserRolesAndPermissions(userId);
-    return {
-      userId,
-      roles: sanitizeRoles(rbac.roles || []),
-      roleNames: rbac.roleNames,
-      permissionCodes: rbac.permissionCodes,
-    };
   }
 
   async getUsers(filters: {

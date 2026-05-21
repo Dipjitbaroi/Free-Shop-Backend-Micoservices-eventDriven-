@@ -322,14 +322,25 @@ export const updateUserRole = asyncHandler(async (req: Request, res: Response) =
     throw new BadRequestError('Either roleId or roleName is required');
   }
 
-  const result = await authService.updateUserRole(userId, roleId, roleName, assignedBy);
+  try {
+    const result = await authService.updateUserRole(userId, roleId, roleName, assignedBy);
 
-  logger.debug('updateUserRole → success', {
-    requestId: req.requestId,
-    userId,
-    roleId,
-    roleName,
-  });
+    logger.debug('updateUserRole → success', {
+      requestId: req.requestId,
+      userId,
+      roleId,
+      roleName,
+    });
 
-  res.json(createApiResponse(result, 'User role updated successfully', req.requestId));
+    res.json(createApiResponse(result, 'User role updated successfully', req.requestId));
+  } catch (error) {
+    logger.error('updateUserRole → error', {
+      requestId: req.requestId,
+      userId,
+      roleId,
+      roleName,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    throw error;
+  }
 });
