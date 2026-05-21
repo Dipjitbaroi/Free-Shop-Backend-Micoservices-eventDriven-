@@ -108,7 +108,7 @@ model FreeItem {
   id          String   @id @default(uuid())
   name        String
   description String?
-  sku         String?
+  sku         String?  @unique
   image       String?
   createdBy   String
   createdAt   DateTime @default(now())
@@ -116,6 +116,7 @@ model FreeItem {
 
   productFreeItems ProductFreeItem[]
 
+  @@index([sku])
   @@map("free_items")
 }
 
