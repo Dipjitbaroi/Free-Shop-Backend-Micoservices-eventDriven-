@@ -50,8 +50,9 @@ export const productController = {
             headers: { Authorization: `Bearer ${serviceToken}` },
           });
           const vendorData = resp.data?.data || null;
-          if (vendorData && vendorData.id) {
-            vendorId = vendorData.id;
+          // Store the vendor owner's user id into vendorId for vendor-created products
+          if (vendorData && vendorData.userId) {
+            vendorId = vendorData.userId;
           }
         }
       } catch (err) {
