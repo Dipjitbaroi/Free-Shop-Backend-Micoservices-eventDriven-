@@ -37,6 +37,7 @@ model Category {
   sortOrder   Int        @default(0)
   isActive    Boolean    @default(true)
   productCount Int       @default(0)
+  userId      String     // User who created/updated this category
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -46,12 +47,13 @@ model Category {
 
   @@index([slug])
   @@index([parentId])
+  @@index([userId])
   @@map("categories")
 }
 
 model Product {
   id                  String        @id @default(uuid())
-  vendorId            String
+  vendorId            String?
   name                String
   slug                String        @unique
   description         String
@@ -63,9 +65,6 @@ model Product {
   discountPrice       Decimal?      @db.Decimal(10, 2)
   discountType        DiscountType?
   discountValue       Decimal?      @db.Decimal(10, 2)
-  stock               Int           @default(0)
-  reservedStock       Int           @default(0)
-  lowStockThreshold   Int           @default(10)
   weight              Decimal?      @db.Decimal(10, 3)
   unit                String        @default("piece")
   isOrganic           Boolean       @default(false)
@@ -85,6 +84,7 @@ model Product {
   totalReviews        Int           @default(0)
   totalSold           Int           @default(0)
   viewCount           Int           @default(0)
+  createdBy           String?
   lastUpdatedBy       String?
   metadata            Json?
   createdAt           DateTime      @default(now())

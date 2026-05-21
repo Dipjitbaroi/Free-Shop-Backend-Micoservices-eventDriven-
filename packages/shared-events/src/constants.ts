@@ -25,6 +25,7 @@ export const Events = {
   ORDER_SHIPPED: 'order.shipped',
   ORDER_DELIVERED: 'order.delivered',
   ORDER_CANCELLED: 'order.cancelled',
+  ORDER_DELETED: 'order.deleted',
   ORDER_REFUNDED: 'order.refunded',
   ORDER_STATUS_CHANGED: 'order.status_changed',
 
@@ -43,6 +44,10 @@ export const Events = {
   INVENTORY_OUT_OF_STOCK: 'inventory.out_of_stock',
   INVENTORY_RESERVED: 'inventory.reserved',
   INVENTORY_RELEASED: 'inventory.released',
+  INVENTORY_REFUNDED: 'inventory.refunded',
+  INVENTORY_RESERVATION_FAILED: 'inventory.reservation_failed',
+  INVENTORY_COMPENSATED: 'inventory.compensated',
+  INVENTORY_EXPIRED_RESERVATION_RELEASED: 'inventory.expired_reservation_released',
   STOCK_RESERVED: 'stock.reserved',
   STOCK_RELEASED: 'stock.released',
   STOCK_CONFIRMED: 'stock.confirmed',
@@ -142,6 +147,7 @@ export const Queues = {
   VENDOR_PRODUCT_DELETED: 'vendor.product_deleted',
   
   // Inventory Service Cross-Domain Queues
+  INVENTORY_PRODUCT_CREATED: 'inventory.product_created',
   INVENTORY_ORDER_CREATED: 'inventory.order_created',
   INVENTORY_ORDER_CANCELLED: 'inventory.order_cancelled',
   INVENTORY_ORDER_COMPLETED: 'inventory.order_completed',

@@ -1,5 +1,5 @@
 import { UserProfile, Address, Gender, AddressType } from '../../generated/client/client.js';
-import { NotFoundError, BadRequestError } from '@freeshop/shared-utils';
+import { NotFoundError, BadRequestError, isValidUUID } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { 
   cacheGet, 
@@ -9,6 +9,7 @@ import {
   addressesCacheKey,
 } from '../lib/redis.js';
 import config from '../config/index.js';
+import axios from 'axios';
 
 interface ProfileData {
   email?: string;
@@ -38,6 +39,139 @@ interface AddressData {
 }
 
 class UserService {
+  // Public profile methods (no auth required)
+  private async fetchAuthServiceUserData(userId: string): Promise<{ firstName?: string; lastName?: string; email?: string; avatar?: string; phone?: string } | null> {
+    try {
+      const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth-service:3001';
+      const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+
+      if (!serviceToken) {
+        return null;
+      }
+
+      const response = await axios.get(
+        `${authServiceUrl}/internal/users/${userId}`,
+        {
+          timeout: 5000,
+          headers: {
+            'Authorization': `Bearer ${serviceToken}`,
+            'X-Service-Call': 'true',
+          },
+        }
+      );
+
+      const user = response.data?.data || null;
+      if (user) {
+        return {
+          firstName: user.firstName || undefined,
+          lastName: user.lastName || undefined,
+          email: user.email || undefined,
+          avatar: user.avatar || undefined,
+          phone: user.phone || undefined,
+        };
+      }
+      return null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async getUserById(userId: string): Promise<UserProfile> {
+    const cached = await cacheGet<UserProfile>(profileCacheKey(userId));
+    if (cached) return cached;
+
+    let profile = await prisma.userProfile.findUnique({
+      where: { userId },
+      include: {
+        addresses: {
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+        },
+      },
+    });
+
+    if (!profile) {
+      throw new NotFoundError('User profile not found');
+    }
+
+    // If firstName or lastName are null, try to fetch from auth-service
+    if (!profile.firstName || !profile.lastName) {
+      const authData = await this.fetchAuthServiceUserData(userId);
+      if (authData && (authData.firstName || authData.lastName)) {
+        // Update the profile with data from auth-service
+        profile = await prisma.userProfile.update({
+          where: { userId },
+          data: {
+            firstName: authData.firstName || profile.firstName,
+            lastName: authData.lastName || profile.lastName,
+            email: authData.email || profile.email,
+            avatar: authData.avatar || profile.avatar,
+            phone: authData.phone || profile.phone,
+          },
+          include: {
+            addresses: {
+              orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+            },
+          },
+        });
+      }
+    }
+
+    await cacheSet(profileCacheKey(userId), profile, config.cache.profileTTL);
+
+    return profile;
+  }
+
+  async getPublicProfile(userId: string): Promise<{ id: string; firstName?: string | null; lastName?: string | null; email?: string | null; avatar?: string | null }> {
+    let profile = await prisma.userProfile.findUnique({
+      where: { userId },
+      select: {
+        userId: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        avatar: true,
+      },
+    });
+
+    if (!profile) {
+      throw new NotFoundError('User profile not found');
+    }
+
+    // If firstName or lastName are null, try to fetch from auth-service
+    if (!profile.firstName || !profile.lastName) {
+      const authData = await this.fetchAuthServiceUserData(userId);
+      if (authData && (authData.firstName || authData.lastName)) {
+        profile = {
+          userId: profile.userId,
+          firstName: authData.firstName || profile.firstName,
+          lastName: authData.lastName || profile.lastName,
+          email: authData.email || profile.email,
+          avatar: authData.avatar || profile.avatar,
+        };
+        // Update the profile in database so we don't need to fetch from auth-service next time
+        await prisma.userProfile.update({
+          where: { userId },
+          data: {
+            firstName: authData.firstName || undefined,
+            lastName: authData.lastName || undefined,
+            email: authData.email || undefined,
+            avatar: authData.avatar || undefined,
+          },
+        }).catch(() => {
+          // Ignore update errors - the profile is already loaded
+        });
+      }
+    }
+
+    return {
+      id: profile.userId,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      avatar: profile.avatar,
+    };
+  }
+
   // Profile methods
   async getProfile(userId: string, email?: string): Promise<UserProfile> {
     const cached = await cacheGet<UserProfile>(profileCacheKey(userId));
@@ -153,6 +287,10 @@ class UserService {
     // Validate required Bangladesh fields
     if (!data.district) throw new BadRequestError('`district` is required');
     if (!data.zoneId) throw new BadRequestError('`zoneId` is required');
+    // Validate zoneId is a valid UUID format
+    if (!isValidUUID(data.zoneId)) {
+      throw new BadRequestError('`zoneId` must be a valid UUID format');
+    }
 
     const address = await prisma.address.create({
       // Cast to any because generated client input types differ across builds/environments
@@ -162,6 +300,7 @@ class UserService {
         fullName: data.fullName,
         phone: data.phone,
         addressLine: data.addressLine,
+        area: data.area ?? undefined,
         district: data.district,
         upazila: data.upazila ?? undefined,
         postalCode: data.postalCode ?? undefined,
@@ -209,6 +348,7 @@ class UserService {
       fullName: data.fullName,
       phone: data.phone,
       addressLine: data.addressLine ?? undefined,
+      area: data.area ?? undefined,
       district: data.district ?? undefined,
       upazila: data.upazila ?? undefined,
       postalCode: data.postalCode ?? undefined,
@@ -217,7 +357,13 @@ class UserService {
       type: data.type,
     };
 
-    if ((data as any).zoneId) updateData.zoneId = (data as any).zoneId;
+    // Validate zoneId if being updated
+    if ((data as any).zoneId) {
+      if (!isValidUUID((data as any).zoneId)) {
+        throw new BadRequestError('`zoneId` must be a valid UUID format');
+      }
+      updateData.zoneId = (data as any).zoneId;
+    }
 
     const updated = await prisma.address.update({
       where: { id: addressId },

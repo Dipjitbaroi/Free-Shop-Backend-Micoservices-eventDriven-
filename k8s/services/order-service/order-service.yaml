@@ -145,6 +145,11 @@ spec:
                   key: JWT_SECRET
             - name: PRODUCT_SERVICE_URL
               value: "http://product-service:3003"
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SERVICE_AUTH_TOKEN
           resources:
             requests:
               cpu: "100m"

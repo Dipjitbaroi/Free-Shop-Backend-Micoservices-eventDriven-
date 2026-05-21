@@ -37,21 +37,25 @@ export interface IUserVerifiedPayload {
 // Product Event Payloads
 export interface IProductCreatedPayload {
   productId: string;
-  vendorId: string;
+  createdBy: string;
+  vendorId: string | null;
   name: string;
   price: number;
+  stock?: number;
+  reservedStock?: number;
+  lowStockThreshold?: number;
   categoryId: string;
 }
 
 export interface IProductUpdatedPayload {
   productId: string;
-  vendorId: string;
+  vendorId: string | null;
   changes: Record<string, unknown>;
 }
 
 export interface IProductStatusChangedPayload {
   productId: string;
-  vendorId: string;
+  vendorId: string | null;
   previousStatus: string;
   newStatus: string;
   reason?: string;
@@ -124,9 +128,16 @@ export interface IPaymentFailedPayload {
 // Inventory Event Payloads
 export interface IInventoryUpdatedPayload {
   productId: string;
-  vendorId: string;
   previousStock: number;
   newStock: number;
+  totalStock?: number;
+  reservedStock?: number;
+  lowStockThreshold?: number;
+  isLowStock?: boolean;
+  isOutOfStock?: boolean;
+  variantId?: string;
+  freeItemId?: string;
+  userId?: string;
   action: string;
   reason?: string;
 }
@@ -153,6 +164,32 @@ export interface ILowStockAlertPayload {
   productName: string;
   currentStock: number;
   threshold: number;
+}
+
+export interface IInventoryRefundedPayload {
+  orderId: string;
+  reservationId: string;
+  quantity: number;
+}
+
+export interface IInventoryReservationFailedPayload {
+  orderId: string;
+  productId: string;
+  variantId?: string;
+  reason: string;
+}
+
+export interface IInventoryCompensatedPayload {
+  orderId: string;
+  compensatedCount: number;
+  reason: string;
+}
+
+export interface IInventoryExpiredReservationReleasedPayload {
+  orderId: string;
+  reservationId: string;
+  quantity: number;
+  expiresAt: string;
 }
 
 // Vendor Event Payloads
@@ -230,7 +267,11 @@ export type InventoryEvent =
   | IBaseEvent<IInventoryUpdatedPayload>
   | IBaseEvent<IStockReservedPayload>
   | IBaseEvent<IStockReleasedPayload>
-  | IBaseEvent<ILowStockAlertPayload>;
+  | IBaseEvent<ILowStockAlertPayload>
+  | IBaseEvent<IInventoryRefundedPayload>
+  | IBaseEvent<IInventoryReservationFailedPayload>
+  | IBaseEvent<IInventoryCompensatedPayload>
+  | IBaseEvent<IInventoryExpiredReservationReleasedPayload>;
 
 export type NotificationEvent = 
   | IBaseEvent<INotificationRequestedPayload>

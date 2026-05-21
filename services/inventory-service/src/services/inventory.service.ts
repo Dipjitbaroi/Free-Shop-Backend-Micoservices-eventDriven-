@@ -25,15 +25,57 @@ interface InventoryWithDetails extends Inventory {
 }
 
 class InventoryService {
-  // Initialize inventory for a product
+  private async publishInventoryUpdated(
+    inventory: Inventory,
+    action: string,
+    reason?: string,
+    previousStock?: number,
+  ): Promise<void> {
+    await eventPublisher.publish(Events.INVENTORY_UPDATED, {
+      productId: inventory.productId,
+      previousStock: previousStock ?? inventory.availableStock,
+      newStock: inventory.availableStock,
+      totalStock: inventory.totalStock,
+      reservedStock: inventory.reservedStock,
+      lowStockThreshold: inventory.lowStockThreshold,
+      isLowStock: inventory.isLowStock,
+      isOutOfStock: inventory.isOutOfStock,
+      variantId: inventory.variantId ?? undefined,
+      freeItemId: inventory.freeItemId ?? undefined,
+      userId: inventory.userId,
+      action,
+      reason,
+    });
+  }
+
+  // Parse composite inventory key (productId or productId:variantId or productId:free:freeItemId)
+  private parseInventoryKey(key: string): { productId: string; variantId?: string; freeItemId?: string } {
+    if (key.includes(':free:')) {
+      const [productId, , freeItemId] = key.split(':');
+      return { productId, freeItemId };
+    }
+    if (key.includes(':')) {
+      const [productId, variantId] = key.split(':');
+      return { productId, variantId };
+    }
+    return { productId: key };
+  }
+
+  // Initialize inventory for a product (with variant support)
   async initializeInventory(
     productId: string,
-    vendorId: string,
+    userId: string,
     initialStock: number = 0,
-    lowStockThreshold?: number
+    lowStockThreshold?: number,
+    variantId?: string,
+    freeItemId?: string
   ): Promise<Inventory> {
-    const existing = await prisma.inventory.findUnique({
-      where: { productId },
+    const existing = await prisma.inventory.findFirst({
+      where: {
+        productId,
+        variantId,
+        freeItemId,
+      },
     });
 
     if (existing) {
@@ -43,7 +85,9 @@ class InventoryService {
     const inventory = await prisma.inventory.create({
       data: {
         productId,
-        vendorId,
+        variantId,
+        freeItemId,
+        userId,
         totalStock: initialStock,
         availableStock: initialStock,
         lowStockThreshold: lowStockThreshold || config.inventory.defaultLowStockThreshold,
@@ -65,12 +109,20 @@ class InventoryService {
       );
     }
 
+    await this.publishInventoryUpdated(inventory, 'INITIAL', 'Inventory initialized', 0);
+
     return inventory;
   }
 
-  async getInventory(productId: string): Promise<InventoryWithDetails> {
-    const inventory = await prisma.inventory.findUnique({
-      where: { productId },
+  async getInventory(inventoryKey: string): Promise<InventoryWithDetails> {
+    const { productId, variantId, freeItemId } = this.parseInventoryKey(inventoryKey);
+    
+    const inventory = await prisma.inventory.findFirst({
+      where: {
+        productId,
+        variantId,
+        freeItemId,
+      },
       include: {
         reservations: {
           where: { status: ReservationStatus.PENDING },
@@ -79,19 +131,44 @@ class InventoryService {
     });
 
     if (!inventory) {
-      throw new NotFoundError('Inventory not found');
+      throw new NotFoundError(`Inventory not found for: ${inventoryKey}`);
     }
 
     return inventory;
   }
 
-  async getVendorInventory(
-    vendorId: string,
+  async getUserInventoryByUserId(
+    userId: string,
     page: number = 1,
     limit: number = 20,
     lowStockOnly: boolean = false
   ): Promise<IPaginatedResult<Inventory>> {
-    const where: Prisma.InventoryWhereInput = { vendorId };
+    const where: Prisma.InventoryWhereInput = { userId };
+    
+    if (lowStockOnly) {
+      where.OR = [{ isLowStock: true }, { isOutOfStock: true }];
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.inventory.findMany({
+        where,
+        skip: calculateOffset(page, limit),
+        take: limit,
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.inventory.count({ where }),
+    ]);
+
+    return createPaginatedResponse(items, total, page, limit);
+  }
+
+  async getUserInventory(
+    userId: string,
+    page: number = 1,
+    limit: number = 20,
+    lowStockOnly: boolean = false
+  ): Promise<IPaginatedResult<Inventory>> {
+    const where: Prisma.InventoryWhereInput = { userId };
     
     if (lowStockOnly) {
       where.OR = [{ isLowStock: true }, { isOutOfStock: true }];
@@ -151,14 +228,12 @@ class InventoryService {
         performedBy
       );
 
-      // Check if back in stock
-      if (inventory.isOutOfStock && newAvailableStock > 0) {
-        await eventPublisher.publish(Events.INVENTORY_UPDATED, {
-          productId,
-          type: 'BACK_IN_STOCK',
-          availableStock: newAvailableStock,
-        });
-      }
+      await this.publishInventoryUpdated(
+        updated,
+        inventory.isOutOfStock && newAvailableStock > 0 ? 'BACK_IN_STOCK' : 'RESTOCK',
+        reason,
+        previousStock,
+      );
 
       return updated;
     } finally {
@@ -214,19 +289,22 @@ class InventoryService {
       // Send alerts if needed
       await this.checkAndSendAlerts(updated);
 
+      await this.publishInventoryUpdated(updated, 'ADJUSTMENT', reason, previousStock);
+
       return updated;
     } finally {
       await releaseLock(lockKey);
     }
   }
 
-  // Reserve stock for an order
+  // Reserve stock for an order (with variant support)
   async reserveStock(
-    productId: string,
+    inventoryKey: string,
     orderId: string,
-    quantity: number
-  ): Promise<StockReservation> {
-    const lockKey = `inventory:${productId}`;
+    quantity: number,
+    variantId?: string
+  ): Promise<StockReservation | null> {
+    const lockKey = `inventory:${inventoryKey}`;
     const locked = await acquireLock(lockKey);
     
     if (!locked) {
@@ -234,10 +312,10 @@ class InventoryService {
     }
 
     try {
-      const inventory = await this.getInventory(productId);
+      const inventory = await this.getInventory(inventoryKey);
       
       if (inventory.availableStock < quantity) {
-        throw new BadRequestError(`Insufficient stock for product ${productId}`);
+        return null; // Return null instead of throwing - allows partial failure handling
       }
 
       const expiresAt = new Date(
@@ -245,11 +323,12 @@ class InventoryService {
       );
 
       // Create reservation and update available stock
-      const [reservation] = await prisma.$transaction([
+      const [reservation, updatedInventory] = await prisma.$transaction([
         prisma.stockReservation.create({
           data: {
             inventoryId: inventory.id,
             orderId,
+            variantId: variantId || inventory.variantId,
             quantity,
             expiresAt,
           },
@@ -276,6 +355,8 @@ class InventoryService {
         orderId
       );
 
+      await this.publishInventoryUpdated(updatedInventory, 'RESERVED', `Reserved for order ${orderId}`, inventory.availableStock);
+
       return reservation;
     } finally {
       await releaseLock(lockKey);
@@ -293,7 +374,9 @@ class InventoryService {
       const lockKey = `inventory:${reservation.inventory.productId}`;
       const locked = await acquireLock(lockKey);
       
-      if (!locked) continue;
+      if (!locked) {
+        throw new BadRequestError(`Unable to acquire lock for fulfilling reservation ${reservation.id}`);
+      }
 
       try {
         await prisma.$transaction([
@@ -314,6 +397,10 @@ class InventoryService {
           }),
         ]);
 
+        const updatedInventory = await prisma.inventory.findUnique({
+          where: { id: reservation.inventoryId },
+        });
+
         await this.recordMovement(
           reservation.inventoryId,
           MovementType.SALE,
@@ -331,6 +418,9 @@ class InventoryService {
         });
         if (updated) {
           await this.checkAndSendAlerts(updated);
+          if (updatedInventory) {
+            await this.publishInventoryUpdated(updatedInventory, 'FULFILLED', `Sold - Order ${orderId}`, reservation.inventory.availableStock);
+          }
         }
       } finally {
         await releaseLock(lockKey);
@@ -366,7 +456,9 @@ class InventoryService {
       const lockKey = `inventory:${reservation.inventory.productId}`;
       const locked = await acquireLock(lockKey);
       
-      if (!locked) continue;
+      if (!locked) {
+        throw new BadRequestError(`Unable to acquire lock for releasing reservation ${reservation.id}`);
+      }
 
       try {
         await prisma.$transaction([
@@ -388,6 +480,10 @@ class InventoryService {
           }),
         ]);
 
+        const updatedInventory = await prisma.inventory.findUnique({
+          where: { id: reservation.inventoryId },
+        });
+
         await this.recordMovement(
           reservation.inventoryId,
           MovementType.RELEASE,
@@ -398,6 +494,10 @@ class InventoryService {
           undefined,
           orderId
         );
+
+        if (updatedInventory) {
+          await this.publishInventoryUpdated(updatedInventory, 'RELEASED', `Released - Order ${orderId} cancelled`, reservation.inventory.availableStock);
+        }
       } finally {
         await releaseLock(lockKey);
       }
@@ -456,36 +556,59 @@ class InventoryService {
   async setLowStockThreshold(productId: string, threshold: number): Promise<Inventory> {
     const inventory = await this.getInventory(productId);
 
-    return prisma.inventory.update({
+    const updated = await prisma.inventory.update({
       where: { id: inventory.id },
       data: {
         lowStockThreshold: threshold,
         isLowStock: inventory.availableStock <= threshold,
       },
     });
+
+    await this.publishInventoryUpdated(updated, 'THRESHOLD_UPDATED', 'Low stock threshold updated', inventory.availableStock);
+
+    return updated;
   }
 
   // Bulk check availability
   async checkAvailability(
-    items: { productId: string; quantity: number }[]
-  ): Promise<{ available: boolean; unavailableItems: { productId: string; requested: number; available: number }[] }> {
-    const unavailableItems: { productId: string; requested: number; available: number }[] = [];
+    items: { productId?: string; inventoryKey?: string; quantity: number; variantId?: string; freeItemId?: string }[]
+  ): Promise<{
+    available: boolean;
+    unavailableItems: { productId: string; requested: number; available: number; variantId?: string; freeItemId?: string }[];
+  }> {
+    const unavailableItems: { productId: string; requested: number; available: number; variantId?: string; freeItemId?: string }[] = [];
 
     for (const item of items) {
       try {
-        const inventory = await this.getInventory(item.productId);
+        const inventoryKey = item.inventoryKey || item.productId;
+        if (!inventoryKey) {
+          unavailableItems.push({
+            productId: '',
+            requested: item.quantity,
+            available: 0,
+            variantId: item.variantId,
+            freeItemId: item.freeItemId,
+          });
+          continue;
+        }
+
+        const inventory = await this.getInventory(inventoryKey);
         if (inventory.availableStock < item.quantity) {
           unavailableItems.push({
-            productId: item.productId,
+            productId: inventory.productId,
             requested: item.quantity,
             available: inventory.availableStock,
+            variantId: inventory.variantId ?? undefined,
+            freeItemId: inventory.freeItemId ?? undefined,
           });
         }
       } catch {
         unavailableItems.push({
-          productId: item.productId,
+          productId: item.productId || item.inventoryKey || '',
           requested: item.quantity,
           available: 0,
+          variantId: item.variantId,
+          freeItemId: item.freeItemId,
         });
       }
     }
@@ -527,7 +650,7 @@ class InventoryService {
         data: {
           inventoryId: inventory.id,
           productId: inventory.productId,
-          vendorId: inventory.vendorId,
+          userId: inventory.userId,
           type: 'OUT_OF_STOCK',
           message: `Product ${inventory.productId} is out of stock`,
         },
@@ -535,7 +658,7 @@ class InventoryService {
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
         productId: inventory.productId,
-        vendorId: inventory.vendorId,
+        userId: inventory.userId,
         availableStock: 0,
         type: 'OUT_OF_STOCK',
       });
@@ -544,7 +667,7 @@ class InventoryService {
         data: {
           inventoryId: inventory.id,
           productId: inventory.productId,
-          vendorId: inventory.vendorId,
+          userId: inventory.userId,
           type: 'LOW_STOCK',
           message: `Product ${inventory.productId} is running low (${inventory.availableStock} remaining)`,
         },
@@ -552,7 +675,7 @@ class InventoryService {
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
         productId: inventory.productId,
-        vendorId: inventory.vendorId,
+        userId: inventory.userId,
         availableStock: inventory.availableStock,
         type: 'LOW_STOCK',
       });

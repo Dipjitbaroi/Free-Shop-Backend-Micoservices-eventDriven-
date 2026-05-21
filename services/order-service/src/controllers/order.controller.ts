@@ -6,6 +6,8 @@ import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 import { fetchAddressById } from '../lib/user-client.js';
 import { zoneService } from '../services/zone.service.js';
 import { BadRequestError } from '@freeshop/shared-utils';
+import axios from 'axios';
+import config from '../config/index.js';
 
 export const orderController = {
   async createOrder(req: Request, res: Response, next: NextFunction) {
@@ -21,9 +23,34 @@ export const orderController = {
           if (product.status !== 'ACTIVE') {
             throw new BadRequestError(`Product "${product.name}" is not available for purchase`);
           }
-          if (product.stock < item.quantity) {
-            throw new BadRequestError(`Insufficient stock for "${product.name}". Available: ${product.stock}`);
+          
+          // Check inventory availability
+          try {
+            const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+            const inventoryResponse = await axios.get(
+              `${config.inventoryServiceUrl}/internal/check-availability/${item.productId}`,
+              {
+                timeout: 3000,
+                headers: serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {},
+              }
+            );
+            const availableStock = inventoryResponse.data?.data?.availableStock ?? 0;
+            if (availableStock < item.quantity) {
+              throw new BadRequestError(`Insufficient stock for "${product.name}". Available: ${availableStock}`);
+            }
+          } catch (error: unknown) {
+            if (axios.isAxiosError(error)) {
+              if (error.response?.status === 404) {
+                throw new BadRequestError('Product inventory not found');
+              }
+              if (error.response?.data?.message) {
+                throw new BadRequestError(error.response.data.message);
+              }
+            }
+            // Fallback: if inventory service is unreachable, reject the request
+            throw new BadRequestError('Could not verify inventory availability');
           }
+          
           // Validate freeItemIds if provided; limit to 1 for now
           const incomingFreeIds: string[] | undefined = Array.isArray(item.freeItemIds)
             ? item.freeItemIds
@@ -91,6 +118,7 @@ export const orderController = {
         shippingAddress,
         items: resolvedItems,
         userId,
+        couponCode: req.body.couponCode ?? req.body.discountCode,
       });
 
       // Clear cart after successful order
@@ -187,6 +215,16 @@ export const orderController = {
     }
   },
 
+  async deleteOrder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id as string;
+      await orderService.deleteOrder(req.params.id as string, userId);
+      res.json(successResponse(null, 'Order deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async addTrackingInfo(req: Request, res: Response, next: NextFunction) {
     try {
       const { trackingNumber, carrier } = req.body;
@@ -203,6 +241,77 @@ export const orderController = {
       const { code, subtotal } = req.body;
       const result = await orderService.validateCoupon(code, subtotal, userId);
       res.json(successResponse(result, 'Coupon validated'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async createCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const coupon = await orderService.createCoupon(req.body);
+      res.status(201).json(successResponse(coupon, 'Coupon created successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      const coupon = await orderService.updateCoupon(id, req.body);
+      res.json(successResponse(coupon, 'Coupon updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async deleteCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      await orderService.deleteCoupon(id);
+      res.json(successResponse(null, 'Coupon deleted successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getCoupon(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      const coupon = await orderService.getCoupon(id);
+      if (!coupon) {
+        return res.status(404).json({ error: 'Coupon not found' });
+      }
+      res.json(successResponse(coupon, 'Coupon retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async listCoupons(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { isActive, type, search, page, limit } = req.query;
+      const filter = {
+        isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+        type: type as string,
+        search: search as string,
+      };
+      const result = await orderService.listCoupons(
+        filter,
+        page ? parseInt(page as string) : 1,
+        limit ? parseInt(limit as string) : 20
+      );
+      res.json(successResponse(result, 'Coupons retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getCouponUsageStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = String(req.params.id);
+      const stats = await orderService.getCouponUsageStats(id);
+      res.json(successResponse(stats, 'Coupon usage stats retrieved'));
     } catch (error) {
       next(error);
     }

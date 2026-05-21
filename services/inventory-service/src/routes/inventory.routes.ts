@@ -18,7 +18,7 @@ router.post(
   authenticate,
   authorizePermission(PERMISSION_CODES.INVENTORY_CREATE),
   body('productId').isUUID(),
-  body('vendorId').isUUID(),
+  body('userId').isUUID(),
   body('initialStock').optional().isInt({ min: 0 }),
   body('lowStockThreshold').optional().isInt({ min: 0 }),
   validate,
@@ -29,10 +29,19 @@ router.post(
 router.post(
   '/check-availability',
   body('items').isArray({ min: 1 }),
-  body('items.*.productId').isUUID(),
+  body('items.*.productId').isString().notEmpty(),
   body('items.*.quantity').isInt({ min: 1 }),
   validate,
   inventoryController.checkAvailability
+);
+
+// Cleanup expired reservations (manual API trigger instead of cron)
+router.post(
+  '/cleanup/expired-reservations',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
+  validate,
+  inventoryController.cleanupExpiredReservations
 );
 
 // Get product inventory
@@ -43,29 +52,18 @@ router.get(
   inventoryController.getInventory
 );
 
-// Get vendor inventory
+// Get user's full inventory (if vendor, returns vendor inventory; otherwise returns user's products)
 router.get(
-  '/vendor',
+  '/user/:userId',
   authenticate,
   authorizePermission(PERMISSION_CODES.INVENTORY_READ),
   [
+    param('userId').isUUID().withMessage('Valid user ID is required'),
     ...paginationValidation,
     query('lowStockOnly').optional().isIn(['true', 'false']),
   ],
   validate,
-  inventoryController.getVendorInventory
-);
-
-router.get(
-  '/vendor/:vendorId',
-  authenticate,
-  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
-  [
-    ...paginationValidation,
-    query('lowStockOnly').optional().isIn(['true', 'false']),
-  ],
-  validate,
-  inventoryController.getVendorInventory
+  inventoryController.getUserInventory
 );
 
 // Add stock

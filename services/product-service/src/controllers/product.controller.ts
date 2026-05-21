@@ -33,13 +33,37 @@ const getUserRbacSnapshot = async (req: Request) => {
 export const productController = {
   async createProduct(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendorId = req.user?.userId;
+      const userId = req.user?.id || req.user?.userId;
+      
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Resolve vendorId only if user is a vendor, otherwise null
+      let vendorId: string | null = null;
+      try {
+        const vendorServiceUrl = process.env.VENDOR_SERVICE_URL || 'http://vendor-service:3007';
+        const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+        if (serviceToken) {
+          const resp = await axios.get(`${vendorServiceUrl}/api/vendors/internal/user/${userId}`, {
+            timeout: 3000,
+            headers: { Authorization: `Bearer ${serviceToken}` },
+          });
+          const vendorData = resp.data?.data || null;
+          if (vendorData && vendorData.id) {
+            vendorId = vendorData.id;
+          }
+        }
+      } catch (err) {
+        // User is not a vendor, vendorId remains null
+        console.log(`User ${userId} is not a vendor or vendor lookup failed`);
+      }
+      
       const product = await productService.createProduct({
         ...req.body,
         vendorId,
-        actorUserId: req.user?.userId,
+        actorUserId: userId,
       });
-      // Filter price field for vendors (disabled - role not available, service layer enforces rules)
       res.status(201).json(successResponse(product, 'Product created successfully'));
     } catch (error) {
       next(error);
@@ -51,7 +75,7 @@ export const productController = {
       const {
         search,
         categoryId,
-        vendorId,
+        createdBy,
         minPrice,
         maxPrice,
         isOrganic,
@@ -65,7 +89,7 @@ export const productController = {
       const products = await productService.getProducts({
         search: search as string,
         categoryId: categoryId as string,
-        vendorId: vendorId as string,
+        createdBy: createdBy as string,
         minPrice: minPrice ? parseFloat(minPrice as string) : undefined,
         maxPrice: maxPrice ? parseFloat(maxPrice as string) : undefined,
         isOrganic: isOrganic === 'true' ? true : isOrganic === 'false' ? false : undefined,
@@ -106,7 +130,7 @@ export const productController = {
   async updateProduct(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const userId = req.user?.userId;
+      const userId = req.user?.id || req.user?.userId;
       const { permissionCodes, roleNames } = await getUserRbacSnapshot(req);
       const canUpdateAny = permissionCodes.includes(PERMISSION_CODES.PRODUCT_UPDATE);
       const canUpdatePrice =
@@ -121,7 +145,6 @@ export const productController = {
         canUpdatePrice,
         actorUserId: userId,
       });
-      // Filter price field for vendors (disabled - role not available, service layer enforces rules)
       res.json(successResponse(product, 'Product updated successfully'));
     } catch (error) {
       next(error);
@@ -204,7 +227,7 @@ export const productController = {
 
   async deleteProduct(req: Request, res: Response, next: NextFunction) {
     try {
-      const userId = req.user?.userId;
+      const userId = req.user?.id || req.user?.userId;
       const { permissionCodes } = await getUserRbacSnapshot(req);
 
       await productService.deleteProduct(req.params.id as string, {
@@ -249,7 +272,7 @@ export const productController = {
         reason,
         price,
         priceAuthorized,
-        req.user?.userId
+        req.user?.id || req.user?.userId
       );
       res.json(successResponse(product, 'Product status updated successfully'));
     } catch (error) {
@@ -259,7 +282,7 @@ export const productController = {
 
   async getVendorProducts(req: Request, res: Response, next: NextFunction) {
     try {
-      const vendorId = req.params.vendorId as string || req.user?.userId;
+      const vendorId = req.params.vendorId as string || req.user?.id || req.user?.userId;
       const { status, page, limit } = req.query;
 
       const products = await productService.getVendorProducts(

@@ -142,6 +142,7 @@ jobs:
           JWT_REFRESH_SECRET: ${{ secrets.JWT_REFRESH_SECRET }}
           JWT_EXPIRES_IN: ${{ secrets.JWT_EXPIRES_IN }}
           JWT_REFRESH_EXPIRES_IN: ${{ secrets.JWT_REFRESH_EXPIRES_IN }}
+          SERVICE_AUTH_TOKEN: ${{ secrets.SERVICE_AUTH_TOKEN }}
           
           # ── Admin & Encryption ──────────────────────────────────────
           ADMIN_SECRET_KEY: ${{ secrets.ADMIN_SECRET_KEY }}
@@ -199,15 +200,22 @@ jobs:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
           FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL }}
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          
+          # ── Steadfast Delivery Integration ──────────────────────────
+          STEADFAST_BASE_URL: ${{ secrets.STEADFAST_BASE_URL }}
+          STEADFAST_API_KEY: ${{ secrets.STEADFAST_API_KEY }}
+          STEADFAST_SECRET_KEY: ${{ secrets.STEADFAST_SECRET_KEY }}
+          STEADFAST_BEARER_TOKEN: ${{ secrets.STEADFAST_BEARER_TOKEN }}
         with:
           host:     ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key:      ${{ secrets.VPS_SSH_KEY }}
           debug:    true
-          envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE,POSTGRES_PASSWORD,REDIS_PASSWORD,MONGODB_URI,RABBITMQ_USER,RABBITMQ_PASS,RABBITMQ_URL,JWT_SECRET,JWT_REFRESH_SECRET,JWT_EXPIRES_IN,JWT_REFRESH_EXPIRES_IN,ADMIN_SECRET_KEY,ENCRYPTION_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_CALLBACK_URL,FACEBOOK_CLIENT_ID,FACEBOOK_CLIENT_SECRET,FACEBOOK_CALLBACK_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_REGION,AWS_S3_BUCKET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,BKASH_APP_KEY,BKASH_APP_SECRET,BKASH_USERNAME,BKASH_PASSWORD,BKASH_BASE_URL,CALLBACK_BASE_URL,EPS_MERCHANT_ID,EPS_API_KEY,EPS_SECRET_KEY,EPS_BASE_URL,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASSWORD,EMAIL_FROM,SMS_API_KEY,SMS_API_SECRET,SMS_SENDER_ID,TWILIO_ACCOUNT_SID,TWILIO_AUTH_TOKEN,TWILIO_FROM_NUMBER,FIREBASE_PROJECT_ID,FIREBASE_CLIENT_EMAIL,FIREBASE_PRIVATE_KEY
+          envs:     SHORT_SHA,GHCR_USER,GHCR_TOKEN,REPO_OWNER,NAMESPACE,POSTGRES_PASSWORD,REDIS_PASSWORD,MONGODB_URI,RABBITMQ_USER,RABBITMQ_PASS,RABBITMQ_URL,JWT_SECRET,JWT_REFRESH_SECRET,JWT_EXPIRES_IN,JWT_REFRESH_EXPIRES_IN,SERVICE_AUTH_TOKEN,ADMIN_SECRET_KEY,ENCRYPTION_KEY,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_CALLBACK_URL,FACEBOOK_CLIENT_ID,FACEBOOK_CLIENT_SECRET,FACEBOOK_CALLBACK_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_REGION,AWS_S3_BUCKET,CLOUDINARY_CLOUD_NAME,CLOUDINARY_API_KEY,CLOUDINARY_API_SECRET,BKASH_APP_KEY,BKASH_APP_SECRET,BKASH_USERNAME,BKASH_PASSWORD,BKASH_BASE_URL,CALLBACK_BASE_URL,EPS_MERCHANT_ID,EPS_API_KEY,EPS_SECRET_KEY,EPS_BASE_URL,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASSWORD,EMAIL_FROM,SMS_API_KEY,SMS_API_SECRET,SMS_SENDER_ID,TWILIO_ACCOUNT_SID,TWILIO_AUTH_TOKEN,TWILIO_FROM_NUMBER,FIREBASE_PROJECT_ID,FIREBASE_CLIENT_EMAIL,FIREBASE_PRIVATE_KEY,STEADFAST_BASE_URL,STEADFAST_API_KEY,STEADFAST_SECRET_KEY,STEADFAST_BEARER_TOKEN
           script_stop: true
           script: |
             export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+            export PATH=$PATH:/usr/local/bin
             REPO_OWNER_LC=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
             REGISTRY="ghcr.io/$REPO_OWNER_LC"
 
@@ -269,7 +277,64 @@ jobs:
 
             cd "$REPO_PATH"
 
-            # ── Step 4: Run database migrations BEFORE pod restart ───────────
+            # ── Step 3.5: Cleanup Orphaned Resources ───────────────────────
+            # Remove deprecated/removed services that no longer exist
+            echo ""
+            echo "--- Cleaning up orphaned resources ---"
+            kubectl delete hpa seller-service-hpa -n "$NAMESPACE" --ignore-not-found=true 2>/dev/null || true
+            echo "  ✓ Orphaned HPA cleaned (database data remains safe)"
+
+            # ── Step 4: Deploy Infrastructure (Postgres, Redis, RabbitMQ) ──────
+            # These StatefulSets must exist and be ready before services deploy
+            echo ""
+            echo "--- Deploying Infrastructure (PostgreSQL, Redis, RabbitMQ) ---"
+            
+            # Apply infrastructure components in order
+            echo "  → Applying PostgreSQL ConfigMap..."
+            kubectl apply -f "k8s/infrastructure/postgres/configmap.yaml"
+            
+            echo "  → Applying PostgreSQL PVC..."
+            kubectl apply -f "k8s/infrastructure/postgres/pvc.yaml"
+            
+            echo "  → Applying PostgreSQL StatefulSet..."
+            kubectl apply -f "k8s/infrastructure/postgres/statefulset.yaml"
+            
+            echo "  → Applying PostgreSQL Service..."
+            kubectl apply -f "k8s/infrastructure/postgres/service.yaml"
+            
+            echo "  → Applying Redis..."
+            kubectl apply -f "k8s/infrastructure/redis/redis.yaml"
+            
+            echo "  → Applying RabbitMQ..."
+            kubectl apply -f "k8s/infrastructure/rabbitmq/rabbitmq.yaml"
+            
+            # Wait for infrastructure to be ready before proceeding
+            echo ""
+            echo "  → Waiting for PostgreSQL to be ready (timeout: 180s)..."
+            if kubectl rollout status statefulset/postgres -n "$NAMESPACE" --timeout=180s; then
+              echo "    ✓ PostgreSQL is ready"
+            else
+              echo "    ✗ PostgreSQL failed to start"
+              exit 1
+            fi
+            
+            echo "  → Waiting for Redis to be ready (timeout: 120s)..."
+            if kubectl rollout status statefulset/redis -n "$NAMESPACE" --timeout=120s; then
+              echo "    ✓ Redis is ready"
+            else
+              echo "    ✗ Redis failed to start"
+              exit 1
+            fi
+            
+            echo "  → Waiting for RabbitMQ to be ready (timeout: 180s)..."
+            if kubectl rollout status statefulset/rabbitmq -n "$NAMESPACE" --timeout=180s; then
+              echo "    ✓ RabbitMQ is ready"
+            else
+              echo "    ✗ RabbitMQ failed to start"
+              exit 1
+            fi
+
+            # ── Step 5: Run database migrations BEFORE pod restart ───────────
             # CRITICAL: Migrations must run before new pods start
             # This prevents race conditions and init container timeouts
             echo ""
@@ -306,7 +371,7 @@ jobs:
               kubectl delete pod "$MIGRATION_POD" --namespace="$NAMESPACE" 2>/dev/null || true
             done
 
-            # ── Step 5: Apply Kubernetes Secrets & ConfigMaps ─────────────────
+            # ── Step 6: Apply Kubernetes Secrets & ConfigMaps ─────────────────
             echo ""
             echo "--- Creating Kubernetes Secrets from GitHub Secrets ---"
             
@@ -324,6 +389,7 @@ jobs:
               --from-literal=JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET" \
               --from-literal=JWT_EXPIRES_IN="$JWT_EXPIRES_IN" \
               --from-literal=JWT_REFRESH_EXPIRES_IN="$JWT_REFRESH_EXPIRES_IN" \
+              --from-literal=SERVICE_AUTH_TOKEN="$SERVICE_AUTH_TOKEN" \
               --from-literal=ADMIN_SECRET_KEY="$ADMIN_SECRET_KEY" \
               --from-literal=ENCRYPTION_KEY="$ENCRYPTION_KEY" \
               --from-literal=GOOGLE_CLIENT_ID="$GOOGLE_CLIENT_ID" \
@@ -363,10 +429,14 @@ jobs:
               --from-literal=FIREBASE_PROJECT_ID="$FIREBASE_PROJECT_ID" \
               --from-literal=FIREBASE_CLIENT_EMAIL="$FIREBASE_CLIENT_EMAIL" \
               --from-literal=FIREBASE_PRIVATE_KEY="$FIREBASE_PRIVATE_KEY" \
+              --from-literal=STEADFAST_BASE_URL="$STEADFAST_BASE_URL" \
+              --from-literal=STEADFAST_API_KEY="$STEADFAST_API_KEY" \
+              --from-literal=STEADFAST_SECRET_KEY="$STEADFAST_SECRET_KEY" \
+              --from-literal=STEADFAST_BEARER_TOKEN="$STEADFAST_BEARER_TOKEN" \
               --dry-run=client -o yaml | kubectl apply -f -
             echo "  ✓ Secrets created dynamically"
 
-            # ── Step 6: Deploy/upgrade via Helm ──────────────────────────────
+            # ── Step 7: Deploy/upgrade via Helm ──────────────────────────────
             echo ""
             echo "--- Deploying via Helm ---"
             
@@ -379,7 +449,7 @@ jobs:
               exit 1
             fi
             
-            # ── Step 6a: Deploy each service separately with its config ──────────
+            # ── Step 7a: Deploy each service separately with its config ──────────
             # Each service gets its own Helm release with service-specific values
             # This allows API Gateway to have minReplicas: 2, others minReplicas: 1
             echo ""
@@ -423,7 +493,7 @@ jobs:
             
             echo "✓ Helm deployment successful"
 
-            # ── Step 6b: Apply Ingress configuration ──────────────────────────
+            # ── Step 7b: Apply Ingress configuration ──────────────────────────
             echo ""
             echo "--- Applying Ingress Configuration ---"
             INGRESS_FILE="$REPO_PATH/k8s/ingress/ingress.yaml"
@@ -440,7 +510,7 @@ jobs:
               exit 1
             fi
 
-            # ── Step 7: Quick pod status check ──────────────────────────────
+            # ── Step 8: Quick pod status check ──────────────────────────────
             echo ""
             echo "--- Checking pod status ---"
             SERVICES="api-gateway auth-service user-service product-service order-service payment-service inventory-service vendor-service notification-service analytics-service"
@@ -457,7 +527,7 @@ jobs:
               fi
             done
 
-            # ── Step 8: Print summary ────────────────────────────────────────
+            # ── Step 9: Print summary ────────────────────────────────────────
             echo ""
             echo "--- Pod Status ---"
             kubectl get pods --namespace="$NAMESPACE" --sort-by='.metadata.name'

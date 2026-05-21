@@ -7,8 +7,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_MULTIPLE_DATABASES: freeshop_auth,freeshop_user,freeshop_product,freeshop_order,freeshop_payment,freeshop_inventory,freeshop_vendor,freeshop_notification,freeshop_analytics
+      PGDATA: /var/lib/postgresql/18/docker
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
       - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
     ports:
       - "5432:5432"
@@ -81,7 +82,12 @@ services:
       - NOTIFICATION_SERVICE_URL=http://notification-service:3008
       - ANALYTICS_SERVICE_URL=http://analytics-service:3009
       - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
       - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:3000/api/v1}
+      - STEADFAST_BASE_URL=${STEADFAST_BASE_URL}
+      - STEADFAST_API_KEY=${STEADFAST_API_KEY}
+      - STEADFAST_SECRET_KEY=${STEADFAST_SECRET_KEY}
+      - STEADFAST_BEARER_TOKEN=${STEADFAST_BEARER_TOKEN}
     ports:
       - "3000:3000"
     depends_on:
@@ -113,6 +119,7 @@ services:
       - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
       - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
       - ADMIN_SECRET_KEY=${ADMIN_SECRET_KEY}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,6 +145,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -166,6 +174,7 @@ services:
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
       - PRODUCT_UPLOAD_MAX_IMAGES=${PRODUCT_UPLOAD_MAX_IMAGES}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -192,6 +201,7 @@ services:
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET}
       - PRODUCT_SERVICE_URL=http://product-service:3003
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -225,6 +235,7 @@ services:
       - BKASH_PASSWORD=${BKASH_PASSWORD}
       - BKASH_BASE_URL=${BKASH_BASE_URL}
       - CALLBACK_BASE_URL=${CALLBACK_BASE_URL:-http://localhost:3005}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -250,6 +261,7 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672
       - JWT_SECRET=${JWT_SECRET}
+      - SERVICE_AUTH_TOKEN=${SERVICE_AUTH_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -303,6 +315,10 @@ services:
       - SMTP_USER=${SMTP_USER}
       - SMTP_PASS=${SMTP_PASS}
       - EMAIL_FROM=${EMAIL_FROM}
+      - STEADFAST_BASE_URL=${STEADFAST_BASE_URL}
+      - STEADFAST_API_KEY=${STEADFAST_API_KEY}
+      - STEADFAST_SECRET_KEY=${STEADFAST_SECRET_KEY}
+      - STEADFAST_BEARER_TOKEN=${STEADFAST_BEARER_TOKEN}
     depends_on:
       postgres:
         condition: service_healthy
@@ -342,7 +358,7 @@ services:
     image: dpage/pgadmin4:latest
     container_name: freeshop-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@freeshop.com}
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
       PGADMIN_LISTEN_PORT: 80
     volumes:

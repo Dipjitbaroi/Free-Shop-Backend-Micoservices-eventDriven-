@@ -129,6 +129,47 @@ export const guestOrAuth = (
 };
 
 /**
+ * Service-to-service authentication - for internal APIs only
+ * Uses a shared service token from environment variable
+ * Not exposed in Swagger/public APIs
+ */
+export const authenticateService = (
+  req: Request,
+  _res: Response,
+  next: NextFunction
+): void => {
+  try {
+    const token = extractToken(req);
+    const SERVICE_TOKEN = process.env.SERVICE_AUTH_TOKEN;
+
+    if (!SERVICE_TOKEN) {
+      throw new UnauthorizedError('Service authentication not configured');
+    }
+
+    if (!token) {
+      throw new UnauthorizedError('No service token provided');
+    }
+
+    if (token !== SERVICE_TOKEN) {
+      throw new UnauthorizedError('Invalid service token');
+    }
+
+    // Set a system user context
+    req.user = {
+      userId: 'SYSTEM',
+      id: 'SYSTEM',
+      email: 'system@freeshop.internal',
+      roles: ['SYSTEM'],
+      type: 'access',
+    } as ITokenPayload;
+
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Permission-based authorization middleware
  * Checks if user has required permission(s) from their assigned roles
  * RECOMMENDED: Use this for new endpoints

@@ -209,6 +209,11 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: JWT_SECRET
+            - name: SERVICE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: SERVICE_AUTH_TOKEN
             - name: JWT_REFRESH_SECRET
               valueFrom:
                 secretKeyRef:
@@ -373,6 +378,32 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: CLOUDINARY_API_SECRET
+                  optional: true
+            
+            # Steadfast Delivery Integration
+            - name: STEADFAST_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: STEADFAST_BASE_URL
+                  optional: true
+            - name: STEADFAST_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: STEADFAST_API_KEY
+                  optional: true
+            - name: STEADFAST_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: STEADFAST_SECRET_KEY
+                  optional: true
+            - name: STEADFAST_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: freeshop-secrets
+                  key: STEADFAST_BEARER_TOKEN
                   optional: true
           
           {{- with .Values.services.resources }}

@@ -5,6 +5,7 @@ export interface AddressSnapshot {
   fullName: string;
   phone: string;
   addressLine: string;
+  area?: string;
   district: string;
   upazila?: string;
   postalCode?: string;
@@ -55,6 +56,7 @@ export async function fetchAddressById(
     fullName: a.fullName,
     phone: a.phone,
     addressLine: a.addressLine,
+    area: a.area ?? undefined,
     district: a.district ?? '',
     upazila: a.upazila ?? undefined,
     postalCode: a.postalCode ?? undefined,

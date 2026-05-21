@@ -106,6 +106,15 @@ export const setupRoutes = (app: Application): void => {
     })
   );
   
+  // Deliveries (order service) routes
+  app.use(
+    '/api/v1/deliveries',
+    createProxyMiddleware({
+      ...getProxyOptions('order', config.services.order.url),
+      pathRewrite: async (path) => `/deliveries${path === '/' ? '' : path}`,
+    })
+  );
+  
   app.use(
     '/api/v1/cart',
     createProxyMiddleware({
@@ -137,6 +146,14 @@ export const setupRoutes = (app: Application): void => {
     createProxyMiddleware({
       ...getProxyOptions('payment', config.services.payment.url),
       pathRewrite: async (path) => `/payments${path === '/' ? '' : path}`,
+    })
+  );
+
+  app.use(
+    '/api/v1/webhooks/steadfast',
+    createProxyMiddleware({
+      ...getProxyOptions('order', config.services.order.url),
+      pathRewrite: async (path) => `/webhooks/steadfast${path === '/' ? '' : path}`,
     })
   );
 

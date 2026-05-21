@@ -5,6 +5,7 @@ import { cacheGet, cacheSet, cacheDelete, cartCacheKey } from '../lib/redis.js';
 import config from '../config/index.js';
 import { settingsService } from './settings.service.js';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
+import axios from 'axios';
 
 type CartWithItems = Prisma.CartGetPayload<{
   include: { items: true };
@@ -152,9 +153,10 @@ class CartService {
     if (product.status !== 'ACTIVE') {
       throw new BadRequestError(`Product is not available for purchase (status: ${product.status})`);
     }
-    if (product.stock < data.quantity) {
-      throw new BadRequestError(`Insufficient stock. Available: ${product.stock}`);
-    }
+    
+    // Check inventory availability instead of product stock
+    const inventory = await this.checkInventoryAvailability(data.productId, data.quantity);
+    
     const price = resolveEffectivePrice(product);
     const selectedFreeItems = this.resolveSelectedFreeItems(product.freeItems || [], data.freeItemIds);
 
@@ -380,33 +382,23 @@ class CartService {
     const result = new Map<string, Array<{ id: string; name: string; sku?: string; image?: string }>>();
     if (cartItemIds.length === 0) return result;
 
-    const rows = await prisma.$queryRaw<Array<{
-      cartItemId: string;
-      freeItemId: string;
-      freeItemName: string;
-      sku: string | null;
-      image: string | null;
-    }>>`
-      SELECT
-        "cartItemId",
-        "freeItemId",
-        "freeItemName",
-        "sku",
-        "image"
-      FROM "CartItemFreeItem"
-      WHERE "cartItemId" IN (${Prisma.join(cartItemIds)})
-      ORDER BY "assignedAt" ASC
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety
+    const freeItems = await prisma.cartItemFreeItem.findMany({
+      where: {
+        cartItemId: { in: cartItemIds },
+      },
+      orderBy: { assignedAt: 'asc' },
+    });
 
-    for (const row of rows) {
-      const items = result.get(row.cartItemId) || [];
+    for (const item of freeItems) {
+      const items = result.get(item.cartItemId) || [];
       items.push({
-        id: row.freeItemId,
-        name: row.freeItemName,
-        sku: row.sku ?? undefined,
-        image: row.image ?? undefined,
+        id: item.freeItemId,
+        name: item.freeItemName,
+        sku: item.sku ?? undefined,
+        image: item.image ?? undefined,
       });
-      result.set(row.cartItemId, items);
+      result.set(item.cartItemId, items);
     }
 
     return result;
@@ -416,22 +408,56 @@ class CartService {
     cartItemId: string,
     freeItems: Array<{ id: string; name: string; sku?: string; image?: string }>
   ): Promise<void> {
-    await prisma.$executeRaw`
-      DELETE FROM "CartItemFreeItem"
-      WHERE "cartItemId" = ${cartItemId}
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety and consistency
+    
+    // Delete old free items
+    await prisma.cartItemFreeItem.deleteMany({
+      where: { cartItemId },
+    });
 
     if (freeItems.length === 0) return;
 
-    await Promise.all(
-      freeItems.map((item) =>
-        prisma.$executeRaw`
-          INSERT INTO "CartItemFreeItem" ("id", "cartItemId", "freeItemId", "freeItemName", "sku", "image", "assignedAt")
-          VALUES (${`${cartItemId}:${item.id}`}, ${cartItemId}, ${item.id}, ${item.name}, ${item.sku ?? null}, ${item.image ?? null}, NOW())
-          ON CONFLICT ("cartItemId", "freeItemId") DO NOTHING
-        `
-      )
-    );
+    // Insert new free items with skipDuplicates for upsert behavior
+    await prisma.cartItemFreeItem.createMany({
+      data: freeItems.map((item) => ({
+        id: `${cartItemId}:${item.id}`,
+        cartItemId,
+        freeItemId: item.id,
+        freeItemName: item.name,
+        sku: item.sku ?? null,
+        image: item.image ?? null,
+      })),
+      skipDuplicates: true, // Equivalent to ON CONFLICT ... DO NOTHING
+    });
+  }
+
+  private async checkInventoryAvailability(productId: string, quantity: number): Promise<{ availableStock: number }> {
+    try {
+      const serviceToken = process.env.SERVICE_AUTH_TOKEN;
+      const response = await axios.get(
+        `${config.inventoryServiceUrl}/internal/check-availability/${productId}`,
+        {
+          timeout: 3000,
+          headers: serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {},
+        }
+      );
+
+      const availableStock = response.data?.data?.availableStock ?? 0;
+      if (availableStock < quantity) {
+        throw new BadRequestError(`Insufficient stock. Available: ${availableStock}`);
+      }
+
+      return { availableStock };
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        throw new BadRequestError('Product inventory not found');
+      }
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      // Fallback: if inventory service is unreachable, reject the request
+      throw new BadRequestError('Could not verify inventory availability');
+    }
   }
 }
 

@@ -5,7 +5,11 @@ import { successResponse } from '@freeshop/shared-utils';
 export const categoryController = {
   async createCategory(req: Request, res: Response, next: NextFunction) {
     try {
-      const category = await categoryService.createCategory(req.body);
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized: User ID not found' });
+      }
+      const category = await categoryService.createCategory(req.body, userId);
       res.status(201).json(successResponse(category, 'Category created successfully'));
     } catch (error) {
       next(error);

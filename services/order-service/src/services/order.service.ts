@@ -6,12 +6,14 @@ import {
   createPaginatedResponse,
   calculateOffset,
   IPaginatedResult,
+  logger,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { zoneService } from './zone.service.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
 import { cacheDelete, orderCacheKey } from '../lib/redis.js';
+import { checkInventoryAvailability } from '../lib/inventory-client.js';
 
 import config from '../config/index.js';
 import { cartService } from './cart.service.js';
@@ -62,37 +64,104 @@ interface OrderFilters {
 }
 
 class OrderService {
+  /**
+   * Syncs Order and DeliveryInfo statuses to maintain consistency
+   * Uses atomic database updates to prevent race conditions
+   * 
+   * Status Mapping Rules:
+   * - PENDING → delivery remains PENDING (no delivery created yet)
+   * - CONFIRMED → delivery becomes ASSIGNED (ready for pickup)
+   * - PROCESSING → delivery becomes ASSIGNED or IN_TRANSIT 
+   * - SHIPPED → delivery becomes IN_TRANSIT (on the way)
+   * - OUT_FOR_DELIVERY → delivery becomes OUT_FOR_DELIVERY
+   * - DELIVERED → delivery becomes DELIVERED
+   * - CANCELLED → delivery becomes CANCELLED
+   * 
+   * @param orderId Order ID to sync
+   * @param newOrderStatus New Order status being set
+   */
+  private async syncOrderDeliveryStatus(orderId: string, newOrderStatus: OrderStatus): Promise<void> {
+    try {
+      // Determine the new delivery status
+      let newDeliveryStatus: string | null = null;
+
+      switch (newOrderStatus) {
+        case OrderStatus.PENDING:
+          newDeliveryStatus = 'PENDING';
+          break;
+        case OrderStatus.CONFIRMED:
+          newDeliveryStatus = 'ASSIGNED';
+          break;
+        case OrderStatus.PROCESSING:
+          // For PROCESSING, only update if currently PENDING (atomic check+update)
+          await prisma.deliveryInfo.updateMany({
+            where: { orderId, status: 'PENDING' },
+            data: { status: 'ASSIGNED' },
+          });
+          return;
+        case OrderStatus.SHIPPED:
+          newDeliveryStatus = 'IN_TRANSIT';
+          break;
+        case OrderStatus.OUT_FOR_DELIVERY:
+          newDeliveryStatus = 'OUT_FOR_DELIVERY';
+          break;
+        case OrderStatus.DELIVERED:
+          newDeliveryStatus = 'DELIVERED';
+          break;
+        case OrderStatus.CANCELLED:
+          newDeliveryStatus = 'CANCELLED';
+          break;
+        case OrderStatus.REFUNDED:
+          // For refunded orders, mark delivery as cancelled
+          newDeliveryStatus = 'CANCELLED';
+          break;
+      }
+
+      // Atomic update: use updateMany to ensure no race condition
+      if (newDeliveryStatus) {
+        const updated = await prisma.deliveryInfo.updateMany({
+          where: { orderId },
+          data: {
+            status: newDeliveryStatus as any,
+            ...(newDeliveryStatus === 'DELIVERED' && { actualDeliveryDate: new Date() }),
+            ...(newDeliveryStatus === 'CANCELLED' && { notes: 'Cancelled due to order cancellation' }),
+          },
+        });
+
+        if (updated.count > 0) {
+          console.info(`Delivery status synced for order ${orderId}`, {
+            newStatus: newDeliveryStatus,
+            recordsUpdated: updated.count,
+          });
+        }
+      }
+    } catch (error) {
+      // Log but don't fail the operation if sync fails
+      console.error(`Failed to sync delivery status for order ${orderId}:`, error);
+    }
+  }
+
   private async loadOrderItemFreeItems(orderItemIds: string[]): Promise<Map<string, FreeItemSnapshot[]>> {
     const result = new Map<string, FreeItemSnapshot[]>();
     if (orderItemIds.length === 0) return result;
 
-    const rows = await prisma.$queryRaw<Array<{
-      orderItemId: string;
-      freeItemId: string;
-      freeItemName: string;
-      sku: string | null;
-      image: string | null;
-    }>>`
-      SELECT
-        "orderItemId",
-        "freeItemId",
-        "freeItemName",
-        "sku",
-        "image"
-      FROM "OrderItemFreeItem"
-      WHERE "orderItemId" IN (${Prisma.join(orderItemIds)})
-      ORDER BY "assignedAt" ASC
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety
+    const freeItems = await prisma.orderItemFreeItem.findMany({
+      where: {
+        orderItemId: { in: orderItemIds },
+      },
+      orderBy: { assignedAt: 'asc' },
+    });
 
-    for (const row of rows) {
-      const items = result.get(row.orderItemId) || [];
+    for (const item of freeItems) {
+      const items = result.get(item.orderItemId) || [];
       items.push({
-        id: row.freeItemId,
-        name: row.freeItemName,
-        sku: row.sku ?? undefined,
-        image: row.image ?? undefined,
+        id: item.freeItemId,
+        name: item.freeItemName,
+        sku: item.sku ?? undefined,
+        image: item.image ?? undefined,
       });
-      result.set(row.orderItemId, items);
+      result.set(item.orderItemId, items);
     }
 
     return result;
@@ -100,8 +169,25 @@ class OrderService {
 
   private async hydrateOrder(order: OrderWithItems): Promise<OrderWithItems & { items: Array<OrderItem & { freeItems: FreeItemSnapshot[] }> }> {
     const freeItemMap = await this.loadOrderItemFreeItems(order.items.map((item) => item.id));
+    // Enrich shippingAddress.zoneId -> include zone object when available
+    const shippingAddress: any = (order as any).shippingAddress ?? null;
+    if (shippingAddress && typeof shippingAddress === 'object' && 'zoneId' in shippingAddress) {
+      try {
+        const zoneId = String(shippingAddress.zoneId);
+        const z = await zoneService.get(zoneId);
+        if (z) {
+          // Attach zone object under `zone` while preserving original zoneId for backwards compatibility
+          (shippingAddress as any).zone = z;
+        }
+      } catch (err) {
+        // Ignore zone enrichment failures - do not block order hydration
+        console.warn(`Failed to enrich shipping zone for order ${order.id}:`, err);
+      }
+    }
+
     return {
       ...order,
+      shippingAddress,
       items: order.items.map((item) => ({
         ...item,
         freeItems: freeItemMap.get(item.id) || [],
@@ -113,25 +199,84 @@ class OrderService {
     orderItemId: string,
     freeItems: FreeItemSnapshot[]
   ): Promise<void> {
-    await prisma.$executeRaw`
-      DELETE FROM "OrderItemFreeItem"
-      WHERE "orderItemId" = ${orderItemId}
-    `;
+    // Use Prisma ORM instead of raw SQL for type safety and consistency
+    
+    // Delete old free items
+    await prisma.orderItemFreeItem.deleteMany({
+      where: { orderItemId },
+    });
 
     if (freeItems.length === 0) return;
 
-    await Promise.all(
-      freeItems.map((item) =>
-        prisma.$executeRaw`
-          INSERT INTO "OrderItemFreeItem" ("id", "orderItemId", "freeItemId", "freeItemName", "sku", "image", "assignedAt")
-          VALUES (${`${orderItemId}:${item.id}`}, ${orderItemId}, ${item.id}, ${item.name}, ${item.sku ?? null}, ${item.image ?? null}, NOW())
-          ON CONFLICT ("orderItemId", "freeItemId") DO NOTHING
-        `
-      )
-    );
+    // Insert new free items with skipDuplicates for upsert behavior
+    await prisma.orderItemFreeItem.createMany({
+      data: freeItems.map((item) => ({
+        id: `${orderItemId}:${item.id}`,
+        orderItemId,
+        freeItemId: item.id,
+        freeItemName: item.name,
+        sku: item.sku ?? null,
+        image: item.image ?? null,
+      })),
+      skipDuplicates: true, // Equivalent to ON CONFLICT ... DO NOTHING
+    });
+  }
+
+  /**
+   * Pre-flight inventory validation
+   * Checks if all items in the order have sufficient stock
+   * This is a non-blocking check (failures are logged but don't fail order creation)
+   * Actual reservation happens in inventory service after order creation
+   */
+  private async validateInventoryAvailability(
+    items: Array<{
+      productId: string;
+      freeItems?: FreeItemSnapshot[];
+      quantity: number;
+    }>
+  ): Promise<void> {
+    const inventoryCheckItems = items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      freeItemId: item.freeItems?.[0]?.id,
+    }));
+
+    console.info('Running pre-flight inventory check', {
+      itemCount: inventoryCheckItems.length,
+      requestedQuantities: inventoryCheckItems.map((item) => `${item.productId}:${item.quantity}`),
+    });
+
+    const result = await checkInventoryAvailability(inventoryCheckItems);
+
+    if (!result.available) {
+      const details = result.unavailableItems
+        .map((item) => `${item.productId} requested ${item.requested}, available ${item.available}`)
+        .join('; ');
+
+      throw new BadRequestError(
+        details
+          ? `Insufficient inventory for: ${details}`
+          : 'Insufficient inventory for one or more items'
+      );
+    }
   }
 
   async createOrder(data: CreateOrderData): Promise<OrderWithItems> {
+    // PRE-FLIGHT: Validate inventory availability before order creation
+    // This prevents order creation if insufficient stock
+    try {
+      await this.validateInventoryAvailability(data.items);
+    } catch (error) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      // Log inventory check failures but don't block order creation
+      // Order will fail at reservation stage if inventory is unavailable
+      console.warn('Inventory validation check failed (non-blocking)', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+
     // Calculate totals
     const subtotal = data.items.reduce((sum, item) => {
       const itemTotal = item.price * item.quantity - (item.discount || 0);
@@ -310,6 +455,11 @@ class OrderService {
       case OrderStatus.CANCELLED:
         updateData.cancelledAt = new Date();
         if (note) updateData.cancellationReason = note;
+        // When cancelling order, set payment status back to PENDING if it was never paid
+        // This prevents "paid" orders from being cancelled without explicit refund handling
+        if (order.paymentStatus !== PaymentStatus.PAID) {
+          updateData.paymentStatus = PaymentStatus.PENDING;
+        }
         break;
     }
 
@@ -324,6 +474,9 @@ class OrderService {
     });
 
     await cacheDelete(orderCacheKey(orderId));
+
+    // Sync delivery status to maintain consistency
+    await this.syncOrderDeliveryStatus(orderId, status);
 
     // Publish status update event
     await eventPublisher.publish(Events.ORDER_STATUS_CHANGED, {
@@ -372,15 +525,40 @@ class OrderService {
 
     await cacheDelete(orderCacheKey(orderId));
 
-    // Publish payment update event
-    await eventPublisher.publish(Events.PAYMENT_RECEIVED, {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      userId: order.userId,
-      amount: order.total,
-      paymentMethod: order.paymentMethod,
-      transactionId,
-    });
+    // Only publish PAYMENT_RECEIVED event if payment is actually paid
+    // Other payment status changes should not trigger this event
+    if (paymentStatus === PaymentStatus.PAID) {
+      // GUARD: For COD orders, only publish PAYMENT_RECEIVED if delivery is DELIVERED
+      if (order.paymentMethod === 'COD') {
+        const delivery = await prisma.deliveryInfo.findUnique({
+          where: { orderId: order.id },
+          select: { status: true },
+        });
+
+        if (!delivery || delivery.status !== 'DELIVERED') {
+          logger.warn('🚫 [ORDER SERVICE] Blocking PAYMENT_RECEIVED publish for COD - delivery not DELIVERED', {
+            orderId: order.id,
+            deliveryStatus: delivery?.status || 'no-delivery',
+            reason: !delivery ? 'No delivery record exists' : `Delivery status is ${delivery.status}, not DELIVERED`,
+          });
+          return this.hydrateOrder(order) as Promise<OrderWithItems>; // Don't publish event yet
+        }
+
+        logger.info('✅ [ORDER SERVICE] COD delivery is DELIVERED - proceeding to publish PAYMENT_RECEIVED', {
+          orderId: order.id,
+          deliveryStatus: delivery.status,
+        });
+      }
+
+      await eventPublisher.publish(Events.PAYMENT_RECEIVED, {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        userId: order.userId,
+        amount: order.total,
+        paymentMethod: order.paymentMethod,
+        transactionId,
+      });
+    }
 
     return this.hydrateOrder(order) as Promise<OrderWithItems>;
   }
@@ -388,18 +566,71 @@ class OrderService {
   async cancelOrder(orderId: string, userId: string, reason: string): Promise<OrderWithItems> {
     const order = await this.getOrderById(orderId);
 
-    // Check if user owns the order
-    if (order.userId !== userId) {
+    // Check if user owns the order (handle both authenticated and guest orders)
+    if (order.userId && order.userId !== userId) {
       throw new BadRequestError('You can only cancel your own orders');
+    }
+
+    // Guest orders cannot be cancelled by authenticated users (security)
+    if (!order.userId && userId) {
+      throw new BadRequestError('Cannot cancel guest orders as authenticated user');
     }
 
     // Check if order can be cancelled
     const cancellableStatuses: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.CONFIRMED];
     if (!cancellableStatuses.includes(order.status)) {
-      throw new BadRequestError('Order cannot be cancelled at this stage');
+      throw new BadRequestError(`Order cannot be cancelled when in ${order.status} status. Only PENDING and CONFIRMED orders can be cancelled.`);
     }
 
     return this.updateOrderStatus(orderId, OrderStatus.CANCELLED, reason);
+  }
+
+  async deleteOrder(orderId: string, userId: string): Promise<void> {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, deliveryInfo: true },
+    });
+
+    if (!order) {
+      throw new NotFoundError('Order not found');
+    }
+
+    // Only allow deletion of orders that are in a cancellable state
+    // or have been delivered/returned to avoid data loss
+    const deletableStatuses: OrderStatus[] = [
+      OrderStatus.PENDING,
+      OrderStatus.CONFIRMED,
+      OrderStatus.CANCELLED,
+      OrderStatus.RETURNED,
+    ];
+
+    if (!deletableStatuses.includes(order.status)) {
+      throw new BadRequestError(
+        `Order cannot be deleted when in ${order.status} status. Only pending, confirmed, cancelled, or returned orders can be deleted.`
+      );
+    }
+
+    // Delete related delivery info first
+    if (order.deliveryInfo) {
+      await prisma.deliveryInfo.delete({
+        where: { orderId },
+      });
+    }
+
+    // Delete order (items will cascade due to onDelete: Cascade)
+    await prisma.order.delete({
+      where: { id: orderId },
+    });
+
+    // Clear cache
+    await cacheDelete(orderCacheKey(orderId));
+
+    // Publish deletion event
+    await eventPublisher.publish(Events.ORDER_DELETED, {
+      orderId,
+      orderNumber: order.orderNumber,
+      userId: order.userId,
+    });
   }
 
   async addTrackingInfo(orderId: string, trackingNumber: string, carrier?: string): Promise<OrderWithItems> {
@@ -514,6 +745,152 @@ class OrderService {
         }),
       ]);
     }
+  }
+
+  // ── Coupon Management Methods ──
+  async createCoupon(data: {
+    code: string;
+    description?: string;
+    type: string;
+    value: number;
+    minOrderAmount?: number;
+    maxDiscount?: number;
+    usageLimit?: number;
+    perUserLimit?: number;
+    applicableProducts?: string[];
+    applicableCategories?: string[];
+    applicableVendors?: string[];
+    startDate: Date;
+    endDate?: Date;
+    isActive?: boolean;
+  }): Promise<any> {
+    const coupon = await prisma.coupon.create({
+      data: {
+        code: data.code.toUpperCase(),
+        description: data.description,
+        type: data.type as any,
+        value: data.value,
+        minOrderAmount: data.minOrderAmount,
+        maxDiscount: data.maxDiscount,
+        usageLimit: data.usageLimit,
+        perUserLimit: data.perUserLimit ?? 1,
+        ...(data.applicableProducts ? { applicableProducts: data.applicableProducts } : {}),
+        ...(data.applicableCategories ? { applicableCategories: data.applicableCategories } : {}),
+        ...(data.applicableVendors ? { applicableVendors: data.applicableVendors } : {}),
+        startDate: data.startDate,
+        endDate: data.endDate,
+        isActive: data.isActive ?? true,
+      },
+    });
+    return coupon;
+  }
+
+  async updateCoupon(id: string, data: Partial<{
+    code: string;
+    description?: string;
+    type: string;
+    value: number;
+    minOrderAmount?: number;
+    maxDiscount?: number;
+    usageLimit?: number;
+    perUserLimit?: number;
+    applicableProducts?: string[];
+    applicableCategories?: string[];
+    applicableVendors?: string[];
+    startDate: Date;
+    endDate?: Date;
+    isActive?: boolean;
+  }>): Promise<any> {
+    const updateData: any = {};
+    
+    if (data.code) updateData.code = data.code.toUpperCase();
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.type) updateData.type = data.type;
+    if (data.value !== undefined) updateData.value = data.value;
+    if (data.minOrderAmount !== undefined) updateData.minOrderAmount = data.minOrderAmount;
+    if (data.maxDiscount !== undefined) updateData.maxDiscount = data.maxDiscount;
+    if (data.usageLimit !== undefined) updateData.usageLimit = data.usageLimit;
+    if (data.perUserLimit !== undefined) updateData.perUserLimit = data.perUserLimit;
+    if (data.applicableProducts !== undefined) updateData.applicableProducts = data.applicableProducts;
+    if (data.applicableCategories !== undefined) updateData.applicableCategories = data.applicableCategories;
+    if (data.applicableVendors !== undefined) updateData.applicableVendors = data.applicableVendors;
+    if (data.startDate) updateData.startDate = data.startDate;
+    if (data.endDate !== undefined) updateData.endDate = data.endDate;
+    if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+    const coupon = await prisma.coupon.update({
+      where: { id },
+      data: updateData,
+    });
+    return coupon;
+  }
+
+  async deleteCoupon(id: string): Promise<void> {
+    // Soft delete by marking as inactive
+    await prisma.coupon.update({
+      where: { id },
+      data: { isActive: false },
+    });
+  }
+
+  async getCoupon(id: string): Promise<any> {
+    const coupon = await prisma.coupon.findUnique({
+      where: { id },
+    });
+    return coupon;
+  }
+
+  async getCouponByCode(code: string): Promise<any> {
+    const coupon = await prisma.coupon.findUnique({
+      where: { code: code.toUpperCase() },
+    });
+    return coupon;
+  }
+
+  async listCoupons(filter?: {
+    isActive?: boolean;
+    type?: string;
+    search?: string;
+  }, page: number = 1, limit: number = 20): Promise<IPaginatedResult<any>> {
+    const where: any = {};
+    
+    if (filter?.isActive !== undefined) where.isActive = filter.isActive;
+    if (filter?.type) where.type = filter.type;
+    if (filter?.search) {
+      where.OR = [
+        { code: { contains: filter.search, mode: 'insensitive' } },
+        { description: { contains: filter.search, mode: 'insensitive' } },
+      ];
+    }
+
+    const coupons = await prisma.coupon.findMany({
+      where,
+      skip: calculateOffset(page, limit),
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const total = await prisma.coupon.count({ where });
+
+    return createPaginatedResponse(coupons, total, page, limit);
+  }
+
+  async getCouponUsageStats(couponId: string): Promise<any> {
+    const coupon = await prisma.coupon.findUnique({
+      where: { id: couponId },
+    });
+
+    const usageDetails = await prisma.couponUsage.findMany({
+      where: { couponId },
+    });
+
+    return {
+      code: coupon?.code,
+      totalUsageLimit: coupon?.usageLimit,
+      currentUsageCount: coupon?.usageCount ?? 0,
+      usageDetails,
+      remainingUses: coupon?.usageLimit ? (coupon.usageLimit - (coupon.usageCount ?? 0)) : 'unlimited',
+    };
   }
 
   // Vendor order methods

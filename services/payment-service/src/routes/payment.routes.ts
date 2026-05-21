@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { paymentController } from '../controllers/payment.controller.js';
-import { authenticate, authorizePermission, guestOrAuth } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, guestOrAuth, authenticateService } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
 import { body, param, query } from 'express-validator';
@@ -22,6 +22,17 @@ router.post(
 // Payment gateway callbacks
 router.get('/bkash/callback', paymentController.bkashCallback);
 router.get('/eps/callback', paymentController.epsCallback);
+
+// Auto-complete COD payment when delivery is marked as delivered (service-to-service)
+router.post(
+  '/cod/complete',
+  authenticateService,
+  body('orderId').isUUID().withMessage('Valid order ID is required'),
+  body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be positive'),
+  body('transactionId').optional().isString(),
+  validate,
+  paymentController.completeCODPaymentForDelivery
+);
 
 // Get payment by order
 router.get(

@@ -1,11 +1,22 @@
 import { Router } from 'express';
-import { validate, authenticate, authorizePermission } from '@freeshop/shared-middleware';
-import { PERMISSION_CODES } from '@freeshop/shared-types';
+import { validate, authenticate, authorizePermission, authenticateService } from '@freeshop/shared-middleware';
+import { PERMISSION_CODES, DEFAULT_ROLES } from '@freeshop/shared-types';
 import * as authController from '../controllers/auth.controller.js';
-import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation } from '../validators/auth.validators.js';
+import { firebaseLoginValidation, adminLoginValidation, adminCreateValidation, changePasswordValidation } from '../validators/auth.validators.js';
 import { query, param, body } from 'express-validator';
 
 const router: Router = Router();
+
+// ── Internal service-to-service routes ────────────────────────────────────────
+// These routes use SERVICE_AUTH_TOKEN for system-level communication
+// Only accessible by other microservices with the shared token
+
+/**
+ * GET /internal/users/:userId
+ * Get user data by ID (for service-to-service calls)
+ * @internal - Not exposed in public API docs
+ */
+router.get('/internal/users/:userId', authenticateService, authController.getUserById);
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 
@@ -34,8 +45,8 @@ router.get(
   [
     query('page').optional().isInt({ min: 1 }),
     query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('role').optional().isIn(['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN']),
-    query('status').optional().isIn(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']),
+    query('role').optional().isIn(Object.values(DEFAULT_ROLES)),
+    query('status').optional().isIn(['ACTIVE', 'SUSPENDED']),
     query('search').optional().isString().trim(),
   ],
   validate,
@@ -53,7 +64,7 @@ router.patch(
     body('lastName').optional().isString().trim().notEmpty().withMessage('lastName must be a non-empty string'),
     body('phone').optional().isString().trim().withMessage('phone must be a string'),
     body('avatar').optional().isString().trim().isURL().withMessage('avatar must be a valid URL'),
-    body('status').optional().isIn(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION']).withMessage('Invalid status'),
+    body('status').optional().isIn(['ACTIVE', 'SUSPENDED']).withMessage('Invalid status'),
   ],
   validate,
   authController.updateUser
@@ -78,6 +89,9 @@ router.post('/admin/login', validate(adminLoginValidation), authController.admin
 
 // ── Admin / Manager account creation (requires ADMIN_SECRET_KEY) ─────────────
 router.post('/admin/create', validate(adminCreateValidation), authController.createAdminAccount);
+
+// ── Developer: change any user's password (requires ADMIN_SECRET_KEY) ────────
+router.post('/dev/change-password', validate(changePasswordValidation), authController.changePassword);
 
 export default router;
 

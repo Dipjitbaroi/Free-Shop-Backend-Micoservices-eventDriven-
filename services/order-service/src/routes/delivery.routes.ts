@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { authenticate, authorizePermission, validate } from '@freeshop/shared-middleware';
+import { authenticate, authorizePermission, validate, webhookRateLimiter } from '@freeshop/shared-middleware';
 import { deliveryController } from '../controllers/delivery.controller.js';
 import { body, param, query } from 'express-validator';
 import { PERMISSION_CODES } from '@freeshop/shared-types';
@@ -27,7 +27,8 @@ const createDeliveryValidation = [
 ];
 
 const updateStatusValidation = [
-  body('status').isIn(['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED']),
+  body('status').isIn(['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'])
+    .withMessage('Delivery status must be one of PENDING, ASSIGNED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED, or CANCELLED'),
   body('notes').optional().isString(),
 ];
 
@@ -71,6 +72,9 @@ router.post(
 router.get(
   '/orders/:orderId/delivery',
   authenticate,
+  param('orderId').isUUID().withMessage('Invalid order ID'),
+  query('search').optional().isString(),
+  validate,
   deliveryController.getDeliveryByOrder
 );
 
@@ -127,6 +131,9 @@ router.get(
   '/deliveries/delivery-man/:deliveryManId',
   authenticate,
   paginationValidation,
+  query('search').optional().isString(),
+  query('startDate').optional().isISO8601(),
+  query('endDate').optional().isISO8601(),
   validate,
   deliveryController.getDeliveriesForDeliveryMan
 );
@@ -155,6 +162,18 @@ router.get(
   '/deliveries/stats',
   authenticate,
   deliveryController.getDeliveryStats
+);
+
+// ── Steadfast webhook route ───────────────────────────────────────────────
+
+/**
+ * Receive Steadfast delivery updates
+ * POST /webhooks/steadfast
+ */
+router.post(
+  '/webhooks/steadfast',
+  webhookRateLimiter,
+  deliveryController.handleSteadfastWebhook
 );
 
 export default router;

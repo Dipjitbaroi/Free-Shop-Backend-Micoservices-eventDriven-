@@ -7,25 +7,19 @@ import { validate } from '@freeshop/shared-middleware';
 
 const router: Router = Router();
 
-// Only admin/manager can get or update delivery settings
-router.get(
+// Create a new delivery zone (admin/manager only)
+router.post(
   '/delivery',
   authenticate,
   authorizePermission(PERMISSION_CODES.SETTINGS_UPDATE),
-  settingsController.getDeliverySettings
+  body('name').isString().notEmpty().withMessage('Zone name is required'),
+  body('price').isNumeric().withMessage('Price must be a number'),
+  validate,
+  settingsController.createDeliveryZone
 );
 
 // Public: get available delivery zones (no auth)
 router.get('/delivery/zones', settingsController.getDeliveryZones);
-
-
-// Accepts a JSON array of zone objects: [{ id?, name, price }, ... ]
-router.put(
-  '/delivery',
-  authenticate,
-  authorizePermission(PERMISSION_CODES.SETTINGS_UPDATE),
-  settingsController.updateDeliverySettings
-);
 
 // Update a single zone by id (admin)
 router.patch(

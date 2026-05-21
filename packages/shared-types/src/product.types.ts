@@ -14,9 +14,6 @@ export interface IProduct {
   discountPrice?: number;
   discountType?: DiscountType;
   discountValue?: number;
-  stock: number;
-  reservedStock: number;
-  lowStockThreshold: number;
   weight?: number;
   unit: string;
   isOrganic: boolean;
@@ -52,7 +49,9 @@ export interface IProductCreate {
   discountPrice?: number;
   discountType?: DiscountType;
   discountValue?: number;
-  stock: number;
+  // stock: used only to initialize inventory, NOT stored in product model
+  stock?: number;
+  // Initial low-stock threshold used to initialize Inventory Service record
   lowStockThreshold?: number;
   weight?: number;
   unit?: string;
@@ -101,8 +100,6 @@ export interface IProductUpdate {
   discountPrice?: number;
   discountType?: DiscountType;
   discountValue?: number;
-  stock?: number;
-  lowStockThreshold?: number;
   weight?: number;
   unit?: string;
   isOrganic?: boolean;
@@ -133,6 +130,7 @@ export interface ICategory {
   sortOrder: number;
   isActive: boolean;
   productCount: number;
+  userId: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -174,6 +172,7 @@ export interface IReviewCreate {
 
 export interface IProductFilter {
   categoryId?: string;
+  createdBy?: string;
   vendorId?: string;
   minPrice?: number;
   maxPrice?: number;

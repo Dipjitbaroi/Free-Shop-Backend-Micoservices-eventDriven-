@@ -260,11 +260,11 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               examples: {
                 admin: {
                   summary: 'Admin login',
-                  value: { email: 'admin@freeshop.com', password: 'Str0ng!Pass' },
+                  value: { email: 'admin@example.com', password: 'your_password_here' },
                 },
                 manager: {
                   summary: 'Manager login',
-                  value: { email: 'manager@freeshop.com', password: 'Str0ng!Pass' },
+                  value: { email: 'manager@example.com', password: 'your_password_here' },
                 },
               },
             },
@@ -315,9 +315,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                 createAdmin: {
                   summary: 'Create an admin account',
                   value: {
-                    secretKey: 'super-secret-key',
-                    email: 'admin@freeshop.com',
-                    password: 'Str0ng!Pass',
+                    secretKey: 'your-admin-secret-key',
+                    email: 'admin@example.com',
+                    password: 'your_password_here',
                     firstName: 'Super',
                     lastName: 'Admin',
                     role: 'ADMIN',
@@ -326,9 +326,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                 createManager: {
                   summary: 'Create a manager account',
                   value: {
-                    secretKey: 'super-secret-key',
-                    email: 'manager@freeshop.com',
-                    password: 'Str0ng!Pass',
+                    secretKey: 'your-admin-secret-key',
+                    email: 'manager@example.com',
+                    password: 'your_password_here',
                     firstName: 'Store',
                     lastName: 'Manager',
                     role: 'MANAGER',
@@ -357,6 +357,79 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
     },
 
+    '/auth/dev/change-password': {
+      post: {
+        tags: ['Auth - Development'],
+        summary: 'Change any user\'s password (DEV ONLY)',
+        description: `**Development/Emergency endpoint** — Allows a developer to reset any user's password by providing the \`ADMIN_SECRET_KEY\`.
+
+        This endpoint:
+        - Requires the correct \`ADMIN_SECRET_KEY\`
+        - Changes the specified user's password
+        - Invalidates all active refresh tokens for that user (forces re-login on all devices)
+        - Is intended for emergency scenarios only
+
+        **⚠️ WARNING:** This endpoint is powerful and should be protected/restricted at the API Gateway level to internal/admin traffic only.`,
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ChangePasswordRequest' },
+              example: {
+                secretKey: 'your-admin-secret-key',
+                userId: '550e8400-e29b-41d4-a716-446655440000',
+                newPassword: 'your_password_here',
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Password changed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid', description: 'User ID' },
+                    email: { type: 'string', format: 'email', description: 'User email' },
+                    message: { type: 'string', description: 'Confirmation message' },
+                  },
+                },
+                example: {
+                  success: true,
+                  data: {
+                    id: '550e8400-e29b-41d4-a716-446655440000',
+                    email: 'user@example.com',
+                    message: 'Password changed successfully. User must log in again on all devices.',
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          403: {
+            description: 'Forbidden — wrong secret key',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+                example: { success: false, error: { code: 'FORBIDDEN', message: 'Invalid ADMIN_SECRET_KEY' } },
+              },
+            },
+          },
+          404: {
+            description: 'Not Found — user does not exist',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ErrorResponse' },
+                example: { success: false, error: { code: 'NOT_FOUND', message: 'User not found' } },
+              },
+            },
+          },
+        },
+      },
+    },
+
     '/auth/users': {
       get: {
         tags: ['Auth'],
@@ -366,8 +439,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
-          { name: 'role', in: 'query', schema: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] }, description: 'Filter by role' },
-          { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] }, description: 'Filter by account status' },
+          { name: 'role', in: 'query', schema: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'] }, description: 'Filter by role' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'] }, description: 'Filter by account status' },
           { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by firstName, lastName, email, or phone' },
         ],
         responses: {
@@ -402,7 +475,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   lastName: { type: 'string', description: 'Last name (optional)', example: 'Doe' },
                   phone: { type: 'string', description: 'Phone number (optional)', example: '+1234567890' },
                   avatar: { type: 'string', format: 'uri', description: 'Avatar URL (optional)', example: 'https://example.com/avatar.jpg' },
-                  status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], description: 'Account status (optional)' },
+                  status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'], description: 'Account status (optional)' },
                 },
               },
             },
@@ -776,10 +849,14 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['RBAC'],
         summary: 'Get all permissions (PERMISSION_READ required)',
+        description: 'Retrieve paginated list of all permissions with optional filtering by search term, resource, or action. Search is case-insensitive and matches against resource, action, and description fields.',
         security: [{ bearerAuth: [] }, { AdminSecret: [] }],
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
+          { $ref: '#/components/parameters/search' },
+          { $ref: '#/components/parameters/resource' },
+          { $ref: '#/components/parameters/action' },
         ],
         responses: {
           200: {
@@ -1133,6 +1210,71 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     },
 
     // ─── USERS ───────────────────────────────────────────────────────────────
+    '/users/{userId}': {
+      get: {
+        tags: ['Users'],
+        summary: 'Get user profile by ID',
+        description: 'Retrieve a user profile by their ID. Requires authentication and the USER_READ permission.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'userId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'User ID (UUID)',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'User profile retrieved successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/UserResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
+    '/users/{userId}/public-profile': {
+      get: {
+        tags: ['Users'],
+        summary: 'Get user public profile by ID',
+        description: 'Retrieve a user\'s public profile information (name, avatar only). No authentication required.',
+        parameters: [
+          {
+            name: 'userId',
+            in: 'path',
+            required: true,
+            schema: { type: 'string', format: 'uuid' },
+            description: 'User ID (UUID)',
+          },
+        ],
+        responses: {
+          200: {
+            description: 'Public profile retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    firstName: { type: 'string', nullable: true },
+                    lastName: { type: 'string', nullable: true },
+                    email: { type: 'string', format: 'email', nullable: true },
+                    avatar: { type: 'string', nullable: true },
+                  },
+                },
+              },
+            },
+          },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
     '/users/profile': {
       get: {
         tags: ['Users'],
@@ -1688,14 +1830,30 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     },
 
     '/settings/delivery': {
-      get: {
+      post: {
         tags: ['Settings'],
-        summary: 'Get all delivery zones with charges (admin/manager)',
-        description: 'Returns all delivery zones and a map of zone IDs to prices',
+        summary: 'Create delivery zone',
+        description: 'Create a new delivery zone. Only users with admin or manager permissions can create delivery zones.',
         security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Zone name' },
+                  price: { type: 'number', description: 'Delivery price for this zone' },
+                },
+                required: ['name', 'price'],
+              },
+              example: { name: 'In Feni', price: 60 },
+            },
+          },
+        },
         responses: {
-          200: {
-            description: 'Delivery zones and charges retrieved',
+          201: {
+            description: 'Delivery zone created successfully',
             content: {
               'application/json': {
                 schema: {
@@ -1705,78 +1863,17 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                     data: {
                       type: 'object',
                       properties: {
-                        deliveryCharges: {
+                        zone: {
                           type: 'object',
-                          description: 'Map of zone ID to delivery price',
-                          example: { 'zone-uuid-1': 60, 'zone-uuid-2': 50 },
-                        },
-                        zones: {
-                          type: 'array',
-                          description: 'All delivery zones',
-                          items: {
-                            type: 'object',
-                            properties: {
-                              id: { type: 'string', format: 'uuid' },
-                              name: { type: 'string' },
-                              price: { type: 'number' },
-                            },
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            price: { type: 'number' },
                           },
-                          example: [
-                            { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
-                            { id: 'zone-uuid-2', name: 'In Dhaka', price: 50 },
-                          ],
                         },
                       },
                     },
-                    message: { type: 'string', example: 'Delivery charges retrieved' },
-                  },
-                },
-              },
-            },
-          },
-          401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
-        },
-      },
-      put: {
-        tags: ['Settings'],
-        summary: 'Create or update delivery zones (bulk)',
-        description: 'Upsert multiple zones. If id is provided, updates existing zone; otherwise creates new zone.',
-        security: [{ bearerAuth: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            'application/json': {
-              schema: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  properties: {
-                    id: { type: 'string', format: 'uuid', description: 'Zone ID (optional - if not provided, creates new)' },
-                    name: { type: 'string', description: 'Zone name' },
-                    price: { type: 'number', description: 'Delivery price for this zone' },
-                  },
-                  required: ['name', 'price'],
-                },
-              },
-              example: [
-                { id: 'zone-uuid-1', name: 'In Feni', price: 60 },
-                { name: 'Outside Dhaka', price: 120 },
-              ],
-            },
-          },
-        },
-        responses: {
-          200: {
-            description: 'Delivery zones updated successfully',
-            content: {
-              'application/json': {
-                schema: {
-                  type: 'object',
-                  properties: {
-                    success: { type: 'boolean', example: true },
-                    data: { type: 'null' },
-                    message: { type: 'string', example: 'Delivery zones updated' },
+                    message: { type: 'string', example: 'Delivery zone created successfully' },
                   },
                 },
               },
@@ -1932,7 +2029,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'categoryId', in: 'query', schema: { type: 'string' }, description: 'Filter by category ID' },
-          { name: 'vendorId', in: 'query', schema: { type: 'string' }, description: 'Filter by Vendor ID' },
+          { name: 'createdBy', in: 'query', schema: { type: 'string' }, description: 'Filter by creator user ID' },
           { name: 'minPrice', in: 'query', schema: { type: 'number' } },
           { name: 'maxPrice', in: 'query', schema: { type: 'number' } },
           { name: 'isOrganic', in: 'query', schema: { type: 'boolean' } },
@@ -1953,6 +2050,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Products'],
         summary: 'Create a new product (Vendor / admin)',
+        description: `Create a new product and initialize its inventory. The stock field initializes the Inventory Service record (single source of truth for stock management).\n\n**Inventory Initialization**\n- ✓ Publishes PRODUCT_CREATED event with stock parameter\n- ✓ Inventory Service automatically creates initial inventory record\n- ✓ Stock is immediately managed by Inventory Service, not Product Service`,
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -1962,7 +2060,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           201: {
-            description: 'Product created',
+            description: 'Product created and inventory initialized',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
@@ -2050,7 +2148,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       patch: {
         tags: ['Products'],
         summary: 'Update a product (owner or permission)',
-        description: 'A product can be updated by its owner, or by a user with PRODUCT_UPDATE permission. Retail price updates still require PRODUCT_UPDATE_PRICE or an admin/manager role.',
+        description: `Update product details. A product can be updated by its owner, or by a user with PRODUCT_UPDATE permission. Retail price updates still require PRODUCT_UPDATE_PRICE or an admin/manager role.\n\n**Note on Stock Updates**\n- Stock modifications are NOT directly applied to this product\n- Use the Inventory Service API to update stock/reservedStock/lowStockThreshold\n- The Inventory Service maintains real-time stock accuracy`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2063,7 +2161,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           200: {
-            description: 'Product updated',
+            description: 'Product updated (stock fields ignored, use Inventory Service API)',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/ProductResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
@@ -2246,12 +2344,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'verified', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Filter by verified purchase' },
         ],
         responses: {
-          200: { description: 'Paginated reviews' },
+          200: { description: 'Paginated reviews', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedReviews' } } } },
         },
       },
       post: {
         tags: ['Products'],
         summary: 'Create a review (authenticated)',
+        description: 'Create a review for a product. Reviews are created with PENDING status by default; public product ratings include only APPROVED reviews.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -2272,7 +2371,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
         },
         responses: {
-          201: { description: 'Review created' },
+          201: { description: 'Review created', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
         },
@@ -2288,7 +2387,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { $ref: '#/components/parameters/limit' },
         ],
         responses: {
-          200: { description: 'Product reviews' },
+          200: { description: 'Product reviews', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedReviews' } } } },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -2314,7 +2413,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Review details' },
+          200: { description: 'Review details', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -2342,7 +2441,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
         },
         responses: {
-          200: { description: 'Review updated' },
+          200: { description: 'Review updated', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
@@ -2356,7 +2455,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Review deleted' },
+          200: { description: 'Review deleted', content: { 'application/json': { schema: { type: 'object', properties: { success: { type: 'boolean' }, message: { type: 'string' } } } } } },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
@@ -2372,7 +2471,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
         ],
         responses: {
-          200: { description: 'Vote recorded' },
+          200: { description: 'Vote recorded', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
           401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
@@ -2581,6 +2680,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Orders'],
         summary: 'Create a new order',
+        description: `Create a new order from the authenticated user's cart. The system automatically validates that all items have sufficient inventory before creating the order. If any item is out of stock or has insufficient available quantity, the order creation will fail with a 409 Conflict response.
+
+**Inventory Validation**
+- ✓ Checks each item's availability from the inventory service (single source of truth)
+- ✓ Ensures requested quantity ≤ available stock
+- ✓ Blocks order creation if inventory insufficient
+- ✓ Prevents overselling with real-time stock checks`,
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -2590,11 +2696,44 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           201: {
-            description: 'Order created',
+            description: 'Order created successfully after inventory validation',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
+          409: {
+            description: 'Conflict — insufficient inventory for one or more items',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: { type: 'string', example: 'Insufficient inventory for product: Product name' },
+                    error: { type: 'string', example: 'CONFLICT' },
+                    details: {
+                      type: 'object',
+                      properties: {
+                        productId: { type: 'string', format: 'uuid' },
+                        requested: { type: 'integer', example: 5 },
+                        available: { type: 'integer', example: 2 },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  success: false,
+                  message: 'Insufficient inventory for product: Organic Bananas',
+                  error: 'CONFLICT',
+                  details: {
+                    productId: '550e8400-e29b-41d4-a716-446655440001',
+                    requested: 5,
+                    available: 2,
+                  },
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -2662,6 +2801,215 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
+      '/orders/coupons': {
+        post: {
+          tags: ['Coupons'],
+          summary: 'Create a new coupon (requires COUPON_CREATE permission)',
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['code', 'type', 'value', 'startDate'],
+                  properties: {
+                    code: { type: 'string', minLength: 3, maxLength: 20, description: 'Unique coupon code' },
+                    description: { type: 'string', nullable: true },
+                    type: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] },
+                    value: { type: 'number', minimum: 0, description: 'Percentage (0-100) or fixed amount' },
+                    minOrderAmount: { type: 'number', nullable: true, description: 'Minimum order amount required' },
+                    maxDiscount: { type: 'number', nullable: true, description: 'Maximum discount cap' },
+                    usageLimit: { type: 'integer', nullable: true, description: 'Total usage limit' },
+                    perUserLimit: { type: 'integer', nullable: true, default: 1 },
+                    applicableProducts: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableCategories: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableVendors: { type: 'array', items: { type: 'string' }, nullable: true },
+                    startDate: { type: 'string', format: 'date-time' },
+                    endDate: { type: 'string', format: 'date-time', nullable: true },
+                    isActive: { type: 'boolean', default: true },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: 'Coupon created successfully',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Coupon' },
+                },
+              },
+            },
+            400: { $ref: '#/components/responses/BadRequest' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
+        get: {
+          tags: ['Coupons'],
+          summary: 'List all coupons with filters (requires COUPON_READ permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'isActive', in: 'query', schema: { type: 'boolean' } },
+            { name: 'type', in: 'query', schema: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] } },
+            { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by code or description' },
+            { $ref: '#/components/parameters/page' },
+            { $ref: '#/components/parameters/limit' },
+          ],
+          responses: {
+            200: {
+              description: 'List of coupons with pagination',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      data: {
+                        type: 'array',
+                        items: { $ref: '#/components/schemas/Coupon' },
+                      },
+                      pagination: { $ref: '#/components/schemas/Pagination' },
+                    },
+                  },
+                },
+              },
+            },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+          },
+        },
+      },
+      '/orders/coupons/{id}': {
+        get: {
+          tags: ['Coupons'],
+          summary: 'Get coupon by ID (requires COUPON_READ permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            200: {
+              description: 'Coupon details',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Coupon' },
+                },
+              },
+            },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+        put: {
+          tags: ['Coupons'],
+          summary: 'Update coupon (requires COUPON_UPDATE permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    code: { type: 'string', minLength: 3, maxLength: 20 },
+                    description: { type: 'string', nullable: true },
+                    type: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] },
+                    value: { type: 'number', minimum: 0 },
+                    minOrderAmount: { type: 'number', nullable: true },
+                    maxDiscount: { type: 'number', nullable: true },
+                    usageLimit: { type: 'integer', nullable: true },
+                    perUserLimit: { type: 'integer', nullable: true },
+                    applicableProducts: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableCategories: { type: 'array', items: { type: 'string' }, nullable: true },
+                    applicableVendors: { type: 'array', items: { type: 'string' }, nullable: true },
+                    startDate: { type: 'string', format: 'date-time' },
+                    endDate: { type: 'string', format: 'date-time', nullable: true },
+                    isActive: { type: 'boolean' },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: 'Coupon updated successfully',
+              content: {
+                'application/json': {
+                  schema: { $ref: '#/components/schemas/Coupon' },
+                },
+              },
+            },
+            400: { $ref: '#/components/responses/BadRequest' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+        delete: {
+          tags: ['Coupons'],
+          summary: 'Delete coupon (requires COUPON_DELETE permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            200: { description: 'Coupon deleted successfully' },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+      },
+      '/orders/coupons/{id}/usage-stats': {
+        get: {
+          tags: ['Coupons'],
+          summary: 'Get coupon usage statistics (requires COUPON_READ permission)',
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          ],
+          responses: {
+            200: {
+              description: 'Coupon usage statistics',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      code: { type: 'string' },
+                      totalUsageLimit: { type: 'integer', nullable: true },
+                      currentUsageCount: { type: 'integer' },
+                      remainingUses: { oneOf: [{ type: 'integer' }, { type: 'string', enum: ['unlimited'] }] },
+                      usageDetails: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string' },
+                            userId: { type: 'string' },
+                            orderId: { type: 'string' },
+                            discount: { type: 'number' },
+                            usedAt: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            401: { $ref: '#/components/responses/Unauthorized' },
+            403: { $ref: '#/components/responses/Forbidden' },
+            404: { $ref: '#/components/responses/NotFound' },
+          },
+        },
+      },
     '/orders/vendor/{vendorId}': {
       get: {
         tags: ['Orders'],
@@ -2711,6 +3059,25 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             description: 'Order details',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderResponse' } } },
           },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Orders'],
+        summary: 'Delete an order (requires ORDER_DELETE permission)',
+        description: 'Permanently delete an order. Only orders in PENDING, CONFIRMED, CANCELLED, or RETURNED status can be deleted. Requires ORDER_DELETE permission (admin/manager only).',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Order ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Order deleted successfully',
+            content: { 'application/json': { schema: { type: 'object', properties: { message: { type: 'string' } } } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
@@ -2850,8 +3217,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/orders/{orderId}/delivery': {
       post: {
         tags: ['Orders'],
-        summary: 'Create delivery for an order (Unified endpoint)',
-        description: 'Create delivery with automatic routing - supports both INHOUSE and THIRD_PARTY delivery types',
+        summary: 'Create delivery for an order - supports all delivery scenarios',
+        description: `Create delivery with automatic routing for all delivery providers.
+
+**Delivery Scenarios:**
+
+1. **INHOUSE Delivery** - Assign to your own delivery staff
+   - Type: INHOUSE
+   - Requires: deliveryManId (UUID of your delivery person)
+   - Status: ASSIGNED immediately
+   
+2. **THIRD_PARTY Delivery - Supported Providers**
+   - **STEADFAST** - Bangladesh-based courier (COD support)
+   - **PATHAO** - Popular Bangladesh delivery service
+   - **REDX** - Express delivery service
+   - **SUNDARBAN** - Regional delivery partner
+   - **OTHER** - Custom/unknown third-party provider
+   
+   - Type: THIRD_PARTY
+   - Requires: provider (one of above)
+   - Status: PENDING (becomes ASSIGNED when provider confirms)
+   - Tracking: Automatically filled when provider responds
+
+**Permission Required:** DELIVERY_CREATE
+
+**Automatic Features:**
+- Sends order data to provider API
+- Stores tracking IDs and consignment numbers
+- Syncs delivery status → Order status
+- Handles webhooks for real-time updates
+- COD payments auto-complete on DELIVERED status`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2892,22 +3287,60 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               },
               examples: {
                 inhouse: {
-                  summary: 'INHOUSE delivery example',
+                  summary: 'INHOUSE Delivery - Assign to your delivery staff',
                   value: {
                     type: 'INHOUSE',
                     deliveryManId: '550e8400-e29b-41d4-a716-446655440000',
                     weight: 2.5,
                     fragile: false,
+                    estimatedDeliveryDate: '2026-05-20T18:00:00Z',
                   },
                 },
-                thirdParty: {
-                  summary: 'THIRD_PARTY delivery example',
+                steadfast: {
+                  summary: 'STEADFAST Delivery - Bangladesh courier (COD support)',
                   value: {
                     type: 'THIRD_PARTY',
                     provider: 'STEADFAST',
-                    trackingId: 'ST123456',
-                    apiRef: 'ref-123',
                     weight: 1.8,
+                    fragile: false,
+                  },
+                },
+                pathao: {
+                  summary: 'PATHAO Delivery - Popular BD delivery service',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'PATHAO',
+                    weight: 1.5,
+                    fragile: false,
+                  },
+                },
+                redx: {
+                  summary: 'REDX Delivery - Express delivery service',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'REDX',
+                    weight: 2.0,
+                    fragile: false,
+                  },
+                },
+                sundarban: {
+                  summary: 'SUNDARBAN Delivery - Regional delivery partner',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'SUNDARBAN',
+                    weight: 1.2,
+                    fragile: false,
+                  },
+                },
+                other: {
+                  summary: 'OTHER - Custom/unknown third-party provider',
+                  value: {
+                    type: 'THIRD_PARTY',
+                    provider: 'OTHER',
+                    trackingId: 'CUSTOM-123456',
+                    apiRef: 'custom-ref-001',
+                    weight: 2.5,
+                    fragile: true,
                   },
                 },
               },
@@ -2929,7 +3362,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                         id: { type: 'string', format: 'uuid', description: 'Delivery ID' },
                         orderId: { type: 'string', format: 'uuid' },
                         provider: { type: 'string', enum: ['INHOUSE', 'STEADFAST', 'PATHAO', 'REDX', 'SUNDARBAN', 'OTHER'] },
-                        status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'] },
+                        status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
                         deliveryManId: { type: 'string', format: 'uuid', nullable: true },
                         externalProvider: { type: 'string', nullable: true },
                         externalTrackingId: { type: 'string', nullable: true },
@@ -2949,14 +3382,30 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery by order',
+        summary: 'Get delivery details by order - with full enriched data',
+        description: `Retrieve complete delivery information for an order including:
+- **Delivery Type & Provider:** INHOUSE (with delivery man details) or THIRD_PARTY (with tracking info)
+- **Current Status:** PENDING → ASSIGNED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
+- **Tracking:** Tracking IDs, consignment numbers, carrier info
+- **Related Data:** Full order info, delivery man profile, customer details
+- **Dates:** Estimated & actual delivery dates, status timestamps
+
+**Response includes:**
+- Delivery details (ID, status, provider, tracking)
+- Delivery man profile (name, email, phone, avatar) - if INHOUSE
+- Complete order data (items, totals, addresses, payment status)
+- Timestamps for all status changes
+
+**Optional Search:**
+Filter by delivery ID, tracking ID, or order number using \`search\` query parameter.`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'orderId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'search', in: 'query', required: false, schema: { type: 'string' }, description: 'Optional search term to filter by delivery ID, tracking ID, or order number' },
         ],
         responses: {
           200: {
-            description: 'Delivery details for the order',
+            description: 'Delivery details with enriched order information (delivery man will be null if not yet assigned)',
             content: {
               'application/json': {
                 schema: {
@@ -2966,13 +3415,57 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                     data: {
                       type: 'object',
                       properties: {
-                        deliveryId: { type: 'string', format: 'uuid' },
+                        id: { type: 'string', format: 'uuid' },
                         orderId: { type: 'string', format: 'uuid' },
-                        provider: { type: 'string' },
-                        status: { type: 'string' },
-                        trackingNumber: { type: 'string' },
+                        status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
+                        deliveryManId: { type: 'string', format: 'uuid', nullable: true },
+                        deliveryMan: {
+                          type: 'object',
+                          nullable: true,
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            name: { type: 'string' },
+                            email: { type: 'string', format: 'email' },
+                            phone: { type: 'string' },
+                            avatar: { type: 'string', format: 'uri' },
+                          },
+                        },
+                        order: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            orderNumber: { type: 'string' },
+                            status: { type: 'string' },
+                            total: { type: 'number' },
+                            subtotal: { type: 'number' },
+                            shippingFee: { type: 'number' },
+                            tax: { type: 'number' },
+                            discount: { type: 'number' },
+                            paymentStatus: { type: 'string' },
+                            paymentMethod: { type: 'string' },
+                            shippingAddress: { type: 'object' },
+                            billingAddress: { type: 'object' },
+                            items: {
+                              type: 'array',
+                              items: {
+                                type: 'object',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  productName: { type: 'string' },
+                                  quantity: { type: 'integer' },
+                                  price: { type: 'number' },
+                                  vendorId: { type: 'string', format: 'uuid' },
+                                },
+                              },
+                            },
+                            createdAt: { type: 'string', format: 'date-time' },
+                            updatedAt: { type: 'string', format: 'date-time' },
+                          },
+                        },
+                        trackingId: { type: 'string', nullable: true },
                         estimatedDeliveryDate: { type: 'string', format: 'date-time' },
-                        actualDeliveryDate: { type: 'string', format: 'date-time' },
+                        actualDeliveryDate: { type: 'string', format: 'date-time', nullable: true },
+                        createdAt: { type: 'string', format: 'date-time' },
                       },
                     },
                   },
@@ -2990,7 +3483,27 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/{deliveryId}': {
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery details by ID',
+        summary: 'Get complete delivery details by ID',
+        description: `Retrieve full delivery information including all related data and history.
+
+**Response Includes:**
+- **Delivery Info:** ID, status, provider type, tracking numbers
+- **Order Details:** Order number, customer, items, total, payment status
+- **Delivery Address:** Full shipping address with formatting
+- **Dates & Timeline:** Created, estimated delivery, actual delivery, status changes
+- **Provider Data:** External tracking IDs, consignment numbers, API references
+- **Delivery Man:** If INHOUSE delivery - name, contact, avatar
+- **Financial:** Delivery charge, discount applied
+- **Logistics:** Weight, dimensions, fragile flag
+
+**Status Flow Timeline:**
+The response shows the progression:
+PENDING → ASSIGNED → PICKED_UP → IN_TRANSIT → OUT_FOR_DELIVERY → DELIVERED
+
+**Provider-Specific:**
+- **INHOUSE:** Shows assigned delivery man profile
+- **STEADFAST:** Shows Steadfast consignment ID and tracking code
+- **PATHAO/REDX/SUNDARBAN/OTHER:** Shows provider-specific tracking info`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3005,7 +3518,31 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/{deliveryId}/status': {
       put: {
         tags: ['Orders'],
-        summary: 'Update delivery status',
+        summary: 'Update delivery status - triggers automatic order & payment sync',
+        description: `Update delivery status and automatically trigger related actions:
+
+**Status Transitions & Automatic Actions:**
+
+| Status | Trigger | What Happens |
+|--------|---------|--------------|
+| PENDING | Initial state | Waiting for provider assignment |
+| ASSIGNED | Provider confirms | Order → PROCESSING, Tracking ID stored |
+| PICKED_UP | Carrier picks up | Order remains PROCESSING |
+| IN_TRANSIT | On the way | Order → SHIPPED |
+| OUT_FOR_DELIVERY | Same-day delivery | Order → OUT_FOR_DELIVERY |
+| DELIVERED | Completed | Order → DELIVERED, COD auto-marked PAID |
+| FAILED | Delivery failed | Order status unchanged (admin action needed) |
+| CANCELLED | Delivery cancelled | Order → CANCELLED |
+
+**Automatic Syncing:**
+- Order status updates to match delivery status
+- COD payments are marked as PAID when status=DELIVERED
+- Notifications sent to customer and admin
+- Timestamps recorded for each status change
+- Third-party webhooks update these statuses automatically
+
+**Manual Updates:**
+You can manually update status for INHOUSE deliveries or after failed attempts. For THIRD_PARTY, statuses are usually updated via provider webhooks.`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3018,7 +3555,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                 type: 'object',
                 required: ['status'],
                 properties: {
-                  status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED'] },
+                  status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
                   notes: { type: 'string', description: 'Optional notes about the status update' },
                 },
               },
@@ -3036,7 +3573,32 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/{deliveryId}/failed-attempt': {
       post: {
         tags: ['Orders'],
-        summary: 'Record a failed delivery attempt',
+        summary: 'Record failed delivery attempt with reason',
+        description: `Record why a delivery attempt failed and let system auto-retry or escalate.
+
+**Common Failure Reasons:**
+- Customer not home / not available
+- Invalid/incomplete address
+- Customer refused delivery
+- Weather conditions / accessibility issues
+- Security gate locked
+- Package damaged upon inspection
+- Customer not responding to calls
+- Wrong recipient details
+
+**What Happens:**
+1. Failure reason is recorded
+2. Delivery status remains IN_TRANSIT or OUT_FOR_DELIVERY
+3. System logs the failed attempt count
+4. Admin can manually retry or reassign
+5. For THIRD_PARTY providers: may auto-retry per their policy
+6. Order status remains PROCESSING/SHIPPED (not yet failed)
+
+**Best For:**
+- INHOUSE deliveries with customer contact issues
+- Logging reasons for audit/analytics
+- Triggering admin review or customer contact
+- Historical tracking of delivery attempts`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'deliveryId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -3066,17 +3628,49 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/delivery-man/{deliveryManId}': {
       get: {
         tags: ['Orders'],
-        summary: 'Get deliveries assigned to a delivery man',
+        summary: 'Get all deliveries assigned to a delivery man with enriched data',
+        description: `Retrieve all INHOUSE deliveries assigned to a specific delivery man, including complete context.
+
+**Delivery Man Context:**
+- Shows who is assigned (name, email, phone, avatar)
+- Helps track workload and performance per delivery staff member
+
+**Response Data for Each Delivery:**
+- Status and progress (PENDING → DELIVERED)
+- Order details (customer, items, total)
+- Customer information from shipping address
+- Dates (assigned, picked up, delivered)
+- Package details (weight, fragility, dimensions)
+
+**Filtering Options:**
+- \`status\`: Filter by delivery status (PENDING, IN_TRANSIT, DELIVERED, FAILED, etc.)
+- \`startDate\`: Deliveries created from this date (ISO 8601)
+- \`endDate\`: Deliveries created until this date
+- \`search\`: Find by order number, customer name, email, or phone
+
+**Pagination:**
+- \`page\`: Which page of results (default: 1)
+- \`limit\`: Results per page, max 100 (default: 10)
+
+**Use Cases:**
+- View delivery man's daily workload
+- Track specific delivery man's performance
+- Filter deliveries by date range for weekly/monthly reports
+- Search customer details within a delivery man's assignments
+- Mobile app: show delivery man their assigned orders`,
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'deliveryManId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Delivery man ID' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
-          { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status' },
+          { name: 'status', in: 'query', schema: { type: 'string' }, description: 'Filter by delivery status (PENDING, ASSIGNED, PICKED_UP, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED, CANCELLED)' },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries from this date (ISO 8601 format, e.g., 2026-04-01T00:00:00Z)' },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Filter deliveries until this date (ISO 8601 format, e.g., 2026-04-30T23:59:59Z)' },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search by order number, customer name (from shipping address), guest email, or guest phone' },
         ],
         responses: {
           200: {
-            description: 'Paginated list of deliveries for the delivery man',
+            description: 'Paginated list of deliveries with enriched delivery man and order details',
             content: {
               'application/json': {
                 schema: {
@@ -3084,25 +3678,66 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   properties: {
                     success: { type: 'boolean' },
                     data: {
-                      type: 'array',
-                      items: {
-                        type: 'object',
-                        properties: {
-                          deliveryId: { type: 'string', format: 'uuid' },
-                          orderId: { type: 'string', format: 'uuid' },
-                          status: { type: 'string' },
-                          customerName: { type: 'string' },
-                          address: { type: 'string' },
-                          estimatedDeliveryDate: { type: 'string', format: 'date-time' },
-                        },
-                      },
-                    },
-                    pagination: {
                       type: 'object',
                       properties: {
-                        page: { type: 'integer' },
-                        limit: { type: 'integer' },
-                        total: { type: 'integer' },
+                        deliveries: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string', format: 'uuid' },
+                              orderId: { type: 'string', format: 'uuid' },
+                              status: { type: 'string', enum: ['PENDING', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'CANCELLED'] },
+                              deliveryManId: { type: 'string', format: 'uuid' },
+                              deliveryMan: {
+                                type: 'object',
+                                description: 'Delivery man profile information',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  name: { type: 'string' },
+                                  email: { type: 'string', format: 'email' },
+                                  phone: { type: 'string' },
+                                  avatar: { type: 'string', format: 'uri' },
+                                },
+                              },
+                              order: {
+                                type: 'object',
+                                description: 'Complete order information',
+                                properties: {
+                                  id: { type: 'string', format: 'uuid' },
+                                  orderNumber: { type: 'string' },
+                                  status: { type: 'string' },
+                                  total: { type: 'number' },
+                                  shippingAddress: { type: 'object' },
+                                  items: {
+                                    type: 'array',
+                                    items: {
+                                      type: 'object',
+                                      properties: {
+                                        id: { type: 'string', format: 'uuid' },
+                                        productName: { type: 'string' },
+                                        quantity: { type: 'integer' },
+                                        price: { type: 'number' },
+                                      },
+                                    },
+                                  },
+                                },
+                              },
+                              trackingId: { type: 'string', nullable: true },
+                              estimatedDeliveryDate: { type: 'string', format: 'date-time' },
+                              createdAt: { type: 'string', format: 'date-time' },
+                            },
+                          },
+                        },
+                        pagination: {
+                          type: 'object',
+                          properties: {
+                            page: { type: 'integer' },
+                            limit: { type: 'integer' },
+                            total: { type: 'integer' },
+                            pages: { type: 'integer' },
+                          },
+                        },
                       },
                     },
                   },
@@ -3117,7 +3752,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/provider/{provider}': {
       get: {
         tags: ['Orders'],
-        summary: 'Get deliveries by provider',
+        summary: 'Get all deliveries by provider with filtering & analytics',
+        description: `Retrieve all deliveries handled by a specific provider (both INHOUSE and THIRD_PARTY).
+
+**Available Providers:**
+
+| Provider | Type | Coverage | Features |
+|----------|------|----------|----------|
+| **INHOUSE** | Internal | Your own staff | Full control, real-time GPS tracking |
+| **STEADFAST** | 3rd Party | Bangladesh | COD support, SMS tracking, phone delivery |
+| **PATHAO** | 3rd Party | Bangladesh | Eco-friendly, fast urban delivery |
+| **REDX** | 3rd Party | Bangladesh | Express service, premium packaging |
+| **SUNDARBAN** | 3rd Party | Regional | Regional coverage, cost-effective |
+| **OTHER** | 3rd Party | Custom | For any other courier service |
+
+**Use Cases:**
+- View all INHOUSE deliveries for team analytics
+- Monitor STEADFAST deliveries (COD collections)
+- Check provider-specific performance metrics
+- Filter by status to see pending vs completed
+- Pagination for large datasets
+
+**Filters:**
+- \`status\`: PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, FAILED
+- \`page\` & \`limit\`: For pagination (default: page=1, limit=10)
+
+**Response Includes:**
+- All delivery details for that provider
+- Order information, customer details
+- Tracking IDs and external references
+- Status timeline and timestamps`,
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'provider', in: 'path', required: true, schema: { type: 'string', enum: ['INHOUSE', 'STEADFAST', 'PATHAO', 'REDX', 'SUNDARBAN', 'OTHER'] } },
@@ -3155,7 +3819,40 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/deliveries/stats': {
       get: {
         tags: ['Orders'],
-        summary: 'Get delivery statistics (admin only)',
+        summary: 'Get comprehensive delivery statistics & analytics (admin only)',
+        description: `Get system-wide delivery metrics and performance analytics.
+
+**Metrics Provided:**
+
+1. **Volume Statistics**
+   - Total deliveries across all providers
+   - Breakdown by provider (INHOUSE, STEADFAST, PATHAO, REDX, SUNDARBAN, OTHER)
+
+2. **Status Distribution**
+   - Count of deliveries in each status
+   - Success rate (DELIVERED / Total)
+   - Failure rate (FAILED / Total)
+
+3. **Performance Metrics**
+   - Average delivery time (hours from ASSIGNED to DELIVERED)
+   - On-time delivery percentage
+   - Success vs failed comparison
+
+4. **Provider Performance**
+   - Breakdown of deliveries by provider
+   - Each provider's success rate
+   - Average delivery time per provider
+
+**Use Cases:**
+- Dashboard analytics
+- Provider performance comparison
+- SLA tracking and reporting
+- Identify bottlenecks or issues
+- Monthly/weekly delivery reports
+
+**Permission Required:**
+- Admin or Manager role
+- Access to DELIVERY_READ permission`,
         security: [{ bearerAuth: [] }],
         responses: {
           200: {
@@ -3187,7 +3884,141 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
     },
 
-    // ─── CART ────────────────────────────────────────────────────────────────
+    // ─── WEBHOOKS (FOR DELIVERY PROVIDERS) ────────────────────────────────
+    '/webhooks/steadfast': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Steadfast Webhook - Delivery status updates (no auth required)',
+        description: `Receive real-time delivery status updates from Steadfast courier service.
+
+**Authentication:**
+- Use \`Authorization: Bearer {STEADFAST_BEARER_TOKEN}\` header
+- Token must match \`STEADFAST_BEARER_TOKEN\` environment variable
+- No user authentication needed (service-to-service)
+
+**Webhook Payload from Steadfast:**
+\`\`\`json
+{
+  "consignment_id": 54321,
+  "invoice": "ORD-2026-001",
+  "tracking_code": "SF-2026-54321",
+  "status": "delivered",
+  "cod_amount": 3500,
+  "updated_at": "2026-05-17T14:30:00Z"
+}
+\`\`\`
+
+**Status Values from Steadfast:**
+- \`pending\` / \`in_review\` → DeliveryStatus: \`ASSIGNED\`
+- \`in_transit\` → DeliveryStatus: \`IN_TRANSIT\`
+- \`out_for_delivery\` → DeliveryStatus: \`OUT_FOR_DELIVERY\`
+- \`delivered\` → DeliveryStatus: \`DELIVERED\` (triggers COD auto-payment)
+- \`failed\` / \`cancelled\` → DeliveryStatus: \`FAILED\`
+
+**Automatic Actions on Receipt:**
+1. Match consignment by \`consignment_id\`
+2. Update \`DeliveryInfo.status\` based on Steadfast status
+3. Sync order status (e.g., DELIVERED → Order.status = DELIVERED)
+4. If COD & status=DELIVERED: Auto-mark payment as PAID
+5. Update \`externalTrackingId\` and timestamps
+
+**Rate Limiting:**
+- Limited to prevent abuse (webhook rate limiter enabled)
+- Duplicate deliveries are idempotent (safe to retry)
+
+**Setup in Steadfast Dashboard:**
+1. Login to Steadfast portal
+2. Go to Settings → Webhook Configuration
+3. Set URL: \`https://api.yourdomain.com/api/v1/webhooks/steadfast\`
+4. Method: POST
+5. Headers: \`Authorization: Bearer {your-token}\``,
+        security: [],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  consignment_id: { type: ['string', 'number'], description: 'Steadfast consignment ID' },
+                  invoice: { type: 'string', description: 'Order number / invoice reference' },
+                  tracking_code: { type: 'string', description: 'Tracking code for end-customer' },
+                  status: { type: 'string', enum: ['pending', 'in_review', 'in_transit', 'out_for_delivery', 'delivered', 'failed', 'cancelled', 'hold'], description: 'Delivery status from Steadfast' },
+                  cod_amount: { type: ['string', 'number'], description: 'COD amount if applicable' },
+                  note: { type: 'string', nullable: true, description: 'Optional notes from courier' },
+                  updated_at: { type: 'string', format: 'date-time', description: 'When status was updated' },
+                },
+              },
+              examples: {
+                delivered: {
+                  summary: 'Delivery completed (triggers COD payment)',
+                  value: {
+                    consignment_id: '54321',
+                    invoice: 'ORD-2026-001',
+                    tracking_code: 'SF-2026-54321',
+                    status: 'delivered',
+                    cod_amount: '3500',
+                    updated_at: '2026-05-17T14:30:00Z',
+                  },
+                },
+                inTransit: {
+                  summary: 'Package in transit',
+                  value: {
+                    consignment_id: '54321',
+                    invoice: 'ORD-2026-001',
+                    tracking_code: 'SF-2026-54321',
+                    status: 'in_transit',
+                    cod_amount: '3500',
+                    updated_at: '2026-05-17T10:15:00Z',
+                  },
+                },
+                failed: {
+                  summary: 'Delivery attempt failed',
+                  value: {
+                    consignment_id: '54321',
+                    invoice: 'ORD-2026-001',
+                    tracking_code: 'SF-2026-54321',
+                    status: 'failed',
+                    cod_amount: '3500',
+                    note: 'Customer not available',
+                    updated_at: '2026-05-17T16:45:00Z',
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Webhook processed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        matched: { type: 'boolean', description: 'Whether a matching delivery was found' },
+                        deliveryId: { type: 'string', format: 'uuid', description: 'Delivery ID that was updated' },
+                        orderId: { type: 'string', format: 'uuid', description: 'Related order ID' },
+                        internalStatus: { type: 'string', description: 'Internal status we set (e.g., DELIVERED)' },
+                      },
+                    },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+
+    // ─── CART ────────────────────────────────────────────────────────────
     '/cart': {
       get: {
         tags: ['Cart'],
@@ -3211,6 +4042,12 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Cart'],
         summary: 'Add item to cart and return updated cart with free items',
+        description: `Add or update an item in the cart. The system validates inventory availability before adding the item to ensure the requested quantity is in stock.
+
+**Inventory Validation**
+- ✓ Checks availability with inventory service before adding to cart
+- ✓ Returns 409 if insufficient stock
+- ✓ Prevents adding items that are out of stock`,
         parameters: [
           {
             name: 'x-guest-id',
@@ -3253,11 +4090,31 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           200: {
-            description: 'Item added / quantity updated, returns cart with free items',
+            description: 'Item added / quantity updated (after inventory validation), returns cart with free items',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/CartResponse' } } },
           },
           400: { $ref: '#/components/responses/BadRequest' },
           404: { $ref: '#/components/responses/NotFound' },
+          409: {
+            description: 'Conflict — product out of stock or insufficient inventory for requested quantity',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: false },
+                    message: { type: 'string' },
+                    error: { type: 'string', example: 'CONFLICT' },
+                  },
+                },
+                example: {
+                  success: false,
+                  message: 'Product is out of stock',
+                  error: 'CONFLICT',
+                },
+              },
+            },
+          },
         },
       },
       delete: {
@@ -3618,6 +4475,72 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/payments/cod/complete': {
+      post: {
+        tags: ['Payments'],
+        summary: 'Auto-complete COD payment when delivery is marked as DELIVERED (internal)',
+        description: 'This is an internal service-to-service endpoint called automatically by the order service when a COD delivery is marked as DELIVERED. Not for direct API use.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['orderId', 'amount'],
+                properties: {
+                  orderId: { type: 'string', format: 'uuid', description: 'Order ID' },
+                  amount: { type: 'number', minimum: 0.01, description: 'Order amount' },
+                  transactionId: { type: 'string', description: 'Optional transaction ID (auto-generated if not provided)' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'COD payment completed successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        payment: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'string', format: 'uuid' },
+                            orderId: { type: 'string', format: 'uuid' },
+                            amount: { type: 'number' },
+                            method: { type: 'string', enum: ['COD'] },
+                            status: { type: 'string', enum: ['COMPLETED'] },
+                            transactionId: { type: 'string' },
+                            paidAt: { type: 'string', format: 'date-time' },
+                            metadata: {
+                              type: 'object',
+                              properties: {
+                                autoCompleted: { type: 'boolean' },
+                                deliveryCompleted: { type: 'boolean' },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
@@ -4017,7 +4940,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/inventory/initialize': {
       post: {
         tags: ['Inventory'],
-        summary: 'Initialize inventory for a product (admin / Vendor)',
+        summary: 'Initialize inventory for a product (admin / vendor)',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -4025,10 +4948,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['productId', 'vendorId'],
+                required: ['productId', 'userId'],
                 properties: {
                   productId: { type: 'string', format: 'uuid' },
-                  vendorId: { type: 'string', format: 'uuid' },
+                  userId: { type: 'string', format: 'uuid', description: 'Owner user ID for this inventory (creator/vendor)' },
                   initialStock: { type: 'integer', minimum: 0, default: 0 },
                   lowStockThreshold: { type: 'integer', minimum: 0, default: 10 },
                 },
@@ -4064,9 +4987,12 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                     minItems: 1,
                     items: {
                       type: 'object',
-                      required: ['productId', 'quantity'],
+                      required: ['quantity'],
                       properties: {
-                        productId: { type: 'string', format: 'uuid' },
+                        productId: { type: 'string', format: 'uuid', description: 'Base product ID when no composite inventory key is used' },
+                        inventoryKey: { type: 'string', description: 'Composite inventory key such as productId, productId:variantId, or productId:free:freeItemId' },
+                        variantId: { type: 'string', format: 'uuid', nullable: true, description: 'Variant ID for variant-specific stock' },
+                        freeItemId: { type: 'string', format: 'uuid', nullable: true, description: 'Free-item identifier for bundled/promotional stock' },
                         quantity: { type: 'integer', minimum: 1 },
                       },
                     },
@@ -4091,6 +5017,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                         type: 'object',
                         properties: {
                           productId: { type: 'string' },
+                          variantId: { type: 'string', nullable: true },
+                          freeItemId: { type: 'string', nullable: true },
                           available: { type: 'boolean' },
                           availableStock: { type: 'integer' },
                           requestedQuantity: { type: 'integer' },
@@ -4103,6 +5031,36 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             },
           },
           400: { $ref: '#/components/responses/BadRequest' },
+        },
+      },
+    },
+    '/inventory/cleanup/expired-reservations': {
+      post: {
+        tags: ['Inventory'],
+        summary: 'Release expired stock reservations (admin / scheduled job)',
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: 'Expired reservations cleaned up',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        releasedCount: { type: 'integer' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
@@ -4122,20 +5080,20 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
       },
     },
-    '/inventory/vendor/{vendorId}': {
+    '/inventory/user/{userId}': {
       get: {
         tags: ['Inventory'],
-        summary: "Get a Vendor's full inventory (Vendor / admin / manager)",
+        summary: "Get a user's inventory (returns products owned/created by the user)",
         security: [{ bearerAuth: [] }],
         parameters: [
-          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Defaults to authenticated Vendor if omitted' },
+          { name: 'userId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'User ID to fetch inventory for (must match authenticated user or caller must have permission)' },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
           { name: 'lowStockOnly', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Return only low-stock or out-of-stock items' },
         ],
         responses: {
           200: {
-            description: 'Vendor inventory list',
+            description: 'User inventory list',
             content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedInventory' } } },
           },
           401: { $ref: '#/components/responses/Unauthorized' },
@@ -4606,93 +5564,341 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
     },
 
-    // ─── ANALYTICS ───────────────────────────────────────────────────────────
-    '/analytics/dashboard': {
+    // ─── ANALYTICS: SECTION 1 - PLATFORM METRICS (90010) ──────────────────────
+    '/analytics/section/platform/dashboard': {
       get: {
         tags: ['Analytics'],
-        summary: 'Platform dashboard metrics (admin / manager)',
+        summary: 'Get platform dashboard metrics',
+        description: 'Platform-wide metrics including orders, revenue, and user activity. Requires permission code 90010.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'Start date for metrics' },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' }, description: 'End date for metrics' },
+        ],
+        responses: {
+          200: {
+            description: 'Platform dashboard metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalOrders: { type: 'integer', example: 1523 },
+                    totalRevenue: { type: 'number', example: 2450000 },
+                    activeVendors: { type: 'integer', example: 48 },
+                    activeUsers: { type: 'integer', example: 3210 },
+                    averageOrderValue: { type: 'number', example: 1608.53 },
+                    orderGrowth: { type: 'number', example: 12.5 },
+                    revenueGrowth: { type: 'number', example: 18.3 },
+                    topCategories: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          categoryName: { type: 'string', example: 'Vegetables' },
+                          totalSales: { type: 'number', example: 325000 },
+                          orderCount: { type: 'integer', example: 234 },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalOrders: 1523,
+                  totalRevenue: 2450000,
+                  activeVendors: 48,
+                  activeUsers: 3210,
+                  averageOrderValue: 1608.53,
+                  orderGrowth: 12.5,
+                  revenueGrowth: 18.3,
+                  topCategories: [
+                    { categoryName: 'Vegetables', totalSales: 325000, orderCount: 234 },
+                    { categoryName: 'Fruits', totalSales: 298000, orderCount: 189 },
+                    { categoryName: 'Dairy', totalSales: 187000, orderCount: 156 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (permission code 90010 required)' },
+        },
+      },
+    },
+    '/analytics/section/platform/orders/trend': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get order volume trends',
+        description: 'Order count trends over time period. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Dashboard metrics' },
+          200: {
+            description: 'Order trends data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    dates: { type: 'array', items: { type: 'string' }, example: ['2026-05-01', '2026-05-02', '2026-05-03'] },
+                    orderCounts: { type: 'array', items: { type: 'integer' }, example: [120, 145, 132] },
+                    averageDailyOrders: { type: 'number', example: 132.33 },
+                    peakDay: { type: 'object', properties: { date: { type: 'string' }, count: { type: 'integer' } }, example: { date: '2026-05-02', count: 145 } },
+                  },
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/sales': {
+    '/analytics/section/platform/payment-methods': {
       get: {
         tags: ['Analytics'],
-        summary: 'Sales analytics (admin / manager)',
+        summary: 'Get payment method distribution',
+        description: 'Distribution of orders by payment method. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Sales data' },
+          200: {
+            description: 'Payment method breakdown',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    paymentMethods: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          method: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'], example: 'COD' },
+                          orderCount: { type: 'integer', example: 456 },
+                          revenue: { type: 'number', example: 734500 },
+                          percentage: { type: 'number', example: 30.0 },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  paymentMethods: [
+                    { method: 'COD', orderCount: 456, revenue: 734500, percentage: 30.0 },
+                    { method: 'BKASH', orderCount: 567, revenue: 912345, percentage: 37.2 },
+                    { method: 'CARD', orderCount: 234, revenue: 378000, percentage: 15.5 },
+                    { method: 'EPS', orderCount: 266, revenue: 425155, percentage: 17.3 },
+                  ],
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/top-products': {
+    '/analytics/section/platform/regions': {
       get: {
         tags: ['Analytics'],
-        summary: 'Top performing products (admin / manager)',
+        summary: 'Get regional sales breakdown',
+        description: 'Sales distribution by geographic region. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
         ],
         responses: {
-          200: { description: 'Top products' },
+          200: {
+            description: 'Regional breakdown',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    regions: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          regionName: { type: 'string', example: 'Dhaka' },
+                          orderCount: { type: 'integer', example: 545 },
+                          revenue: { type: 'number', example: 876543 },
+                          percentage: { type: 'number', example: 35.8 },
+                          activeUsers: { type: 'integer', example: 892 },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  regions: [
+                    { regionName: 'Dhaka', orderCount: 545, revenue: 876543, percentage: 35.8, activeUsers: 892 },
+                    { regionName: 'Chittagong', orderCount: 312, revenue: 501234, percentage: 20.5, activeUsers: 523 },
+                    { regionName: 'Sylhet', orderCount: 198, revenue: 318900, percentage: 13.0, activeUsers: 287 },
+                    { regionName: 'Others', orderCount: 468, revenue: 753323, percentage: 30.7, activeUsers: 608 },
+                  ],
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/top-Vendors': {
+    '/analytics/section/platform/top-products': {
       get: {
         tags: ['Analytics'],
-        summary: 'Top performing Vendors (admin / manager)',
+        summary: 'Get top products by volume',
+        description: 'Most ordered products across platform. Requires permission 90010.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
-          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, description: 'Number of products to return' },
         ],
         responses: {
-          200: { description: 'Top Vendors' },
+          200: {
+            description: 'Top products list',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    products: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          productId: { type: 'string', format: 'uuid' },
+                          productName: { type: 'string' },
+                          orderCount: { type: 'integer' },
+                          unitsSold: { type: 'integer' },
+                          revenue: { type: 'number' },
+                          rating: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  products: [
+                    { productId: '550e8400-e29b-41d4-a716-446655440001', productName: 'Organic Tomatoes (1kg)', orderCount: 234, unitsSold: 567, revenue: 89450, rating: 4.7 },
+                    { productId: '550e8400-e29b-41d4-a716-446655440002', productName: 'Fresh Cucumber (500g)', orderCount: 189, unitsSold: 445, revenue: 53400, rating: 4.5 },
+                    { productId: '550e8400-e29b-41d4-a716-446655440003', productName: 'Carrots Bundle (2kg)', orderCount: 167, unitsSold: 334, revenue: 36740, rating: 4.8 },
+                  ],
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/users': {
+
+    // ─── ANALYTICS: SECTION 2 - VENDOR ANALYTICS (90011) ────────────────────
+    '/analytics/section/vendor/dashboard': {
       get: {
         tags: ['Analytics'],
-        summary: 'User analytics (admin / manager)',
+        summary: 'Get vendor dashboard (own or all)',
+        description: 'VENDOR: Own dashboard with supplier price calculations. ADMIN/SUPERADMIN: All vendors. Requires permission 90011.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'User analytics' },
+          200: {
+            description: 'Vendor dashboard data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      vendorId: { type: 'string', format: 'uuid' },
+                      storeName: { type: 'string' },
+                      totalOrders: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      averageOrderValue: { type: 'number' },
+                      activeProducts: { type: 'integer' },
+                      rating: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440010', storeName: 'Fresh Farm Store', totalOrders: 234, totalRevenue: 375600, averageOrderValue: 1604.27, activeProducts: 45, rating: 4.6 },
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440011', storeName: 'Organic Greens', totalOrders: 189, totalRevenue: 289450, averageOrderValue: 1532.12, activeProducts: 38, rating: 4.8 },
+                ],
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          403: { $ref: '#/components/responses/Forbidden' },
+          403: { description: 'Insufficient permissions (requires permission 90011)' },
         },
       },
     },
-    '/analytics/Vendors/{vendorId}': {
+    '/analytics/section/vendor/{vendorId}/dashboard': {
       get: {
         tags: ['Analytics'],
-        summary: 'Get analytics report for a specific Vendor',
+        summary: 'Get specific vendor dashboard',
+        description: 'Access is granted with permission code 90011. If vendor accessing own data, revenue calculated on supplier price only. Admins see full details.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Vendor ID' },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Vendor dashboard',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    vendorId: { type: 'string', format: 'uuid' },
+                    storeName: { type: 'string' },
+                    totalOrders: { type: 'integer' },
+                    supplierRevenue: { type: 'number', description: 'Revenue on supplier price basis' },
+                    activeProducts: { type: 'integer' },
+                    rating: { type: 'number' },
+                    salesTrend: { type: 'array', items: { type: 'number' } },
+                  },
+                },
+                example: {
+                  vendorId: '550e8400-e29b-41d4-a716-446655440010',
+                  storeName: 'Fresh Farm Store',
+                  totalOrders: 234,
+                  supplierRevenue: 245600,
+                  activeProducts: 45,
+                  rating: 4.6,
+                  salesTrend: [12000, 13500, 12800, 14200, 15100],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (permission code 90011 required) or cannot access other vendor data' },
+          404: { description: 'Vendor not found' },
+        },
+      },
+    },
+    '/analytics/section/vendor/{vendorId}/products': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get vendor product analytics',
+        description: 'VENDOR: Own products only. ADMIN/SUPERADMIN: All vendor products. Requires permission 90011.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -4700,16 +5906,173 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Vendor analytics report' },
+          200: {
+            description: 'Vendor products analytics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      productId: { type: 'string', format: 'uuid' },
+                      productName: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      unitsSold: { type: 'integer' },
+                      supplierRevenue: { type: 'number' },
+                      rating: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { productId: '550e8400-e29b-41d4-a716-446655440020', productName: 'Tomatoes 1kg', orderCount: 85, unitsSold: 215, supplierRevenue: 32250, rating: 4.7 },
+                  { productId: '550e8400-e29b-41d4-a716-446655440021', productName: 'Carrots 2kg', orderCount: 62, unitsSold: 124, supplierRevenue: 18600, rating: 4.8 },
+                ],
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
-    '/analytics/products/{productId}': {
+    '/analytics/section/vendor/{vendorId}/revenue/trend': {
       get: {
         tags: ['Analytics'],
-        summary: 'Get analytics for a specific product',
+        summary: 'Get vendor revenue trend',
+        description: 'Revenue trend over time. For VENDORs: calculated on supplier price only. For ADMIN/SUPERADMIN: full revenue visibility. Requires permission 90011.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Revenue trend',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    dates: { type: 'array', items: { type: 'string' } },
+                    supplierRevenue: { type: 'array', items: { type: 'number' } },
+                    totalRevenue: { type: 'number' },
+                    averageDailyRevenue: { type: 'number' },
+                  },
+                },
+                example: {
+                  dates: ['2026-05-01', '2026-05-02', '2026-05-03', '2026-05-04', '2026-05-05'],
+                  supplierRevenue: [12000, 13500, 12800, 14200, 15100],
+                  totalRevenue: 67600,
+                  averageDailyRevenue: 13520,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/vendor/{vendorId}/ratings': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get vendor ratings and reviews',
+        description: 'Customer ratings and review metrics for vendor. Requires permission 90011.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'vendorId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Vendor ratings',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    averageRating: { type: 'number' },
+                    totalReviews: { type: 'integer' },
+                    ratingDistribution: {
+                      type: 'object',
+                      properties: {
+                        fiveStar: { type: 'integer' },
+                        fourStar: { type: 'integer' },
+                        threeStar: { type: 'integer' },
+                        twoStar: { type: 'integer' },
+                        oneStar: { type: 'integer' },
+                      },
+                    },
+                    reviewTrend: { type: 'array', items: { type: 'number' } },
+                  },
+                },
+                example: {
+                  averageRating: 4.6,
+                  totalReviews: 234,
+                  ratingDistribution: { fiveStar: 156, fourStar: 54, threeStar: 18, twoStar: 4, oneStar: 2 },
+                  reviewTrend: [18, 22, 19, 25, 20],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 3 - PRODUCT ANALYTICS (90012) ──────────────────
+    '/analytics/section/product/list': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'List products with analytics',
+        description: 'VENDOR: Own products only. ADMIN/SUPERADMIN: All products. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 }, description: 'Results per page' },
+          { name: 'offset', in: 'query', schema: { type: 'integer', minimum: 0 }, description: 'Pagination offset' },
+        ],
+        responses: {
+          200: {
+            description: 'Products list with analytics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      productId: { type: 'string', format: 'uuid' },
+                      productName: { type: 'string' },
+                      vendorName: { type: 'string' },
+                      totalViews: { type: 'integer' },
+                      orderCount: { type: 'integer' },
+                      conversionRate: { type: 'number' },
+                      revenue: { type: 'number' },
+                      rating: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { productId: '550e8400-e29b-41d4-a716-446655440030', productName: 'Tomatoes 1kg', vendorName: 'Fresh Farm', totalViews: 5420, orderCount: 234, conversionRate: 4.32, revenue: 89450, rating: 4.7 },
+                  { productId: '550e8400-e29b-41d4-a716-446655440031', productName: 'Carrots 2kg', vendorName: 'Fresh Farm', totalViews: 3210, orderCount: 126, conversionRate: 3.92, revenue: 45680, rating: 4.8 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (requires permission 90012)' },
+        },
+      },
+    },
+    '/analytics/section/product/{productId}/metrics': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product performance metrics',
+        description: 'VENDOR: Own products only. Product sales, revenue, conversion metrics. Requires permission 90012.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -4717,16 +6080,954 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
         ],
         responses: {
-          200: { description: 'Product analytics' },
+          200: {
+            description: 'Product metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    productId: { type: 'string', format: 'uuid' },
+                    productName: { type: 'string' },
+                    totalOrders: { type: 'integer' },
+                    unitsSold: { type: 'integer' },
+                    revenue: { type: 'number' },
+                    averageOrderValue: { type: 'number' },
+                    rating: { type: 'number' },
+                    stockLevel: { type: 'integer' },
+                  },
+                },
+                example: {
+                  productId: '550e8400-e29b-41d4-a716-446655440030',
+                  productName: 'Tomatoes 1kg',
+                  totalOrders: 234,
+                  unitsSold: 567,
+                  revenue: 89450,
+                  averageOrderValue: 382.31,
+                  rating: 4.7,
+                  stockLevel: 245,
+                },
+              },
+            },
+          },
           401: { $ref: '#/components/responses/Unauthorized' },
-          404: { $ref: '#/components/responses/NotFound' },
+          403: { description: 'Insufficient permissions' },
         },
       },
     },
+    '/analytics/section/product/{productId}/views-conversions': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product views and conversion metrics',
+        description: 'Views, clicks, conversion rates. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Views and conversions',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalViews: { type: 'integer' },
+                    totalClicks: { type: 'integer' },
+                    totalOrders: { type: 'integer' },
+                    clickRate: { type: 'number' },
+                    conversionRate: { type: 'number' },
+                    viewsByDay: { type: 'array', items: { type: 'integer' } },
+                  },
+                },
+                example: {
+                  totalViews: 5420,
+                  totalClicks: 845,
+                  totalOrders: 234,
+                  clickRate: 15.59,
+                  conversionRate: 27.69,
+                  viewsByDay: [1050, 1180, 980, 1150, 1060],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/product/{productId}/inventory': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product inventory levels',
+        description: 'Current stock levels and inventory metrics. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'Inventory data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    currentStock: { type: 'integer' },
+                    lowStockThreshold: { type: 'integer' },
+                    averageDailyUsage: { type: 'number' },
+                    daysToStockout: { type: 'number' },
+                    stockStatus: { type: 'string', enum: ['HEALTHY', 'LOW', 'CRITICAL', 'OUT_OF_STOCK'] },
+                  },
+                },
+                example: {
+                  currentStock: 245,
+                  lowStockThreshold: 50,
+                  averageDailyUsage: 12.5,
+                  daysToStockout: 19.6,
+                  stockStatus: 'HEALTHY',
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/product/{productId}/returns': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get product return statistics',
+        description: 'Return rate and reasons. Requires permission 90012.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Return statistics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalOrdersWithReturns: { type: 'integer' },
+                    totalReturnedUnits: { type: 'integer' },
+                    returnRate: { type: 'number' },
+                    topReturnReasons: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          reason: { type: 'string' },
+                          count: { type: 'integer' },
+                          percentage: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalOrdersWithReturns: 8,
+                  totalReturnedUnits: 12,
+                  returnRate: 3.41,
+                  topReturnReasons: [
+                    { reason: 'Damaged', count: 6, percentage: 50.0 },
+                    { reason: 'Wrong item', count: 3, percentage: 25.0 },
+                    { reason: 'Quality issue', count: 3, percentage: 25.0 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 4 - SALES REPORT (90013) - ADMIN/SUPERADMIN ─────
+    '/analytics/section/sales/daily': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get daily sales report',
+        description: 'Daily sales data aggregation. Requires permission code 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Daily sales report',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      date: { type: 'string' },
+                      totalOrders: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      averageOrderValue: { type: 'number' },
+                      newCustomers: { type: 'integer' },
+                      returningCustomers: { type: 'integer' },
+                    },
+                  },
+                },
+                example: [
+                  { date: '2026-05-05', totalOrders: 142, totalRevenue: 228640, averageOrderValue: 1610.14, newCustomers: 32, returningCustomers: 110 },
+                  { date: '2026-05-04', totalOrders: 138, totalRevenue: 222240, averageOrderValue: 1610.87, newCustomers: 28, returningCustomers: 110 },
+                  { date: '2026-05-03', totalOrders: 145, totalRevenue: 233450, averageOrderValue: 1610.00, newCustomers: 35, returningCustomers: 110 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (requires permission 90013)' },
+        },
+      },
+    },
+    '/analytics/section/sales/monthly': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get monthly sales report',
+        description: 'Monthly aggregated sales data. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Monthly sales report',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      month: { type: 'string' },
+                      totalOrders: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      totalRefunds: { type: 'number' },
+                      netRevenue: { type: 'number' },
+                      monthOverMonthGrowth: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { month: '2026-05', totalOrders: 4210, totalRevenue: 6789540, totalRefunds: 45600, netRevenue: 6743940, monthOverMonthGrowth: 8.5 },
+                  { month: '2026-04', totalOrders: 3880, totalRevenue: 6254000, totalRefunds: 42300, netRevenue: 6211700, monthOverMonthGrowth: 5.2 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/by-category': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get sales by product category',
+        description: 'Sales breakdown by category. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Sales by category',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      categoryName: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      revenue: { type: 'number' },
+                      percentage: { type: 'number' },
+                      avgPrice: { type: 'number' },
+                    },
+                  },
+                },
+                example: [
+                  { categoryName: 'Vegetables', orderCount: 1234, revenue: 1987650, percentage: 29.2, avgPrice: 1611.45 },
+                  { categoryName: 'Fruits', orderCount: 987, revenue: 1589340, percentage: 23.4, avgPrice: 1609.88 },
+                  { categoryName: 'Dairy', orderCount: 654, revenue: 1052340, percentage: 15.5, avgPrice: 1609.19 },
+                  { categoryName: 'Grains', orderCount: 543, revenue: 874560, percentage: 12.9, avgPrice: 1610.36 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/by-payment-method': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get sales by payment method',
+        description: 'Sales breakdown by payment method. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Sales by payment method',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      method: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      revenue: { type: 'number' },
+                      percentage: { type: 'number' },
+                      avgTransactionTime: { type: 'number', description: 'In seconds' },
+                    },
+                  },
+                },
+                example: [
+                  { method: 'BKASH', orderCount: 1567, revenue: 2521570, percentage: 37.1, avgTransactionTime: 8.5 },
+                  { method: 'COD', orderCount: 1254, revenue: 2018340, percentage: 29.7, avgTransactionTime: 0 },
+                  { method: 'CARD', orderCount: 892, revenue: 1435680, percentage: 21.1, avgTransactionTime: 5.2 },
+                  { method: 'EPS', orderCount: 497, revenue: 800070, percentage: 11.8, avgTransactionTime: 3.8 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/top-vendors': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get top vendors by sales volume',
+        description: 'Ranking of vendors by sales. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100 } },
+        ],
+        responses: {
+          200: {
+            description: 'Top vendors',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      vendorId: { type: 'string', format: 'uuid' },
+                      storeName: { type: 'string' },
+                      orderCount: { type: 'integer' },
+                      totalRevenue: { type: 'number' },
+                      averageOrderValue: { type: 'number' },
+                      productCount: { type: 'integer' },
+                    },
+                  },
+                },
+                example: [
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440010', storeName: 'Fresh Farm Store', orderCount: 234, totalRevenue: 375600, averageOrderValue: 1604.27, productCount: 45 },
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440011', storeName: 'Organic Greens', orderCount: 189, totalRevenue: 304350, averageOrderValue: 1610.21, productCount: 38 },
+                  { vendorId: '550e8400-e29b-41d4-a716-446655440012', storeName: 'Nature Premium', orderCount: 156, totalRevenue: 251040, averageOrderValue: 1609.23, productCount: 32 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/sales/growth': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get sales growth metrics',
+        description: 'Month-over-Month and Year-over-Year growth rates. ADMIN/SUPERADMIN only. Requires permission 90013.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Sales growth data',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    currentPeriodRevenue: { type: 'number' },
+                    previousPeriodRevenue: { type: 'number' },
+                    monthOverMonthGrowth: { type: 'number', description: 'Percentage' },
+                    yearOverYearGrowth: { type: 'number', description: 'Percentage' },
+                    growthTrend: { type: 'array', items: { type: 'number' } },
+                  },
+                },
+                example: {
+                  currentPeriodRevenue: 6789540,
+                  previousPeriodRevenue: 6254000,
+                  monthOverMonthGrowth: 8.59,
+                  yearOverYearGrowth: 24.31,
+                  growthTrend: [2.3, 3.5, 5.1, 6.8, 8.59],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 5 - DELIVERY ANALYTICS (90014) ───────────────────
+    '/analytics/section/delivery/daily': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get daily delivery metrics',
+        description: 'Daily delivery performance. DELIVERY_MAN: Own data only. ADMIN/SUPERADMIN: All data. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Daily delivery metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      date: { type: 'string' },
+                      totalDeliveries: { type: 'integer' },
+                      successfulDeliveries: { type: 'integer' },
+                      failedDeliveries: { type: 'integer' },
+                      averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                      totalDistance: { type: 'number', description: 'In km' },
+                    },
+                  },
+                },
+                example: [
+                  { date: '2026-05-05', totalDeliveries: 42, successfulDeliveries: 40, failedDeliveries: 2, averageDeliveryTime: 28.5, totalDistance: 123.4 },
+                  { date: '2026-05-04', totalDeliveries: 38, successfulDeliveries: 37, failedDeliveries: 1, averageDeliveryTime: 27.3, totalDistance: 118.9 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (requires permission 90014)' },
+        },
+      },
+    },
+    '/analytics/section/delivery/persons/{personId}/performance': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery person performance',
+        description: 'DELIVERY_MAN: Can only view own metrics. ADMIN/SUPERADMIN: Can view any delivery person. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'personId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Delivery person ID' },
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Delivery person metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    personId: { type: 'string', format: 'uuid' },
+                    personName: { type: 'string' },
+                    totalDeliveries: { type: 'integer' },
+                    successRate: { type: 'number', description: 'Percentage' },
+                    averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                    averageRating: { type: 'number' },
+                    totalDistance: { type: 'number', description: 'In km' },
+                  },
+                },
+                example: {
+                  personId: '550e8400-e29b-41d4-a716-446655440050',
+                  personName: 'Ahmed Khan',
+                  totalDeliveries: 145,
+                  successRate: 97.24,
+                  averageDeliveryTime: 26.8,
+                  averageRating: 4.7,
+                  totalDistance: 542.3,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Cannot access other delivery person data' },
+        },
+      },
+    },
+    '/analytics/section/delivery/time-metrics': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery time metrics',
+        description: 'Average delivery times and performance. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Delivery time metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                    medianDeliveryTime: { type: 'number', description: 'In minutes' },
+                    minDeliveryTime: { type: 'number', description: 'In minutes' },
+                    maxDeliveryTime: { type: 'number', description: 'In minutes' },
+                    onTimePercentage: { type: 'number', description: 'Percentage' },
+                    delayedPercentage: { type: 'number', description: 'Percentage' },
+                  },
+                },
+                example: {
+                  averageDeliveryTime: 27.4,
+                  medianDeliveryTime: 26.8,
+                  minDeliveryTime: 12.5,
+                  maxDeliveryTime: 58.3,
+                  onTimePercentage: 94.2,
+                  delayedPercentage: 5.8,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/delivery/success-rate': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery success rate',
+        description: 'Success rates and failure metrics. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Success rate metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalDeliveries: { type: 'integer' },
+                    successfulDeliveries: { type: 'integer' },
+                    failedDeliveries: { type: 'integer' },
+                    successRate: { type: 'number', description: 'Percentage' },
+                    failureReasons: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          reason: { type: 'string' },
+                          count: { type: 'integer' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalDeliveries: 1523,
+                  successfulDeliveries: 1486,
+                  failedDeliveries: 37,
+                  successRate: 97.57,
+                  failureReasons: [
+                    { reason: 'Customer not available', count: 18 },
+                    { reason: 'Wrong address', count: 12 },
+                    { reason: 'Delivery person issue', count: 7 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+    '/analytics/section/delivery/by-region': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get delivery metrics by region',
+        description: 'Regional delivery performance. Requires permission 90014.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Regional delivery metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      regionName: { type: 'string' },
+                      totalDeliveries: { type: 'integer' },
+                      successRate: { type: 'number', description: 'Percentage' },
+                      averageDeliveryTime: { type: 'number', description: 'In minutes' },
+                      activeDeliveryPersons: { type: 'integer' },
+                    },
+                  },
+                },
+                example: [
+                  { regionName: 'Dhaka', totalDeliveries: 756, successRate: 98.1, averageDeliveryTime: 24.2, activeDeliveryPersons: 28 },
+                  { regionName: 'Chittagong', totalDeliveries: 432, successRate: 96.5, averageDeliveryTime: 31.8, activeDeliveryPersons: 15 },
+                  { regionName: 'Sylhet', totalDeliveries: 245, successRate: 95.9, averageDeliveryTime: 35.4, activeDeliveryPersons: 8 },
+                ],
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: SECTION 6 - EXECUTIVE DASHBOARD (90015) - SUPERADMIN ─────
+    '/analytics/section/executive/profitability': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get profitability report',
+        description: 'Platform profitability analysis. Requires permission code 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Profitability report',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalRevenue: { type: 'number' },
+                    totalCosts: { type: 'number' },
+                    grossProfit: { type: 'number' },
+                    grossProfitMargin: { type: 'number', description: 'Percentage' },
+                    operatingExpenses: { type: 'number' },
+                    netProfit: { type: 'number' },
+                    netProfitMargin: { type: 'number', description: 'Percentage' },
+                  },
+                },
+                example: {
+                  totalRevenue: 6789540,
+                  totalCosts: 3894231,
+                  grossProfit: 2895309,
+                  grossProfitMargin: 42.64,
+                  operatingExpenses: 1245600,
+                  netProfit: 1649709,
+                  netProfitMargin: 24.32,
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only - requires permission 90015' },
+        },
+      },
+    },
+    '/analytics/section/executive/commissions': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get commission details',
+        description: 'Commission tracking and breakdown. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Commission details',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalVendorRevenue: { type: 'number' },
+                    totalCommissionEarned: { type: 'number' },
+                    commissionRate: { type: 'number', description: 'Percentage' },
+                    commissionsByVendor: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          vendorId: { type: 'string' },
+                          vendorName: { type: 'string' },
+                          vendorRevenue: { type: 'number' },
+                          commissionAmount: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalVendorRevenue: 4234560,
+                  totalCommissionEarned: 634184,
+                  commissionRate: 14.97,
+                  commissionsByVendor: [
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440010', vendorName: 'Fresh Farm Store', vendorRevenue: 375600, commissionAmount: 56340 },
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440011', vendorName: 'Organic Greens', vendorRevenue: 289450, commissionAmount: 43417 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/margins': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get margin analysis',
+        description: 'Profit margin analysis by product/vendor/category. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Margin analysis',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    overallMarginPercentage: { type: 'number' },
+                    bestMarginCategory: { type: 'string' },
+                    worstMarginCategory: { type: 'string' },
+                    marginByCategory: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          categoryName: { type: 'string' },
+                          marginPercentage: { type: 'number' },
+                          revenue: { type: 'number' },
+                          costs: { type: 'number' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  overallMarginPercentage: 42.64,
+                  bestMarginCategory: 'Dairy',
+                  worstMarginCategory: 'Grains',
+                  marginByCategory: [
+                    { categoryName: 'Vegetables', marginPercentage: 44.2, revenue: 1987650, costs: 1109143 },
+                    { categoryName: 'Fruits', marginPercentage: 41.8, revenue: 1589340, costs: 922978 },
+                    { categoryName: 'Dairy', marginPercentage: 48.5, revenue: 1052340, costs: 542388 },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/vendor-payouts': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get vendor payout information',
+        description: 'Vendor payout schedules and history. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Vendor payouts',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalPayoutsScheduled: { type: 'number' },
+                    totalPayoutsProcessed: { type: 'number' },
+                    pendingPayouts: { type: 'number' },
+                    payoutsByVendor: {
+                      type: 'array',
+                      items: {
+                        type: 'object',
+                        properties: {
+                          vendorId: { type: 'string' },
+                          vendorName: { type: 'string' },
+                          lastPayoutDate: { type: 'string', format: 'date' },
+                          lastPayoutAmount: { type: 'number' },
+                          nextPayoutDate: { type: 'string', format: 'date' },
+                          status: { type: 'string' },
+                        },
+                      },
+                    },
+                  },
+                },
+                example: {
+                  totalPayoutsScheduled: 2134560,
+                  totalPayoutsProcessed: 1234560,
+                  pendingPayouts: 900000,
+                  payoutsByVendor: [
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440010', vendorName: 'Fresh Farm Store', lastPayoutDate: '2026-05-01', lastPayoutAmount: 56340, nextPayoutDate: '2026-05-15', status: 'PROCESSED' },
+                    { vendorId: '550e8400-e29b-41d4-a716-446655440011', vendorName: 'Organic Greens', lastPayoutDate: '2026-05-01', lastPayoutAmount: 43417, nextPayoutDate: '2026-05-15', status: 'PENDING' },
+                  ],
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/financial-health': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get financial health indicators',
+        description: 'Cash flow and financial metrics. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Financial health',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    cashInflow: { type: 'number' },
+                    cashOutflow: { type: 'number' },
+                    netCashFlow: { type: 'number' },
+                    liquidityRatio: { type: 'number' },
+                    debtToEquityRatio: { type: 'number' },
+                    operatingCashFlow: { type: 'number' },
+                    financialHealth: { type: 'string', enum: ['EXCELLENT', 'GOOD', 'FAIR', 'POOR'] },
+                  },
+                },
+                example: {
+                  cashInflow: 6789540,
+                  cashOutflow: 5140831,
+                  netCashFlow: 1648709,
+                  liquidityRatio: 2.45,
+                  debtToEquityRatio: 0.38,
+                  operatingCashFlow: 1834231,
+                  financialHealth: 'EXCELLENT',
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+    '/analytics/section/executive/risk-metrics': {
+      get: {
+        tags: ['Analytics'],
+        summary: 'Get risk metrics',
+        description: 'Chargeback, refund, and fraud indicators. SUPERADMIN only. Requires permission 90015.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+          { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
+        ],
+        responses: {
+          200: {
+            description: 'Risk metrics',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    totalChargebacks: { type: 'integer' },
+                    chargebackAmount: { type: 'number' },
+                    chargebackRate: { type: 'number', description: 'Percentage' },
+                    refundRequests: { type: 'integer' },
+                    refundAmount: { type: 'number' },
+                    refundRate: { type: 'number', description: 'Percentage' },
+                    flaggedFraudCases: { type: 'integer' },
+                    riskLevel: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] },
+                  },
+                },
+                example: {
+                  totalChargebacks: 8,
+                  chargebackAmount: 12840,
+                  chargebackRate: 0.19,
+                  refundRequests: 45,
+                  refundAmount: 72450,
+                  refundRate: 1.07,
+                  flaggedFraudCases: 3,
+                  riskLevel: 'LOW',
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'SUPERADMIN only' },
+        },
+      },
+    },
+
+    // ─── ANALYTICS: EVENT TRACKING ────────────────────────────────────────────
     '/analytics/events': {
       post: {
         tags: ['Analytics'],
-        summary: 'Track a custom analytics event',
+        summary: 'Track analytics event',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -4739,23 +7040,25 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   eventName: { type: 'string' },
                   sessionId: { type: 'string' },
                   entityType: { type: 'string' },
-                  entityId: { type: 'string' },
-                  metadata: { type: 'object', additionalProperties: true },
+                  entityId: { type: 'string', format: 'uuid' },
+                  metadata: { type: 'object' },
                 },
               },
             },
           },
         },
         responses: {
-          200: { description: 'Event tracked' },
+          201: { description: 'Event tracked successfully' },
           400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
     },
     '/analytics/search': {
       post: {
         tags: ['Analytics'],
-        summary: 'Track a search query',
+        summary: 'Track search event',
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -4774,8 +7077,9 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
         },
         responses: {
-          200: { description: 'Search tracked' },
+          201: { description: 'Search tracked successfully' },
           400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
         },
       },
     },
@@ -4852,13 +7156,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             type: 'string',
             format: 'email',
             description: 'Email address of the ADMIN or MANAGER account.',
-            example: 'admin@freeshop.com',
+            example: 'admin@example.com',
           },
           password: {
             type: 'string',
             format: 'password',
             description: 'Account password. Must satisfy the platform password policy (min 8 chars, upper, lower, digit, special char).',
-            example: 'Str0ng!Pass',
+            example: 'your_password_here',
           },
         },
       },
@@ -4875,13 +7179,13 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             type: 'string',
             format: 'email',
             description: 'Email address for the new admin/manager account. Must be unique.',
-            example: 'admin@freeshop.com',
+            example: 'admin@example.com',
           },
           password: {
             type: 'string',
             format: 'password',
             description: 'Password for the new account (minimum 8 characters).',
-            example: 'Str0ng!Pass',
+            example: 'your_password_here',
           },
           firstName: {
             type: 'string',
@@ -4898,6 +7202,29 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             enum: ['ADMIN', 'MANAGER'],
             description: 'Role to assign. Defaults to ADMIN if omitted.',
             example: 'ADMIN',
+          },
+        },
+      },
+      ChangePasswordRequest: {
+        type: 'object',
+        required: ['secretKey', 'userId', 'newPassword'],
+        properties: {
+          secretKey: {
+            type: 'string',
+            description: 'Server-side ADMIN_SECRET_KEY. Must match the ADMIN_SECRET_KEY environment variable on the auth-service.',
+            example: 'your-admin-secret-key',
+          },
+          userId: {
+            type: 'string',
+            format: 'uuid',
+            description: 'UUID of the user whose password to change.',
+            example: '550e8400-e29b-41d4-a716-446655440000',
+          },
+          newPassword: {
+            type: 'string',
+            format: 'password',
+            description: 'New password for the user (minimum 8 characters).',
+            example: 'your_password_here',
           },
         },
       },
@@ -4923,8 +7250,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           discountPrice: { type: 'number' },
           discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
           discountValue: { type: 'number' },
-          stock: { type: 'integer', minimum: 0 },
-          lowStockThreshold: { type: 'integer', minimum: 0 },
+          stock: { type: 'integer', minimum: 0, description: 'Initial stock value used to initialize the Inventory Service record' },
+          lowStockThreshold: { type: 'integer', minimum: 0, description: 'Initial low-stock threshold used to initialize the Inventory Service record' },
           weight: { type: 'number' },
           unit: { type: 'string', example: 'kg' },
           isOrganic: { type: 'boolean' },
@@ -4948,8 +7275,6 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           discountPrice: { type: 'number' },
           discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
           discountValue: { type: 'number' },
-          stock: { type: 'integer', minimum: 0 },
-          lowStockThreshold: { type: 'integer', minimum: 0 },
           weight: { type: 'number' },
           unit: { type: 'string' },
           isOrganic: { type: 'boolean' },
@@ -4987,6 +7312,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       CreateCategoryRequest: {
         type: 'object',
         required: ['name'],
+        description: 'userId is automatically set from the authenticated user and should not be provided in the request',
         properties: {
           name: { type: 'string' },
           description: { type: 'string' },
@@ -5037,7 +7363,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
           // billingAddress is disabled — not currently used
           paymentMethod: { type: 'string', enum: ['COD', 'BKASH', 'EPS', 'CARD'] },
-          discountCode: { type: 'string' },
+          couponCode: { type: 'string', description: 'Coupon code to apply to the order' },
+          discountCode: { type: 'string', deprecated: true, description: 'Legacy alias for couponCode' },
           notes: { type: 'string' },
         },
         examples: {
@@ -5100,7 +7427,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                   quantity: 3
                 }
               ],
-              discountCode: 'SAVE10'
+              couponCode: 'SAVE10'
             }
           }
         },
@@ -5185,7 +7512,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
           roles: { type: 'array', items: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'VENDOR', 'DELIVERY_MAN', 'CUSTOMER'] } },
-          status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
+          status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'] },
           isEmailVerified: { type: 'boolean' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
@@ -5205,12 +7532,12 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               firstName: { type: 'string', example: 'John' },
               lastName: { type: 'string', example: 'Doe' },
               avatar: { type: 'string', format: 'uri', nullable: true },
-              role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'], example: 'CUSTOMER' },
+              role: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'], example: 'CUSTOMER' },
               // For `/auth/me` the server may also include an RBAC snapshot
               roles: { type: 'array', items: { $ref: '#/components/schemas/Role' } },
               roleNames: { type: 'array', items: { type: 'string' } },
               permissionCodes: { type: 'array', items: { type: 'integer' } },
-              status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'], example: 'ACTIVE' },
+              status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'], example: 'ACTIVE' },
               oauthProvider: { type: 'string', example: 'LOCAL' },
               emailVerified: { type: 'boolean', example: false },
               phoneVerified: { type: 'boolean', example: false },
@@ -5240,9 +7567,6 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           discountPrice: { type: 'number' },
           discountType: { type: 'string', enum: ['PERCENTAGE', 'FIXED'] },
           discountValue: { type: 'number' },
-          stock: { type: 'integer' },
-          reservedStock: { type: 'integer' },
-          lowStockThreshold: { type: 'integer' },
           weight: { type: 'number' },
           unit: { type: 'string' },
           isOrganic: { type: 'boolean' },
@@ -5323,6 +7647,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           sortOrder: { type: 'integer' },
           isActive: { type: 'boolean' },
           productCount: { type: 'integer' },
+          userId: { type: 'string', format: 'uuid', description: 'ID of the user who created/updated the category' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
         },
@@ -5416,6 +7741,38 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
               totalPages: { type: 'integer' },
             },
           },
+        },
+      },
+      Coupon: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          code: { type: 'string', description: 'Unique coupon code' },
+          description: { type: 'string', nullable: true },
+          type: { type: 'string', enum: ['PERCENTAGE', 'FIXED', 'FREE_SHIPPING'] },
+          value: { type: 'number', description: 'Percentage (0-100) or fixed amount' },
+          minOrderAmount: { type: 'number', nullable: true, description: 'Minimum order amount required' },
+          maxDiscount: { type: 'number', nullable: true, description: 'Maximum discount cap for percentage coupons' },
+          usageLimit: { type: 'integer', nullable: true, description: 'Total usage limit (null = unlimited)' },
+          usageCount: { type: 'integer', description: 'Current usage count' },
+          perUserLimit: { type: 'integer', description: 'Max uses per user (default 1)' },
+          applicableProducts: { type: 'array', items: { type: 'string' }, nullable: true, description: 'Product IDs this coupon applies to' },
+          applicableCategories: { type: 'array', items: { type: 'string' }, nullable: true, description: 'Category IDs this coupon applies to' },
+          applicableVendors: { type: 'array', items: { type: 'string' }, nullable: true, description: 'Vendor IDs this coupon applies to' },
+          startDate: { type: 'string', format: 'date-time', description: 'Coupon becomes valid' },
+          endDate: { type: 'string', format: 'date-time', nullable: true, description: 'Coupon expires' },
+          isActive: { type: 'boolean', description: 'Whether coupon is currently active' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      Pagination: {
+        type: 'object',
+        properties: {
+          total: { type: 'integer' },
+          page: { type: 'integer' },
+          limit: { type: 'integer' },
+          totalPages: { type: 'integer' },
         },
       },
       CartItem: {
@@ -5567,13 +7924,16 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         properties: {
           id: { type: 'string', format: 'uuid' },
           productId: { type: 'string', format: 'uuid' },
-          VendorId: { type: 'string', format: 'uuid' },
+          variantId: { type: 'string', format: 'uuid', nullable: true, description: 'Variant-specific inventory bucket' },
+          freeItemId: { type: 'string', format: 'uuid', nullable: true, description: 'Promotional/free-item inventory bucket' },
+          userId: { type: 'string', format: 'uuid', description: 'Owner user ID for this inventory record' },
           sku: { type: 'string' },
           totalStock: { type: 'integer' },
           availableStock: { type: 'integer' },
           reservedStock: { type: 'integer' },
           lowStockThreshold: { type: 'integer' },
           isLowStock: { type: 'boolean' },
+          isOutOfStock: { type: 'boolean' },
           lastRestockedAt: { type: 'string', format: 'date-time' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
@@ -5669,8 +8029,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           lastName: { type: 'string' },
           phone: { type: 'string' },
           avatar: { type: 'string', format: 'uri' },
-          role: { type: 'string', enum: ['CUSTOMER', 'Vendor', 'MANAGER', 'ADMIN'] },
-          status: { type: 'string', enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'] },
+          role: { type: 'string', enum: ['SUPERADMIN', 'ADMIN', 'MANAGER', 'SELLER', 'DELIVERY_MAN', 'CUSTOMER', 'VENDOR'] },
+          status: { type: 'string', enum: ['ACTIVE', 'SUSPENDED'] },
           oauthProvider: { type: 'string', enum: ['LOCAL', 'GOOGLE', 'FACEBOOK', 'APPLE', 'ANONYMOUS'] },
           emailVerified: { type: 'boolean' },
           phoneVerified: { type: 'boolean' },
@@ -5692,7 +8052,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           district: { type: 'string' },
           upazila: { type: 'string' },
           // Canonical shipping zone identifier. Required for order creation when providing inline shippingAddress.
+          // In responses, the zoneId is used to look up and attach the complete zone object (id, name, price).
           zoneId: { type: 'string' },
+          // Zone object enrichment (populated in responses only)
+          zone: { type: 'object', nullable: true, description: 'Enriched zone object in responses containing { id, name, price }', properties: { id: { type: 'string' }, name: { type: 'string' }, price: { type: 'number' } } },
           postalCode: { type: 'string' },
           country: { type: 'string', example: 'BD' },
         },
@@ -5746,6 +8109,43 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           },
         },
       },
+      Review: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          productId: { type: 'string', format: 'uuid' },
+          userId: { type: 'string', format: 'uuid' },
+          rating: { type: 'integer', minimum: 1, maximum: 5 },
+          title: { type: 'string', maxLength: 100 },
+          comment: { type: 'string', maxLength: 2000 },
+          status: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'], description: 'PENDING: newly created, APPROVED: visible in product ratings, REJECTED: hidden' },
+          createdAt: { type: 'string', format: 'date-time' },
+          updatedAt: { type: 'string', format: 'date-time' },
+        },
+      },
+      ReviewResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          data: { $ref: '#/components/schemas/Review' },
+        },
+      },
+      PaginatedReviews: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          data: { type: 'array', items: { $ref: '#/components/schemas/Review' } },
+          pagination: {
+            type: 'object',
+            properties: {
+              total: { type: 'integer' },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              pages: { type: 'integer' },
+            },
+          },
+        },
+      },
     },
 
     parameters: {
@@ -5760,6 +8160,27 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         in: 'query',
         description: 'Items per page',
         schema: { type: 'integer', default: 20, minimum: 1, maximum: 100 },
+      },
+      search: {
+        name: 'search',
+        in: 'query',
+        description: 'Search term to filter permissions (case-insensitive). Searches across resource, action, and description fields.',
+        required: false,
+        schema: { type: 'string', example: 'COUPON' },
+      },
+      resource: {
+        name: 'resource',
+        in: 'query',
+        description: 'Filter permissions by specific resource (e.g., COUPON, USER, PRODUCT, ORDER)',
+        required: false,
+        schema: { type: 'string', example: 'COUPON' },
+      },
+      action: {
+        name: 'action',
+        in: 'query',
+        description: 'Filter permissions by specific action (e.g., CREATE, READ, UPDATE, DELETE)',
+        required: false,
+        schema: { type: 'string', example: 'CREATE' },
       },
     },
 
@@ -5794,6 +8215,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       ServiceUnavailable: {
         description: 'Service Unavailable — upstream microservice is down',
+        content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
+      },
+      InternalServerError: {
+        description: 'Internal Server Error — unexpected server error',
         content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } },
       },
     },

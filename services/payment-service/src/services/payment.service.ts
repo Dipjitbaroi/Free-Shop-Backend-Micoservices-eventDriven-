@@ -7,6 +7,7 @@ import {
   createPaginatedResponse,
   calculateOffset,
   IPaginatedResult,
+  logger,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { eventPublisher } from '../lib/message-broker.js';
@@ -208,6 +209,13 @@ class PaymentService {
     transactionId: string,
     gatewayResponse?: Record<string, unknown>
   ): Promise<Payment> {
+    logger.info('💳 [PAYMENT] completePayment() called', {
+      paymentId,
+      transactionId,
+      timestamp: new Date().toISOString(),
+      stack: new Error().stack?.split('\n').slice(1, 5).join(' | '),
+    });
+
     const payment = await prisma.payment.update({
       where: { id: paymentId },
       data: {
@@ -218,7 +226,31 @@ class PaymentService {
       },
     });
 
-    // Publish payment completed event
+    logger.info('💳 [PAYMENT] Payment marked COMPLETED in database', {
+      paymentId: payment.id,
+      orderId: payment.orderId,
+      method: payment.method,
+    });
+
+    // GUARD: For COD payments, NEVER publish PAYMENT_RECEIVED directly
+    // COD payments must only be marked as paid through delivery completion (delivery.service)
+    if (payment.method === PaymentMethod.COD) {
+      logger.info('🚫 [PAYMENT] COD payment marked COMPLETED but NOT publishing PAYMENT_RECEIVED', {
+        paymentId: payment.id,
+        orderId: payment.orderId,
+        reason: 'COD payments must wait for delivery confirmation. Payment will be marked PAID by delivery service.'
+      });
+      return payment; // Return payment but DON'T publish event
+    }
+
+    // Publish payment completed event (only for non-COD payments like BKASH, EPS, etc.)
+    logger.info('📢 [EVENT] Publishing PAYMENT_RECEIVED event', {
+      paymentId: payment.id,
+      orderId: payment.orderId,
+      method: payment.method,
+      amount: payment.amount,
+    });
+
     await eventPublisher.publish(Events.PAYMENT_RECEIVED, {
       paymentId: payment.id,
       orderId: payment.orderId,
@@ -486,6 +518,47 @@ class PaymentService {
       collectedAmount,
       collectedBy,
       collectedAt: new Date().toISOString(),
+    });
+  }
+
+  // Auto-complete COD payment when delivery is marked as delivered
+  async completeCODPaymentForDelivery(
+    orderId: string,
+    amount: number,
+    transactionId?: string
+  ): Promise<Payment> {
+    // Find or create payment for this order
+    let payment = await prisma.payment.findFirst({
+      where: { orderId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!payment) {
+      // Create payment if it doesn't exist
+      payment = await prisma.payment.create({
+        data: {
+          orderId,
+          amount,
+          method: PaymentMethod.COD,
+          status: PaymentStatus.PENDING,
+        },
+      });
+    }
+
+    if (payment.method !== PaymentMethod.COD) {
+      throw new BadRequestError('Order payment method is not COD');
+    }
+
+    if (payment.status === PaymentStatus.COMPLETED) {
+      return payment; // Already completed, just return it
+    }
+
+    const txId = transactionId || `COD_${orderId}_${Date.now()}`;
+
+    return this.completePayment(payment.id, txId, {
+      autoCompleted: true,
+      autoCompletedAt: new Date().toISOString(),
+      deliveryCompleted: true,
     });
   }
 }

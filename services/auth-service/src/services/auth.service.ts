@@ -236,16 +236,22 @@ class AuthService {
     // 6. Issue application JWTs
     const tokens = this.generateTokens(user);
 
-    await prisma.refreshToken.create({
-      data: {
-        userId: user.id,
-        token: tokens.refreshToken,
-        deviceId: opts?.deviceId,
-        userAgent: opts?.userAgent,
-        ip: opts?.ip,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
+    // Delete old refresh tokens and create new one (prevent infinite storage)
+    await prisma.$transaction([
+      prisma.refreshToken.deleteMany({
+        where: { userId: user.id },
+      }),
+      prisma.refreshToken.create({
+        data: {
+          userId: user.id,
+          token: tokens.refreshToken,
+          deviceId: opts?.deviceId,
+          userAgent: opts?.userAgent,
+          ip: opts?.ip,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      }),
+    ]);
 
     logger.debug('loginWithFirebase → done', { userId: user.id, email: user.email });
 
@@ -305,11 +311,10 @@ class AuthService {
     // Generate new tokens
     const tokens = this.generateTokens(storedToken.user);
 
-    // Revoke old refresh token and create new one
+    // Delete old refresh token and create new one
     await prisma.$transaction([
-      prisma.refreshToken.update({
+      prisma.refreshToken.delete({
         where: { id: storedToken.id },
-        data: { isRevoked: true },
       }),
       prisma.refreshToken.create({
         data: {
@@ -454,16 +459,22 @@ class AuthService {
 
     const tokens = this.generateTokens(updatedUser);
 
-    await prisma.refreshToken.create({
-      data: {
-        userId: updatedUser.id,
-        token: tokens.refreshToken,
-        deviceId: opts?.deviceId,
-        userAgent: opts?.userAgent,
-        ip: opts?.ip,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      },
-    });
+    // Delete old refresh tokens and create new one (prevent infinite storage)
+    await prisma.$transaction([
+      prisma.refreshToken.deleteMany({
+        where: { userId: updatedUser.id },
+      }),
+      prisma.refreshToken.create({
+        data: {
+          userId: updatedUser.id,
+          token: tokens.refreshToken,
+          deviceId: opts?.deviceId,
+          userAgent: opts?.userAgent,
+          ip: opts?.ip,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+      }),
+    ]);
 
     logger.info('loginWithCredentials → success', { userId: updatedUser.id });
 
@@ -760,6 +771,61 @@ class AuthService {
       logger.error('Error deleting user', { userId, error: (error as Error).message });
       throw error;
     }
+  }
+
+  /**
+   * Change a user's password using the ADMIN_SECRET_KEY.
+   * This is for development/emergency scenarios where a developer needs to reset a user's password.
+   * Requires the correct ADMIN_SECRET_KEY.
+   */
+  async changePassword(
+    secretKey: string,
+    userId: string,
+    newPassword: string,
+  ): Promise<{ id: string; email: string; message: string }> {
+    logger.debug('changePassword → enter', { userId });
+
+    // Validate admin secret key before performing any DB operations
+    if (!config.security.adminSecretKey) {
+      throw new ForbiddenError('ADMIN_SECRET_KEY is not configured');
+    }
+    if (secretKey !== config.security.adminSecretKey) {
+      throw new ForbiddenError('Invalid ADMIN_SECRET_KEY');
+    }
+
+    // Verify user exists
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    // Hash the new password
+    const passwordHash = await hashPassword(newPassword);
+
+    // Update user's password
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    // Invalidate all existing refresh tokens for this user
+    // (forces re-login on all devices)
+    await invalidateAllSessions(userId);
+
+    logger.info('changePassword → success', {
+      userId,
+      email: user.email,
+    });
+
+    return {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      message: 'Password changed successfully. User must log in again on all devices.',
+    };
   }
 
 }

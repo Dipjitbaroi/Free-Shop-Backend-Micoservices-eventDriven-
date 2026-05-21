@@ -19,6 +19,7 @@ export const PERMISSION_RESOURCE_CODES = {
   REPORT: 90,      // 90xx
   SETTINGS: 100,   // 100x
   ADMIN_PANEL: 110, // 110x
+  COUPON: 130,     // 130xx
 } as const;
 
 // Actions:
@@ -117,6 +118,20 @@ export const PERMISSION_CODES = {
   // User Management permissions (specific to user update/delete operations)
   USER_MANAGEMENT_UPDATE: 11002,
   USER_MANAGEMENT_DELETE: 11003,
+
+  // Coupon permissions
+  COUPON_CREATE: 13001,
+  COUPON_READ: 13002,
+  COUPON_UPDATE: 13003,
+  COUPON_DELETE: 13004,
+
+  // Analytics permissions - Section-based access
+  ANALYTICS_VIEW_PLATFORM_METRICS: 90010, // Platform-wide business metrics (orders, revenue, trends)
+  ANALYTICS_VIEW_VENDOR: 90011, // Vendor performance analytics (revenue, products, ratings)
+  ANALYTICS_VIEW_PRODUCT: 90012, // Product analytics (sales, views, inventory, returns)
+  ANALYTICS_VIEW_SALES_REPORT: 90013, // Admin sales reports (by category, payment method, growth)
+  ANALYTICS_VIEW_DELIVERY: 90014, // Delivery metrics (person performance, time, success rate)
+  ANALYTICS_VIEW_EXECUTIVE: 90015, // Executive dashboard (profitability, commissions, financial health)
 } as const;
 
 // ── Role Definitions ──
@@ -282,6 +297,8 @@ export enum PermissionResource {
   REPORT = 'REPORT',
   SETTINGS = 'SETTINGS',
   ADMIN_PANEL = 'ADMIN_PANEL',
+  COUPON = 'COUPON',
+  ANALYTICS = 'ANALYTICS',
 }
 
 export enum DeliveryProvider {
@@ -333,6 +350,10 @@ export const ROLE_PERMISSIONS = {
     PERMISSION_CODES.DELIVERY_ASSIGN,
     PERMISSION_CODES.REPORT_READ,
     PERMISSION_CODES.ADMIN_PANEL_ACCESS,
+    // Analytics permissions
+    PERMISSION_CODES.ANALYTICS_VIEW_PLATFORM_METRICS,
+    PERMISSION_CODES.ANALYTICS_VIEW_SALES_REPORT,
+    PERMISSION_CODES.ANALYTICS_VIEW_DELIVERY,
   ],
   MANAGER: [
     PERMISSION_CODES.USER_READ,
@@ -354,6 +375,10 @@ export const ROLE_PERMISSIONS = {
     PERMISSION_CODES.FREE_ITEM_DELETE,
     PERMISSION_CODES.PAYMENT_READ,
     PERMISSION_CODES.REPORT_READ,
+    // Analytics permissions
+    PERMISSION_CODES.ANALYTICS_VIEW_PLATFORM_METRICS,
+    PERMISSION_CODES.ANALYTICS_VIEW_SALES_REPORT,
+    PERMISSION_CODES.ANALYTICS_VIEW_DELIVERY,
   ],
   SELLER: [
     PERMISSION_CODES.ORDER_CREATE,
@@ -371,12 +396,16 @@ export const ROLE_PERMISSIONS = {
     PERMISSION_CODES.FREE_ITEM_DELETE,
     PERMISSION_CODES.PAYMENT_READ,
     PERMISSION_CODES.REPORT_READ,
+    // Analytics permissions
+    PERMISSION_CODES.ANALYTICS_VIEW_SALES_REPORT,
   ],
   DELIVERY_MAN: [
     PERMISSION_CODES.ORDER_READ,
     PERMISSION_CODES.DELIVERY_READ,
     PERMISSION_CODES.DELIVERY_UPDATE,
     PERMISSION_CODES.REPORT_READ,
+    // Analytics permissions
+    PERMISSION_CODES.ANALYTICS_VIEW_DELIVERY,
   ],
   CUSTOMER: [
     PERMISSION_CODES.ORDER_CREATE,
@@ -396,5 +425,8 @@ export const ROLE_PERMISSIONS = {
     PERMISSION_CODES.FREE_ITEM_UPDATE,
     PERMISSION_CODES.FREE_ITEM_DELETE,
     PERMISSION_CODES.REPORT_READ,
+    // Analytics permissions
+    PERMISSION_CODES.ANALYTICS_VIEW_VENDOR,
+    PERMISSION_CODES.ANALYTICS_VIEW_PRODUCT,
   ],
 } as const;

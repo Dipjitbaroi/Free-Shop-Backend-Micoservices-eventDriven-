@@ -64,3 +64,21 @@ export const adminLoginValidation = [
     .notEmpty().withMessage('password is required')
     .isString().withMessage('password must be a string'),
 ];
+
+/**
+ * Validates the payload for changing a user's password by a developer with admin key.
+ * Allows any user's password to be reset by providing the ADMIN_SECRET_KEY.
+ * For development/emergency purposes only.
+ */
+export const changePasswordValidation = [
+  body('secretKey')
+    .notEmpty().withMessage('secretKey is required')
+    .isString().withMessage('secretKey must be a string'),
+  body('userId')
+    .notEmpty().withMessage('userId is required')
+    .isUUID().withMessage('userId must be a valid UUID'),
+  body('newPassword')
+    .notEmpty().withMessage('newPassword is required')
+    .isString().withMessage('newPassword must be a string')
+    .isLength({ min: 8 }).withMessage('newPassword must be at least 8 characters'),
+];

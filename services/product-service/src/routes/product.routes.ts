@@ -25,6 +25,7 @@ const createProductValidation = [
   body('images').optional().isArray({ max: config.upload.maxImages }).withMessage(`Maximum ${config.upload.maxImages} images allowed`),
   body('unit').optional().isString(),
   body('stock').optional().isInt({ min: 0 }),
+  body('lowStockThreshold').optional().isInt({ min: 0 }),
   body('isOrganic').optional().isBoolean(),
 ];
 
@@ -60,7 +61,7 @@ const productFilterValidation = [
   ...paginationValidation,
   query('search').optional().isString().trim(),
   query('categoryId').optional().isUUID(),
-  query('vendorId').optional().isUUID(),
+  query('createdBy').optional().isUUID(),
   query('minPrice').optional().isFloat({ min: 0 }),
   query('maxPrice').optional().isFloat({ min: 0 }),
   query('isOrganic').optional().isIn(['true', 'false']),
