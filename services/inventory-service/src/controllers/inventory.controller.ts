@@ -1,12 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import { inventoryService } from '../services/inventory.service.js';
 import { cleanupService } from '../services/cleanup.service.js';
-import { successResponse, ForbiddenError } from '@freeshop/shared-utils';
+import { successResponse, ForbiddenError, BadRequestError } from '@freeshop/shared-utils';
 
 export const inventoryController = {
   async initializeInventory(req: Request, res: Response, next: NextFunction) {
     try {
       const { productId, userId, initialStock, lowStockThreshold, variantId, freeItemId } = req.body;
+      if (!productId && !freeItemId) {
+        throw new BadRequestError('Either productId or freeItemId is required to initialize inventory');
+      }
       const inventory = await inventoryService.initializeInventory(
         userId,
         initialStock,

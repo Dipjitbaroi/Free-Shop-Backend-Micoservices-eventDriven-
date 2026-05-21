@@ -17,7 +17,9 @@ router.post(
   '/initialize',
   authenticate,
   authorizePermission(PERMISSION_CODES.INVENTORY_CREATE),
-  body('productId').isUUID(),
+  // Accept either productId (for products) or freeItemId (for standalone free items)
+  body('productId').optional().isUUID(),
+  body('freeItemId').optional().isUUID(),
   body('userId').isUUID(),
   body('initialStock').optional().isInt({ min: 0 }),
   body('lowStockThreshold').optional().isInt({ min: 0 }),
