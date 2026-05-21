@@ -4,7 +4,9 @@ import { messageBroker } from '../lib/message-broker.js';
 import { EXCHANGES, getRoutingKey } from '@freeshop/shared-events';
 import { Prisma, VendorStatus, VerificationStatus } from '../../generated/client/client.js';
 import { config } from '../config/index.js';
-import logger, { ConflictError, NotFoundError } from '@freeshop/shared-utils';
+import { createServiceLogger, ConflictError, NotFoundError } from '@freeshop/shared-utils';
+
+const logger = createServiceLogger('vendor-service');
 
 interface createVendorInput {
   userId: string;
@@ -88,11 +90,13 @@ class VendorService {
         description: input.description,
         contactEmail: input.contactEmail,
         contactPhone: input.contactPhone,
+        status: 'PENDING',
+        verificationStatus: 'PENDING',
         businessAddress: input.businessAddress as Prisma.InputJsonValue,
       },
     });
 
-    await messageBroker.publish(
+    void messageBroker.publish(
       EXCHANGES.VENDOR,
       getRoutingKey('Vendor', 'CREATED'),
       {
@@ -101,9 +105,47 @@ class VendorService {
         storeName: vendor.storeName,
         storeSlug: vendor.storeSlug,
       }
-    );
+    ).catch((error) => {
+      logger.error('Failed to publish vendor created event', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        vendorId: vendor.id,
+      });
+    });
 
     return vendor;
+  }
+
+  async deleteVendorRequest(userId: string) {
+    const vendor = await prisma.vendor.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        userId: true,
+        storeSlug: true,
+        status: true,
+        verificationStatus: true,
+      },
+    });
+
+    if (!vendor) {
+      throw new NotFoundError('vendor request not found');
+    }
+
+    if (vendor.status === 'ACTIVE' || vendor.verificationStatus === 'VERIFIED') {
+      throw new ConflictError('Approved vendor accounts cannot be deleted from this endpoint');
+    }
+
+    await prisma.vendor.delete({
+      where: { id: vendor.id },
+    });
+
+    await this.invalidateVendorCache(vendor.id, vendor.userId, vendor.storeSlug);
+
+    return {
+      deleted: true,
+      vendorId: vendor.id,
+      userId: vendor.userId,
+    };
   }
 
   async getVendorById(id: string) {

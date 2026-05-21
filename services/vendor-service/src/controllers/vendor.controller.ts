@@ -18,7 +18,20 @@ export const vendorController = {
         businessAddress: req.body.businessAddress,
       });
 
-      res.status(201).json(successResponse(vendor, 'vendor account created'));
+      res.status(201).json(successResponse(vendor, 'vendor application submitted'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async deleteVendorRequest(req: Request, res: Response, next: NextFunction) {
+    try {
+      const userId = req.user?.id;
+      if (!userId) throw new UnauthorizedError('User not authenticated');
+
+      const result = await vendorService.deleteVendorRequest(userId);
+
+      res.json(successResponse(result, 'vendor application withdrawn'));
     } catch (error) {
       next(error);
     }
