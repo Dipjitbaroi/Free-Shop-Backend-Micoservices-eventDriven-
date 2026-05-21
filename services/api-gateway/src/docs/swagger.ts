@@ -2053,7 +2053,41 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/CreateProductRequest' } },
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateProductRequest' },
+              examples: {
+                basic: {
+                  summary: 'Minimal product create payload',
+                  value: {
+                    name: 'Organic Banana Bunch',
+                    categoryId: '550e8400-e29b-41d4-a716-446655440010',
+                    supplierPrice: 60.0,
+                    price: 80.0,
+                    stock: 100,
+                    unit: 'kg',
+                    isOrganic: true,
+                    images: ['https://cdn.freeshop.com/products/banana-bunch.jpg']
+                  }
+                },
+                full: {
+                  summary: 'Full product payload with metadata and free item links',
+                  value: {
+                    name: 'Organic Mixed Veg Box',
+                    description: 'Seasonal mix of organic vegetables - 2kg box',
+                    categoryId: '550e8400-e29b-41d4-a716-446655440011',
+                    supplierPrice: 250.0,
+                    price: 320.0,
+                    stock: 50,
+                    lowStockThreshold: 5,
+                    unit: 'box',
+                    weight: 2,
+                    images: ['https://cdn.freeshop.com/products/mixed-veg-box.jpg'],
+                    tags: ['organic','vegetables','seasonal'],
+                    freeItemIds: ['550e8400-e29b-41d4-a716-446655440002']
+                  }
+                }
+              }
+            },
           },
         },
         responses: {
@@ -2180,7 +2214,19 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/UpdateProductRequest' } },
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateProductRequest' },
+              examples: {
+                priceUpdate: {
+                  summary: 'Update retail price',
+                  value: { price: 299.99 }
+                },
+                detailsUpdate: {
+                  summary: 'Update multiple fields',
+                  value: { name: 'Organic Mixed Veg Box (Large)', description: 'Now 3kg', tags: ['organic','vegetables'], isFeatured: true }
+                }
+              }
+            },
           },
         },
         responses: {
@@ -3047,6 +3093,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
                           },
                         },
                       },
+                      example: { success: true, data: { payment: { id: '550e8400-e29b-41d4-a716-446655449998', orderId: '550e8400-e29b-41d4-a716-446655442000', amount: 220.75, method: 'COD', status: 'COMPLETED', transactionId: 'TXN-123456', paidAt: '2026-05-20T12:34:56.000Z', metadata: { autoCompleted: true, deliveryCompleted: true } } } },
                     },
                   },
                 },
@@ -4348,6 +4395,16 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                   method: { type: 'string', enum: ['COD', 'BKASH', 'NAGAD', 'ROCKET', 'EPS', 'CARD', 'BANK_TRANSFER'] },
                   amount: { type: 'number', minimum: 0.01 },
                 },
+                examples: {
+                  cod: {
+                    summary: 'Cash on Delivery payment initiation',
+                    value: { orderId: '550e8400-e29b-41d4-a716-446655441000', method: 'COD', amount: 120.5 }
+                  },
+                  bkash: {
+                    summary: 'bKash online payment initiation',
+                    value: { orderId: '550e8400-e29b-41d4-a716-446655441001', method: 'BKASH', amount: 320.0 }
+                  }
+                }
               },
             },
           },
@@ -4369,6 +4426,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                       },
                     },
                   },
+                  example: { success: true, data: { paymentId: '550e8400-e29b-41d4-a716-446655449999', paymentUrl: 'https://pay.gateway/redirect/abc123' } }
                 },
               },
             },
@@ -4482,6 +4540,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                   amount: { type: 'number', minimum: 0.01 },
                   reason: { type: 'string' },
                 },
+                example: { amount: 50.0, reason: 'Customer returned item - refund approved' }
               },
             },
           },
@@ -4514,6 +4573,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                 properties: {
                   collectedAmount: { type: 'number', minimum: 0 },
                 },
+                example: { collectedAmount: 120.50 }
               },
             },
           },
@@ -4545,6 +4605,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                   amount: { type: 'number', minimum: 0.01, description: 'Order amount' },
                   transactionId: { type: 'string', description: 'Optional transaction ID (auto-generated if not provided)' },
                 },
+                example: { orderId: '550e8400-e29b-41d4-a716-446655442000', amount: 220.75, transactionId: 'TXN-123456' }
               },
             },
           },
@@ -4622,7 +4683,19 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/createVendorRequest' } },
+            'application/json': {
+              schema: { $ref: '#/components/schemas/createVendorRequest' },
+              examples: {
+                basic: {
+                  summary: 'Vendor application minimal',
+                  value: { storeName: 'Green Valley Store', contactEmail: 'vendor@greenvalley.com', contactPhone: '+8801711122233' }
+                },
+                full: {
+                  summary: 'Vendor application with address and bank details',
+                  value: { storeName: 'Green Valley Store', contactEmail: 'vendor@greenvalley.com', contactPhone: '+8801711122233', businessAddress: { addressLine: '12 Market St', district: 'Dhaka', postalCode: '1205', country: 'BD' }, bankDetails: { bankName: 'ABC Bank', accountName: 'Green Valley', accountNumber: '0123456789' } }
+                }
+              }
+            },
           },
         },
         responses: {
@@ -4996,6 +5069,16 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                   initialStock: { type: 'integer', minimum: 0, default: 0 },
                   lowStockThreshold: { type: 'integer', minimum: 0, default: 10 },
                 },
+                examples: {
+                  productInit: {
+                    summary: 'Initialize inventory for a product',
+                    value: { productId: '550e8400-e29b-41d4-a716-446655440100', userId: '550e8400-e29b-41d4-a716-446655440200', initialStock: 200, lowStockThreshold: 10 }
+                  },
+                  freeItemInit: {
+                    summary: 'Initialize inventory for a free item',
+                    value: { freeItemId: '550e8400-e29b-41d4-a716-446655440300', userId: '550e8400-e29b-41d4-a716-446655440200', initialStock: 100 }
+                  }
+                }
               },
             },
           },
@@ -5038,6 +5121,16 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                     },
                   },
                 },
+                examples: {
+                  singleItem: {
+                    summary: 'Check single product availability',
+                    value: { items: [ { productId: '550e8400-e29b-41d4-a716-446655440001', quantity: 2 } ] }
+                  },
+                  multipleItems: {
+                    summary: 'Check multiple items including variant and free item',
+                    value: { items: [ { productId: '550e8400-e29b-41d4-a716-446655440001', variantId: '660e8400-e29b-41d4-a716-446655440099', quantity: 1 }, { productId: '550e8400-e29b-41d4-a716-446655440002', freeItemId: '770e8400-e29b-41d4-a716-446655440033', quantity: 1 } ] }
+                  }
+                }
               },
             },
           },
@@ -5506,7 +5599,19 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
         requestBody: {
           required: true,
           content: {
-            'application/json': { schema: { $ref: '#/components/schemas/CreateNotificationRequest' } },
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateNotificationRequest' },
+              examples: {
+                email: {
+                  summary: 'Send an email notification to a user',
+                  value: { userId: '550e8400-e29b-41d4-a716-446655443000', type: 'EMAIL', channel: 'EMAIL', template: 'ORDER_CREATED', data: { orderNumber: 'ORD-2026-0001' } }
+                },
+                smsGuest: {
+                  summary: 'Send an SMS to a guest phone number',
+                  value: { guestPhone: '+8801712345678', type: 'SMS', channel: 'SMS', template: 'WELCOME', data: { promoCode: 'WELCOME10' } }
+                }
+              }
+            },
           },
         },
         responses: {
@@ -5536,6 +5641,12 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
                   templateId: { type: 'string' },
                   templateData: { type: 'object', additionalProperties: true },
                 },
+                examples: {
+                  promo: {
+                    summary: 'Bulk promotional push notification',
+                    value: { userIds: ['550e8400-e29b-41d4-a716-446655443001','550e8400-e29b-41d4-a716-446655443002'], type: 'PUSH', channel: 'PUSH', templateId: 'PROMO_2026_01', templateData: { discount: '20%' } }
+                  }
+                }
               },
             },
           },
@@ -7486,6 +7597,17 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           freeItems: { type: 'array', items: { $ref: '#/components/schemas/FreeItemCreate' } },
           freeItemIds: { type: 'array', items: { type: 'string', format: 'uuid' }, description: 'Attach existing reusable free items to this product' },
         },
+        example: {
+          name: 'Organic Banana Bunch',
+          description: 'Fresh organic bananas from local farms',
+          categoryId: '550e8400-e29b-41d4-a716-446655440010',
+          supplierPrice: 60.0,
+          price: 80.0,
+          stock: 100,
+          unit: 'kg',
+          isOrganic: true,
+          images: ['https://cdn.freeshop.com/products/banana-bunch.jpg']
+        },
       },
       UpdateProductRequest: {
         type: 'object',
@@ -7680,6 +7802,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           businessAddress: { $ref: '#/components/schemas/VendorAddress' },
           bankDetails: { $ref: '#/components/schemas/BankDetails' },
         },
+        example: { storeName: 'My Awesome Shop', contactEmail: 'vendor@example.com', contactPhone: '+8801700000000' },
       },
       updateVendorRequest: {
         type: 'object',
@@ -7710,6 +7833,7 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           template: { type: 'string' },
           data: { type: 'object', additionalProperties: true },
         },
+        example: { userId: '550e8400-e29b-41d4-a716-446655443000', type: 'EMAIL', channel: 'EMAIL', template: 'ORDER_CREATED', data: { orderNumber: 'ORD-2026-0001' } }
       },
 
       // ── Response / model schemas ───────────────────────────────────────────
@@ -8193,6 +8317,22 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
           lastRestockedAt: { type: 'string', format: 'date-time' },
           createdAt: { type: 'string', format: 'date-time' },
           updatedAt: { type: 'string', format: 'date-time' },
+        },
+        example: {
+          id: '550e8400-e29b-41d4-a716-446655445000',
+          productId: '550e8400-e29b-41d4-a716-446655440001',
+          variantId: null,
+          userId: '550e8400-e29b-41d4-a716-446655440200',
+          sku: 'PROD-BAN-001',
+          totalStock: 200,
+          availableStock: 150,
+          reservedStock: 50,
+          lowStockThreshold: 10,
+          isLowStock: false,
+          isOutOfStock: false,
+          lastRestockedAt: '2026-05-01T09:00:00.000Z',
+          createdAt: '2026-04-20T12:00:00.000Z',
+          updatedAt: '2026-05-10T10:00:00.000Z'
         },
       },
       InventoryResponse: {
