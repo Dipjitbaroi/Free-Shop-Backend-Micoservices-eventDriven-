@@ -5254,6 +5254,143 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
       },
     },
 
+    // ─── FREE ITEMS INVENTORY ────────────────────────────────────────────────
+    '/inventory/free-items/initialize': {
+      post: {
+        tags: ['Inventory'],
+        summary: 'Initialize free item inventory (admin)',
+        description: 'Creates initial inventory tracking for a free item with allocated stock.',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['freeItemId', 'userId', 'initialStock'],
+                properties: {
+                  freeItemId: { type: 'string', format: 'uuid', description: 'The free item ID' },
+                  userId: { type: 'string', format: 'uuid', description: 'User who manages this free item' },
+                  initialStock: { type: 'integer', minimum: 1, description: 'Initial allocated stock' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: 'Free item inventory initialized' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/inventory/free-items/{freeItemId}': {
+      get: {
+        tags: ['Inventory'],
+        summary: 'Get free item inventory status',
+        description: 'Returns current stock, available stock, and reservation info for a free item.',
+        parameters: [
+          { name: 'freeItemId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: {
+            description: 'Free item inventory details',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/Inventory' } } },
+          },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/inventory/free-items/{freeItemId}/add': {
+      post: {
+        tags: ['Inventory'],
+        summary: 'Add free item stock (restock)',
+        description: 'Increases available stock for a free item. Used for restocking or adding more free items to campaign.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'freeItemId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['quantity'],
+                properties: {
+                  quantity: { type: 'integer', minimum: 1 },
+                  reason: { type: 'string', description: 'Optional reason for restocking (e.g., "Campaign refresh", "New batch")' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Free item stock added' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/inventory/free-items/{freeItemId}/reduce': {
+      post: {
+        tags: ['Inventory'],
+        summary: 'Reduce free item stock (admin adjustment)',
+        description: 'Decreases available stock for a free item. Used for manual adjustments or corrections.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'freeItemId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['quantity'],
+                properties: {
+                  quantity: { type: 'integer', minimum: 1 },
+                  reason: { type: 'string', description: 'Optional reason for reduction (e.g., "Campaign ended", "Damaged stock")' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: 'Free item stock reduced' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/inventory/free-items/{freeItemId}/movements': {
+      get: {
+        tags: ['Inventory'],
+        summary: 'Get free item stock movements',
+        description: 'Returns all stock movements (additions, reductions, reservations, fulfillments) for a free item.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'freeItemId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { $ref: '#/components/parameters/page' },
+          { $ref: '#/components/parameters/limit' },
+        ],
+        responses: {
+          200: {
+            description: 'Free item stock movements',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedMovements' } } },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
     // ─── NOTIFICATIONS ───────────────────────────────────────────────────────
     '/notifications': {
       get: {

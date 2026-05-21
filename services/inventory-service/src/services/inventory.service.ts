@@ -181,14 +181,16 @@ class InventoryService {
     return createPaginatedResponse(items, total, page, limit);
   }
 
-  // Add stock
+  // Add stock (for products, variants, or free items)
   async addStock(
-    productId: string,
     quantity: number,
     reason: string = 'Restock',
-    performedBy?: string
+    performedBy?: string,
+    productId?: string,
+    variantId?: string,
+    freeItemId?: string
   ): Promise<Inventory> {
-    const lockKey = `inventory:${productId}`;
+    const lockKey = `inventory:${freeItemId || variantId || productId}`;
     const locked = await acquireLock(lockKey);
     
     if (!locked) {
@@ -196,7 +198,7 @@ class InventoryService {
     }
 
     try {
-      const inventory = await this.getInventory(productId);
+      const inventory = await this.getInventory(productId, variantId, freeItemId);
       const previousStock = inventory.totalStock;
       const newTotalStock = previousStock + quantity;
       const newAvailableStock = inventory.availableStock + quantity;
@@ -235,14 +237,16 @@ class InventoryService {
     }
   }
 
-  // Reduce stock (direct reduction, not through order)
+  // Reduce stock (direct reduction, not through order - for products, variants, or free items)
   async reduceStock(
-    productId: string,
     quantity: number,
     reason: string = 'Adjustment',
-    performedBy?: string
+    performedBy?: string,
+    productId?: string,
+    variantId?: string,
+    freeItemId?: string
   ): Promise<Inventory> {
-    const lockKey = `inventory:${productId}`;
+    const lockKey = `inventory:${freeItemId || variantId || productId}`;
     const locked = await acquireLock(lockKey);
     
     if (!locked) {
@@ -250,7 +254,7 @@ class InventoryService {
     }
 
     try {
-      const inventory = await this.getInventory(productId);
+      const inventory = await this.getInventory(productId, variantId, freeItemId);
       
       if (inventory.availableStock < quantity) {
         throw new BadRequestError('Insufficient stock');
