@@ -162,7 +162,7 @@ export const inventoryController = {
       const { productId } = req.params;
       const { threshold } = req.body;
       
-      const inventory = await inventoryService.setLowStockThreshold(productId as string, threshold);
+      const inventory = await inventoryService.setLowStockThreshold(threshold, productId as string);
       
       res.json(successResponse(inventory, 'Threshold updated'));
     } catch (error) {
@@ -281,12 +281,13 @@ export const inventoryController = {
       const { freeItemId } = req.params;
       const { page, limit } = req.query;
       
-      // Get free item inventory by freeItemId
-      const freeItemInventory = await inventoryService.getInventory(undefined, undefined, freeItemId as string);
+      // Get free item movements by freeItemId
       const movements = await inventoryService.getMovements(
-        freeItemInventory.id,
+        undefined, // productId
         page ? parseInt(page as string) : 1,
-        limit ? parseInt(limit as string) : 20
+        limit ? parseInt(limit as string) : 20,
+        undefined, // variantId
+        freeItemId as string
       );
       
       res.json(successResponse(movements, 'Free item movements retrieved'));

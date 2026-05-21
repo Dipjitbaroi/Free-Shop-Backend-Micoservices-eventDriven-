@@ -60,30 +60,42 @@ class InventoryService {
     variantId?: string,
     freeItemId?: string
   ): Promise<Inventory> {
+    const whereClause: Prisma.InventoryWhereInput = {
+      variantId,
+      freeItemId,
+    };
+    if (productId) {
+      whereClause.productId = productId;
+    }
+
     const existing = await prisma.inventory.findFirst({
-      where: {
-        productId: productId || null,
-        variantId,
-        freeItemId,
-      },
+      where: whereClause,
     });
 
     if (existing) {
       return existing;
     }
 
+    const dataClause: any = {
+      userId,
+      totalStock: initialStock,
+      availableStock: initialStock,
+      lowStockThreshold: lowStockThreshold || config.inventory.defaultLowStockThreshold,
+      isLowStock: initialStock <= (lowStockThreshold || config.inventory.defaultLowStockThreshold),
+      isOutOfStock: initialStock === 0,
+    };
+    if (productId) {
+      dataClause.productId = productId;
+    }
+    if (variantId) {
+      dataClause.variantId = variantId;
+    }
+    if (freeItemId) {
+      dataClause.freeItemId = freeItemId;
+    }
+
     const inventory = await prisma.inventory.create({
-      data: {
-        productId: productId || null,
-        variantId,
-        freeItemId,
-        userId,
-        totalStock: initialStock,
-        availableStock: initialStock,
-        lowStockThreshold: lowStockThreshold || config.inventory.defaultLowStockThreshold,
-        isLowStock: initialStock <= (lowStockThreshold || config.inventory.defaultLowStockThreshold),
-        isOutOfStock: initialStock === 0,
-      },
+      data: dataClause,
     });
 
     // Record initial movement
@@ -111,12 +123,16 @@ class InventoryService {
     variantId?: string,
     freeItemId?: string
   ): Promise<InventoryWithDetails> {
+    const whereClause: Prisma.InventoryWhereInput = {
+      variantId,
+      freeItemId,
+    };
+    if (productId) {
+      whereClause.productId = productId;
+    }
+
     const inventory = await prisma.inventory.findFirst({
-      where: {
-        productId: productId || null,
-        variantId,
-        freeItemId,
-      },
+      where: whereClause,
       include: {
         reservations: {
           where: { status: ReservationStatus.PENDING },
@@ -313,12 +329,16 @@ class InventoryService {
     }
 
     try {
+      const whereClause: Prisma.InventoryWhereInput = {
+        variantId,
+        freeItemId,
+      };
+      if (productId) {
+        whereClause.productId = productId;
+      }
+
       const inventory = await prisma.inventory.findFirst({
-        where: {
-          productId: productId || null,
-          variantId,
-          freeItemId,
-        },
+        where: whereClause,
       });
 
       if (!inventory) {
@@ -443,18 +463,13 @@ class InventoryService {
     // Publish reservation fulfilled event
     await eventPublisher.publish(Events.INVENTORY_RESERVED, {
       orderId,
-      items: reservations.map(r => {
-        const rawId = r.inventory.productId;
-        if (rawId.includes(':free:')) {
-          const [base, freeId] = rawId.split(':free:');
-          return { productId: base, freeItemId: freeId, freeItemIds: [freeId], quantity: r.quantity };
-        }
-        if (rawId.includes(':')) {
-          const [base, variant] = rawId.split(':');
-          return { productId: base, variantId: variant, quantity: r.quantity };
-        }
-        return { productId: rawId, quantity: r.quantity };
-      }),
+      items: reservations.map(r => ({
+        productId: r.inventory.productId || undefined,
+        variantId: r.inventory.variantId || undefined,
+        freeItemId: r.inventory.freeItemId || undefined,
+        freeItemIds: r.inventory.freeItemId ? [r.inventory.freeItemId] : undefined,
+        quantity: r.quantity,
+      })),
     });
   }
 
@@ -519,18 +534,13 @@ class InventoryService {
     // Publish release event
     await eventPublisher.publish(Events.INVENTORY_RELEASED, {
       orderId,
-      items: reservations.map(r => {
-        const rawId = r.inventory.productId;
-        if (rawId.includes(':free:')) {
-          const [base, freeId] = rawId.split(':free:');
-          return { productId: base, freeItemId: freeId, freeItemIds: [freeId], quantity: r.quantity };
-        }
-        if (rawId.includes(':')) {
-          const [base, variant] = rawId.split(':');
-          return { productId: base, variantId: variant, quantity: r.quantity };
-        }
-        return { productId: rawId, quantity: r.quantity };
-      }),
+      items: reservations.map(r => ({
+        productId: r.inventory.productId || undefined,
+        variantId: r.inventory.variantId || undefined,
+        freeItemId: r.inventory.freeItemId || undefined,
+        freeItemIds: r.inventory.freeItemId ? [r.inventory.freeItemId] : undefined,
+        quantity: r.quantity,
+      })),
     });
   }
 
@@ -541,16 +551,18 @@ class InventoryService {
     quantity: number,
     performedBy?: string
   ): Promise<Inventory> {
-    return this.addStock(productId, quantity, `Return from order ${orderId}`, performedBy);
+    return this.addStock(quantity, `Return from order ${orderId}`, performedBy, productId);
   }
 
   // Get stock movements
   async getMovements(
-    productId: string,
+    productId?: string,
     page: number = 1,
-    limit: number = 50
+    limit: number = 50,
+    variantId?: string,
+    freeItemId?: string
   ): Promise<IPaginatedResult<StockMovement>> {
-    const inventory = await this.getInventory(productId);
+    const inventory = await this.getInventory(productId, variantId, freeItemId);
 
     const [movements, total] = await Promise.all([
       prisma.stockMovement.findMany({
@@ -566,8 +578,13 @@ class InventoryService {
   }
 
   // Set low stock threshold
-  async setLowStockThreshold(productId: string, threshold: number): Promise<Inventory> {
-    const inventory = await this.getInventory(productId);
+  async setLowStockThreshold(
+    threshold: number,
+    productId?: string,
+    variantId?: string,
+    freeItemId?: string
+  ): Promise<Inventory> {
+    const inventory = await this.getInventory(productId, variantId, freeItemId);
 
     const updated = await prisma.inventory.update({
       where: { id: inventory.id },
@@ -658,19 +675,20 @@ class InventoryService {
   }
 
   private async checkAndSendAlerts(inventory: Inventory): Promise<void> {
+    const itemId = inventory.freeItemId || inventory.productId || inventory.id;
     if (inventory.isOutOfStock) {
       await prisma.inventoryAlert.create({
         data: {
           inventoryId: inventory.id,
-          productId: inventory.productId,
+          productId: inventory.productId || itemId,
           userId: inventory.userId,
           type: 'OUT_OF_STOCK',
-          message: `Product ${inventory.productId} is out of stock`,
+          message: `Inventory ${itemId} is out of stock`,
         },
       });
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
-        productId: inventory.productId,
+        productId: inventory.productId || itemId,
         userId: inventory.userId,
         availableStock: 0,
         type: 'OUT_OF_STOCK',
@@ -679,15 +697,15 @@ class InventoryService {
       await prisma.inventoryAlert.create({
         data: {
           inventoryId: inventory.id,
-          productId: inventory.productId,
+          productId: inventory.productId || itemId,
           userId: inventory.userId,
           type: 'LOW_STOCK',
-          message: `Product ${inventory.productId} is running low (${inventory.availableStock} remaining)`,
+          message: `Inventory ${itemId} is running low (${inventory.availableStock} remaining)`,
         },
       });
 
       await eventPublisher.publish(Events.INVENTORY_LOW, {
-        productId: inventory.productId,
+        productId: inventory.productId || itemId,
         userId: inventory.userId,
         availableStock: inventory.availableStock,
         type: 'LOW_STOCK',

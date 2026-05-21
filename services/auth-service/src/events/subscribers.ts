@@ -13,6 +13,13 @@ interface VendorCreatedPayload {
   storeSlug?: string;
 }
 
+interface VendorVerifiedPayload {
+  vendorId: string;
+  userId: string;
+  verified: boolean;
+  reason?: string;
+}
+
 interface VendorStatusChangedPayload {
   vendorId: string;
   userId: string;
@@ -24,7 +31,8 @@ interface VendorStatusChangedPayload {
  * Subscribe to Vendor events so the auth-service can keep the user's role
  * in sync.
  *
- * Vendor.CREATED  → upgrade the user's role from CUSTOMER → Vendor
+ * Vendor.CREATED  → vendor application submitted; keep the user as CUSTOMER
+ * Vendor.VERIFIED (approved) → upgrade the user's role from CUSTOMER → VENDOR
  * Vendor.STATUS_CHANGED (BANNED | CLOSED) → downgrade role back to CUSTOMER
  */
 export const setupEventSubscribers = async (): Promise<void> => {
@@ -80,21 +88,56 @@ export const setupEventSubscribers = async (): Promise<void> => {
           return;
         }
 
+        logger.info('Vendor application submitted', {
+          userId: payload.userId,
+          vendorId: payload.vendorId,
+        });
+      } catch (error) {
+        logger.error('Failed to handle Vendor created event', {
+          userId: payload.userId,
+          error: (error as Error).message,
+        });
+        throw error; // re-throw so the broker can nack/retry
+      }
+    }
+  );
+
+  // ── Vendor.VERIFIED ───────────────────────────────────────────────────────
+  await messageBroker.subscribe<VendorVerifiedPayload>(
+    EXCHANGES.VENDOR,
+    'auth.Vendor_verified',
+    getRoutingKey('Vendor', 'VERIFIED'),
+    async (payload) => {
+      try {
+        if (!payload.userId) {
+          logger.warn('Vendor.verified event missing userId', { payload });
+          return;
+        }
+
+        if (!payload.verified) {
+          logger.info('Vendor verification rejected; keeping user as CUSTOMER', {
+            userId: payload.userId,
+            vendorId: payload.vendorId,
+            reason: payload.reason,
+          });
+          return;
+        }
+
         await prisma.user.update({
           where: { id: payload.userId },
           data: { role: 'VENDOR' },
         });
 
-        logger.info('User role upgraded to Vendor', {
+        logger.info('User role upgraded to Vendor after approval', {
           userId: payload.userId,
           vendorId: payload.vendorId,
         });
       } catch (error) {
-        logger.error('Failed to upgrade user role to Vendor', {
+        logger.error('Failed to upgrade user role after Vendor approval', {
           userId: payload.userId,
           error: (error as Error).message,
         });
-        throw error; // re-throw so the broker can nack/retry
+        throw error;
       }
     }
   );

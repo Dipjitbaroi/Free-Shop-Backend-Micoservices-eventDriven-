@@ -22,6 +22,8 @@ router.post(
 
 router.get('/me', authenticate, vendorController.getMyVendor);
 
+router.delete('/me/request', authenticate, vendorController.deleteVendorRequest);
+
 router.get('/me/stats', authenticate, vendorController.getVendorStats);
 
 router.patch(
