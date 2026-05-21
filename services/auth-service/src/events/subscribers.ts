@@ -123,14 +123,20 @@ export const setupEventSubscribers = async (): Promise<void> => {
           return;
         }
 
-        await prisma.user.update({
-          where: { id: payload.userId },
-          data: { role: 'VENDOR' },
-        });
+        // Assign VENDOR role via RBAC service (user roles are stored in user_roles)
+        const vendorRole = await prisma.role.findUnique({ where: { name: 'VENDOR' } });
 
-        logger.info('User role upgraded to Vendor after approval', {
+        if (!vendorRole) {
+          logger.warn('VENDOR role not found in database; cannot assign role', { userId: payload.userId });
+          return;
+        }
+
+        await RBACService.assignRoleToUser(payload.userId, vendorRole.id, 'SYSTEM');
+
+        logger.info('User role upgraded to VENDOR after approval', {
           userId: payload.userId,
           vendorId: payload.vendorId,
+          roleId: vendorRole.id,
         });
       } catch (error) {
         logger.error('Failed to upgrade user role after Vendor approval', {
