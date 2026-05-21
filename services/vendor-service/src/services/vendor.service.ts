@@ -184,12 +184,12 @@ class VendorService {
     };
   }
 
-  async getVendorById(id: string) {
+  async getVendorById(id: string): Promise<any> {
     const cacheKey = `vendor:${id}`;
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      const vendor = JSON.parse(cached) as { userId?: string; user?: UserProfile | null };
+      const vendor = JSON.parse(cached) as any;
 
       if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
         const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
@@ -211,7 +211,7 @@ class VendorService {
       },
     });
 
-    const hydratedVendor = await this.hydrateVendorWithUser(vendor);
+    const hydratedVendor = await this.hydrateVendorWithUser(vendor) as any;
 
     if (hydratedVendor) {
       await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
@@ -220,12 +220,12 @@ class VendorService {
     return hydratedVendor;
   }
 
-  async getVendorByUserId(userId: string) {
+  async getVendorByUserId(userId: string): Promise<any> {
     const cacheKey = `vendor:user:${userId}`;
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      const vendor = JSON.parse(cached) as { userId?: string; user?: UserProfile | null };
+      const vendor = JSON.parse(cached) as any;
 
       if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
         const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
@@ -247,7 +247,7 @@ class VendorService {
       },
     });
 
-    const hydratedVendor = await this.hydrateVendorWithUser(vendor);
+    const hydratedVendor = await this.hydrateVendorWithUser(vendor) as any;
 
     if (hydratedVendor) {
       await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
@@ -256,12 +256,12 @@ class VendorService {
     return hydratedVendor;
   }
 
-  async getVendorBySlug(slug: string) {
+  async getVendorBySlug(slug: string): Promise<any> {
     const cacheKey = `vendor:slug:${slug}`;
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      const vendor = JSON.parse(cached) as { userId?: string; user?: UserProfile | null };
+      const vendor = JSON.parse(cached) as any;
 
       if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
         const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
@@ -289,7 +289,7 @@ class VendorService {
       },
     });
 
-    const hydratedVendor = await this.hydrateVendorWithUser(vendor);
+    const hydratedVendor = await this.hydrateVendorWithUser(vendor) as any;
 
     if (hydratedVendor) {
       await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
