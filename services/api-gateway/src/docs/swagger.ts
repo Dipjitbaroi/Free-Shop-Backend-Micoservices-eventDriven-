@@ -2452,9 +2452,11 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
             'application/json': {
               schema: {
                 type: 'object',
-                required: ['productId', 'rating'],
+                // orderId and comment are required by the Product service DB model
+                required: ['productId', 'rating', 'orderId', 'comment'],
                 properties: {
                   productId: { type: 'string', format: 'uuid' },
+                  orderId: { type: 'string', format: 'uuid' },
                   rating: { type: 'integer', minimum: 1, maximum: 5 },
                   title: { type: 'string', maxLength: 100 },
                   comment: { type: 'string', maxLength: 2000 },
