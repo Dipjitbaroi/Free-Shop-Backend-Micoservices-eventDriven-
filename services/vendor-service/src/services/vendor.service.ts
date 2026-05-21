@@ -157,12 +157,51 @@ class VendorService {
     };
   }
 
+  async deleteVendor(id: string) {
+    const vendor = await prisma.vendor.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        userId: true,
+        storeSlug: true,
+      },
+    });
+
+    if (!vendor) {
+      throw new NotFoundError('vendor not found');
+    }
+
+    await prisma.vendor.delete({
+      where: { id: vendor.id },
+    });
+
+    await this.invalidateVendorCache(vendor.id, vendor.userId, vendor.storeSlug);
+
+    return {
+      deleted: true,
+      vendorId: vendor.id,
+      userId: vendor.userId,
+    };
+  }
+
   async getVendorById(id: string) {
     const cacheKey = `vendor:${id}`;
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      return JSON.parse(cached);
+      const vendor = JSON.parse(cached) as { userId?: string; user?: UserProfile | null };
+
+      if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
+        const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
+
+        if (hydratedVendor) {
+          await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
+        }
+
+        return hydratedVendor;
+      }
+
+      return vendor;
     }
 
     const vendor = await prisma.vendor.findUnique({
@@ -172,11 +211,13 @@ class VendorService {
       },
     });
 
-    if (vendor) {
-      await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(vendor));
+    const hydratedVendor = await this.hydrateVendorWithUser(vendor);
+
+    if (hydratedVendor) {
+      await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
     }
 
-    return vendor;
+    return hydratedVendor;
   }
 
   async getVendorByUserId(userId: string) {
@@ -184,7 +225,19 @@ class VendorService {
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      return JSON.parse(cached);
+      const vendor = JSON.parse(cached) as { userId?: string; user?: UserProfile | null };
+
+      if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
+        const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
+
+        if (hydratedVendor) {
+          await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
+        }
+
+        return hydratedVendor;
+      }
+
+      return vendor;
     }
 
     const vendor = await prisma.vendor.findUnique({
@@ -194,11 +247,13 @@ class VendorService {
       },
     });
 
-    if (vendor) {
-      await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(vendor));
+    const hydratedVendor = await this.hydrateVendorWithUser(vendor);
+
+    if (hydratedVendor) {
+      await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
     }
 
-    return vendor;
+    return hydratedVendor;
   }
 
   async getVendorBySlug(slug: string) {
@@ -206,7 +261,19 @@ class VendorService {
     const cached = await redis.get(cacheKey);
 
     if (cached) {
-      return JSON.parse(cached);
+      const vendor = JSON.parse(cached) as { userId?: string; user?: UserProfile | null };
+
+      if (vendor.userId && !Object.prototype.hasOwnProperty.call(vendor, 'user')) {
+        const hydratedVendor = await this.hydrateVendorWithUser(vendor as { userId: string });
+
+        if (hydratedVendor) {
+          await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
+        }
+
+        return hydratedVendor;
+      }
+
+      return vendor;
     }
 
     const vendor = await prisma.vendor.findUnique({
@@ -222,11 +289,13 @@ class VendorService {
       },
     });
 
-    if (vendor) {
-      await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(vendor));
+    const hydratedVendor = await this.hydrateVendorWithUser(vendor);
+
+    if (hydratedVendor) {
+      await redis.setex(cacheKey, CACHE_TTL.Vendor_PROFILE, JSON.stringify(hydratedVendor));
     }
 
-    return vendor;
+    return hydratedVendor;
   }
 
   async updateVendor(id: string, input: updateVendorInput) {
@@ -365,6 +434,17 @@ class VendorService {
       });
       return null;
     }
+  }
+
+  private async hydrateVendorWithUser<T extends { userId: string }>(vendor: T | null): Promise<(T & { user: UserProfile | null }) | null> {
+    if (!vendor) {
+      return null;
+    }
+
+    return {
+      ...vendor,
+      user: await this.fetchUserProfile(vendor.userId),
+    };
   }
 
   async listVendors(filters: VendorFilters) {

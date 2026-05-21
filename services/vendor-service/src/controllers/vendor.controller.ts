@@ -63,6 +63,16 @@ export const vendorController = {
     }
   },
 
+  async deleteVendor(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await vendorService.deleteVendor(req.params.id as string);
+
+      res.json(successResponse(result, 'vendor deleted'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async getVendorBySlug(req: Request, res: Response, next: NextFunction) {
     try {
       const vendor = await vendorService.getVendorBySlug(req.params.slug as string);
