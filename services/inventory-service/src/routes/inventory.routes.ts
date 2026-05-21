@@ -17,7 +17,9 @@ router.post(
   '/initialize',
   authenticate,
   authorizePermission(PERMISSION_CODES.INVENTORY_CREATE),
-  body('productId').isUUID(),
+  // Accept either productId (for products) or freeItemId (for standalone free items)
+  body('productId').optional().isUUID(),
+  body('freeItemId').optional().isUUID(),
   body('userId').isUUID(),
   body('initialStock').optional().isInt({ min: 0 }),
   body('lowStockThreshold').optional().isInt({ min: 0 }),
@@ -139,6 +141,63 @@ router.patch(
   body('threshold').isInt({ min: 0 }),
   validate,
   inventoryController.setLowStockThreshold
+);
+
+// ============ FREE ITEMS INVENTORY MANAGEMENT ============
+
+// Initialize free item inventory
+router.post(
+  '/free-items/initialize',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_CREATE),
+  body('freeItemId').isUUID(),
+  body('userId').isUUID(),
+  body('initialStock').isInt({ min: 1 }),
+  validate,
+  inventoryController.initializeFreeItemInventory
+);
+
+// Get free item inventory
+router.get(
+  '/free-items/:freeItemId',
+  param('freeItemId').isUUID(),
+  validate,
+  inventoryController.getFreeItemInventory
+);
+
+// Add free item stock (restock)
+router.post(
+  '/free-items/:freeItemId/add',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
+  param('freeItemId').isUUID(),
+  body('quantity').isInt({ min: 1 }),
+  body('reason').optional().isString(),
+  validate,
+  inventoryController.addFreeItemStock
+);
+
+// Reduce free item stock
+router.post(
+  '/free-items/:freeItemId/reduce',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_UPDATE),
+  param('freeItemId').isUUID(),
+  body('quantity').isInt({ min: 1 }),
+  body('reason').optional().isString(),
+  validate,
+  inventoryController.reduceFreeItemStock
+);
+
+// Get free item stock movements
+router.get(
+  '/free-items/:freeItemId/movements',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.INVENTORY_READ),
+  param('freeItemId').isUUID(),
+  paginationValidation,
+  validate,
+  inventoryController.getFreeItemMovements
 );
 
 export default router;

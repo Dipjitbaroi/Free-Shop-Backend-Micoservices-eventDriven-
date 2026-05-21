@@ -48,31 +48,21 @@ class InventoryService {
     });
   }
 
-  // Parse composite inventory key (productId or productId:variantId or productId:free:freeItemId)
-  private parseInventoryKey(key: string): { productId: string; variantId?: string; freeItemId?: string } {
-    if (key.includes(':free:')) {
-      const [productId, , freeItemId] = key.split(':');
-      return { productId, freeItemId };
-    }
-    if (key.includes(':')) {
-      const [productId, variantId] = key.split(':');
-      return { productId, variantId };
-    }
-    return { productId: key };
-  }
-
-  // Initialize inventory for a product (with variant support)
+  // Initialize inventory for a product or free item
+  // For standalone free items: pass freeItemId with undefined productId
+  // For product variants: pass productId with variantId
+  // For product-attached free items: pass both productId and freeItemId
   async initializeInventory(
-    productId: string,
     userId: string,
     initialStock: number = 0,
     lowStockThreshold?: number,
+    productId?: string,
     variantId?: string,
     freeItemId?: string
   ): Promise<Inventory> {
     const existing = await prisma.inventory.findFirst({
       where: {
-        productId,
+        productId: productId || null,
         variantId,
         freeItemId,
       },
@@ -84,7 +74,7 @@ class InventoryService {
 
     const inventory = await prisma.inventory.create({
       data: {
-        productId,
+        productId: productId || null,
         variantId,
         freeItemId,
         userId,
@@ -114,12 +104,16 @@ class InventoryService {
     return inventory;
   }
 
-  async getInventory(inventoryKey: string): Promise<InventoryWithDetails> {
-    const { productId, variantId, freeItemId } = this.parseInventoryKey(inventoryKey);
-    
+  // Get inventory for a product or free item
+  // Pass productId for regular products, variantId for variants, freeItemId for free items
+  async getInventory(
+    productId?: string,
+    variantId?: string,
+    freeItemId?: string
+  ): Promise<InventoryWithDetails> {
     const inventory = await prisma.inventory.findFirst({
       where: {
-        productId,
+        productId: productId || null,
         variantId,
         freeItemId,
       },
@@ -131,7 +125,7 @@ class InventoryService {
     });
 
     if (!inventory) {
-      throw new NotFoundError(`Inventory not found for: ${inventoryKey}`);
+      throw new NotFoundError(`Inventory not found for: productId=${productId}, variantId=${variantId}, freeItemId=${freeItemId}`);
     }
 
     return inventory;
@@ -187,14 +181,16 @@ class InventoryService {
     return createPaginatedResponse(items, total, page, limit);
   }
 
-  // Add stock
+  // Add stock (for products, variants, or free items)
   async addStock(
-    productId: string,
     quantity: number,
     reason: string = 'Restock',
-    performedBy?: string
+    performedBy?: string,
+    productId?: string,
+    variantId?: string,
+    freeItemId?: string
   ): Promise<Inventory> {
-    const lockKey = `inventory:${productId}`;
+    const lockKey = `inventory:${freeItemId || variantId || productId}`;
     const locked = await acquireLock(lockKey);
     
     if (!locked) {
@@ -202,7 +198,7 @@ class InventoryService {
     }
 
     try {
-      const inventory = await this.getInventory(productId);
+      const inventory = await this.getInventory(productId, variantId, freeItemId);
       const previousStock = inventory.totalStock;
       const newTotalStock = previousStock + quantity;
       const newAvailableStock = inventory.availableStock + quantity;
@@ -241,14 +237,16 @@ class InventoryService {
     }
   }
 
-  // Reduce stock (direct reduction, not through order)
+  // Reduce stock (direct reduction, not through order - for products, variants, or free items)
   async reduceStock(
-    productId: string,
     quantity: number,
     reason: string = 'Adjustment',
-    performedBy?: string
+    performedBy?: string,
+    productId?: string,
+    variantId?: string,
+    freeItemId?: string
   ): Promise<Inventory> {
-    const lockKey = `inventory:${productId}`;
+    const lockKey = `inventory:${freeItemId || variantId || productId}`;
     const locked = await acquireLock(lockKey);
     
     if (!locked) {
@@ -256,7 +254,7 @@ class InventoryService {
     }
 
     try {
-      const inventory = await this.getInventory(productId);
+      const inventory = await this.getInventory(productId, variantId, freeItemId);
       
       if (inventory.availableStock < quantity) {
         throw new BadRequestError('Insufficient stock');
@@ -297,14 +295,17 @@ class InventoryService {
     }
   }
 
-  // Reserve stock for an order (with variant support)
+  // Reserve stock for an order
+  // Pass productId for regular products, variantId for variants, freeItemId for free items
   async reserveStock(
-    inventoryKey: string,
     orderId: string,
     quantity: number,
-    variantId?: string
+    productId?: string,
+    variantId?: string,
+    freeItemId?: string
   ): Promise<StockReservation | null> {
-    const lockKey = `inventory:${inventoryKey}`;
+    // Build lock key from the actual identifier
+    const lockKey = `inventory:${freeItemId || variantId || productId}`;
     const locked = await acquireLock(lockKey);
     
     if (!locked) {
@@ -312,7 +313,19 @@ class InventoryService {
     }
 
     try {
-      const inventory = await this.getInventory(inventoryKey);
+      const inventory = await prisma.inventory.findFirst({
+        where: {
+          productId: productId || null,
+          variantId,
+          freeItemId,
+        },
+      });
+
+      if (!inventory) {
+        throw new NotFoundError(
+          `Inventory not found for: productId=${productId}, variantId=${variantId}, freeItemId=${freeItemId}`
+        );
+      }
       
       if (inventory.availableStock < quantity) {
         return null; // Return null instead of throwing - allows partial failure handling
@@ -580,8 +593,8 @@ class InventoryService {
 
     for (const item of items) {
       try {
-        const inventoryKey = item.inventoryKey || item.productId;
-        if (!inventoryKey) {
+        const productId = item.productId;
+        if (!productId && !item.freeItemId) {
           unavailableItems.push({
             productId: '',
             requested: item.quantity,
@@ -592,10 +605,10 @@ class InventoryService {
           continue;
         }
 
-        const inventory = await this.getInventory(inventoryKey);
+        const inventory = await this.getInventory(productId, item.variantId, item.freeItemId);
         if (inventory.availableStock < item.quantity) {
           unavailableItems.push({
-            productId: inventory.productId,
+            productId: inventory.productId || '',
             requested: item.quantity,
             available: inventory.availableStock,
             variantId: inventory.variantId ?? undefined,
@@ -604,7 +617,7 @@ class InventoryService {
         }
       } catch {
         unavailableItems.push({
-          productId: item.productId || item.inventoryKey || '',
+          productId: item.productId || '',
           requested: item.quantity,
           available: 0,
           variantId: item.variantId,

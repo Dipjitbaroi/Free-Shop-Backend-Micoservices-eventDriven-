@@ -81,6 +81,8 @@ export interface IFreeItemCreate {
   description?: string;
   sku?: string;
   image?: string;
+  stock?: number;  // Initial inventory stock (not stored in FreeItem schema)
+  lowStockThreshold?: number;  // Low stock threshold (not stored in FreeItem schema)
 }
 
 export interface IFreeItemUpdate {

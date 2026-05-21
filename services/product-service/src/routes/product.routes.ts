@@ -42,6 +42,8 @@ const freeItemValidation = [
   body('description').optional().isString(),
   body('sku').optional().isString(),
   body('image').optional().isString(),
+  body('stock').optional().isInt({ min: 0 }).withMessage('Stock must be a non-negative integer'),
+  body('lowStockThreshold').optional().isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer'),
 ];
 
 const freeItemUpdateValidation = [

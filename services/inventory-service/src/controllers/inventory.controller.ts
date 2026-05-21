@@ -1,17 +1,22 @@
 import { Request, Response, NextFunction } from 'express';
 import { inventoryService } from '../services/inventory.service.js';
 import { cleanupService } from '../services/cleanup.service.js';
-import { successResponse, ForbiddenError } from '@freeshop/shared-utils';
+import { successResponse, ForbiddenError, BadRequestError } from '@freeshop/shared-utils';
 
 export const inventoryController = {
   async initializeInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId, userId, initialStock, lowStockThreshold } = req.body;
+      const { productId, userId, initialStock, lowStockThreshold, variantId, freeItemId } = req.body;
+      if (!productId && !freeItemId) {
+        throw new BadRequestError('Either productId or freeItemId is required to initialize inventory');
+      }
       const inventory = await inventoryService.initializeInventory(
-        productId,
         userId,
         initialStock,
-        lowStockThreshold
+        lowStockThreshold,
+        productId,
+        variantId,
+        freeItemId
       );
       res.status(201).json(successResponse(inventory, 'Inventory initialized'));
     } catch (error) {
@@ -21,7 +26,8 @@ export const inventoryController = {
 
   async getInventory(req: Request, res: Response, next: NextFunction) {
     try {
-      const inventory = await inventoryService.getInventory(req.params.productId as string);
+      const { productId, variantId, freeItemId } = req.params;
+      const inventory = await inventoryService.getInventory(productId as string, variantId as string | undefined, freeItemId as string | undefined);
       res.json(successResponse(inventory, 'Inventory retrieved'));
     } catch (error) {
       next(error);
@@ -61,10 +67,10 @@ export const inventoryController = {
       const performedBy = req.user?.id;
       
       const inventory = await inventoryService.addStock(
-        productId as string,
         quantity,
         reason,
-        performedBy
+        performedBy,
+        productId as string
       );
       
       res.json(successResponse(inventory, 'Stock added'));
@@ -80,10 +86,10 @@ export const inventoryController = {
       const performedBy = req.user?.id;
       
       const inventory = await inventoryService.reduceStock(
-        productId as string,
         quantity,
         reason,
-        performedBy
+        performedBy,
+        productId as string
       );
       
       res.json(successResponse(inventory, 'Stock reduced'));
@@ -95,9 +101,9 @@ export const inventoryController = {
   async reserveStock(req: Request, res: Response, next: NextFunction) {
     try {
       const { productId } = req.params;
-      const { orderId, quantity } = req.body;
+      const { orderId, quantity, variantId, freeItemId } = req.body;
       
-      const reservation = await inventoryService.reserveStock(productId as string, orderId, quantity);
+      const reservation = await inventoryService.reserveStock(orderId, quantity, productId as string, variantId, freeItemId);
       
       res.json(successResponse(reservation, 'Stock reserved'));
     } catch (error) {
@@ -185,8 +191,8 @@ export const inventoryController = {
 
   async checkSingleProductAvailability(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId } = req.params;
-      const inventory = await inventoryService.getInventory(productId as string);
+      const { productId, variantId, freeItemId } = req.params;
+      const inventory = await inventoryService.getInventory(productId as string, variantId as string | undefined, freeItemId as string | undefined);
       
       res.json(successResponse({
         productId: inventory.productId,
@@ -194,6 +200,96 @@ export const inventoryController = {
         totalStock: inventory.totalStock,
         isOutOfStock: inventory.isOutOfStock,
       }, 'Availability checked'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  // ============ FREE ITEMS INVENTORY MANAGEMENT ============
+
+  async initializeFreeItemInventory(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { freeItemId, userId, initialStock } = req.body;
+      const inventory = await inventoryService.initializeInventory(
+        userId,
+        initialStock,
+        undefined, // Free items don't use low stock threshold
+        undefined, // No productId for free items
+        undefined, // No variantId
+        freeItemId
+      );
+      res.status(201).json(successResponse(inventory, 'Free item inventory initialized'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getFreeItemInventory(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { freeItemId } = req.params;
+      const inventory = await inventoryService.getInventory(undefined, undefined, freeItemId as string);
+      res.json(successResponse(inventory, 'Free item inventory retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async addFreeItemStock(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { freeItemId } = req.params;
+      const { quantity, reason } = req.body;
+      const performedBy = req.user?.id;
+      
+      const inventory = await inventoryService.addStock(
+        quantity,
+        reason || 'Free item stock added',
+        performedBy,
+        undefined,
+        undefined,
+        freeItemId as string
+      );
+      
+      res.json(successResponse(inventory, 'Free item stock added'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async reduceFreeItemStock(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { freeItemId } = req.params;
+      const { quantity, reason } = req.body;
+      const performedBy = req.user?.id;
+      
+      const inventory = await inventoryService.reduceStock(
+        quantity,
+        reason || 'Free item stock reduced',
+        performedBy,
+        undefined,
+        undefined,
+        freeItemId as string
+      );
+      
+      res.json(successResponse(inventory, 'Free item stock reduced'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getFreeItemMovements(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { freeItemId } = req.params;
+      const { page, limit } = req.query;
+      
+      // Get free item inventory by freeItemId
+      const freeItemInventory = await inventoryService.getInventory(undefined, undefined, freeItemId as string);
+      const movements = await inventoryService.getMovements(
+        freeItemInventory.id,
+        page ? parseInt(page as string) : 1,
+        limit ? parseInt(limit as string) : 20
+      );
+      
+      res.json(successResponse(movements, 'Free item movements retrieved'));
     } catch (error) {
       next(error);
     }
