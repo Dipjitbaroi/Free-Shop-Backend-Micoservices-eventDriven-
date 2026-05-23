@@ -604,29 +604,31 @@ class InventoryService {
     items: { productId?: string; inventoryKey?: string; quantity: number; variantId?: string; freeItemId?: string }[]
   ): Promise<{
     available: boolean;
-    unavailableItems: { productId: string; requested: number; available: number; variantId?: string; freeItemId?: string }[];
+    unavailableItems: { productId?: string; requested: number; available: number; variantId?: string; freeItemId?: string }[];
   }> {
-    const unavailableItems: { productId: string; requested: number; available: number; variantId?: string; freeItemId?: string }[] = [];
+    const unavailableItems: { productId?: string; requested: number; available: number; variantId?: string; freeItemId?: string }[] = [];
 
     for (const item of items) {
       try {
-        const productId = item.productId;
-        if (!productId && !item.freeItemId) {
+        // Use real IDs directly - no prefix parsing needed
+        const { productId, freeItemId, variantId, quantity } = item;
+
+        if (!productId && !freeItemId) {
           unavailableItems.push({
-            productId: '',
-            requested: item.quantity,
+            productId: productId,
+            freeItemId: freeItemId,
+            requested: quantity,
             available: 0,
-            variantId: item.variantId,
-            freeItemId: item.freeItemId,
+            variantId: variantId,
           });
           continue;
         }
 
-        const inventory = await this.getInventory(productId, item.variantId, item.freeItemId);
-        if (inventory.availableStock < item.quantity) {
+        const inventory = await this.getInventory(productId, variantId, freeItemId);
+        if (inventory.availableStock < quantity) {
           unavailableItems.push({
-            productId: inventory.productId || '',
-            requested: item.quantity,
+            productId: inventory.productId || undefined,
+            requested: quantity,
             available: inventory.availableStock,
             variantId: inventory.variantId ?? undefined,
             freeItemId: inventory.freeItemId ?? undefined,
@@ -634,7 +636,7 @@ class InventoryService {
         }
       } catch {
         unavailableItems.push({
-          productId: item.productId || '',
+          productId: item.productId,
           requested: item.quantity,
           available: 0,
           variantId: item.variantId,

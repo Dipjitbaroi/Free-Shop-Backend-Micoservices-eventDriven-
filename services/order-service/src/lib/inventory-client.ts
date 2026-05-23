@@ -2,7 +2,7 @@ import { BadRequestError } from '@freeshop/shared-utils';
 import config from '../config/index.js';
 
 export interface InventoryCheckItem {
-  productId: string;
+  productId?: string;
   quantity: number;
   variantId?: string;
   freeItemId?: string;
@@ -11,7 +11,7 @@ export interface InventoryCheckItem {
 export interface InventoryAvailabilityResult {
   available: boolean;
   unavailableItems: Array<{
-    productId: string;
+    productId?: string;
     requested: number;
     available: number;
     variantId?: string;
@@ -19,22 +19,10 @@ export interface InventoryAvailabilityResult {
   }>;
 }
 
-function buildInventoryKey(item: InventoryCheckItem): string {
-  if (item.freeItemId) {
-    // Standalone free items use "free:freeItemId" format
-    return `free:${item.freeItemId}`;
-  }
-
-  if (item.variantId) {
-    return `${item.productId}:${item.variantId}`;
-  }
-
-  return item.productId;
-}
-
 /**
  * Pre-flight inventory availability check.
  * This calls the inventory service before the order is created.
+ * Sends actual IDs directly without any prefix encoding.
  */
 export async function checkInventoryAvailability(
   items: InventoryCheckItem[]
@@ -52,7 +40,9 @@ export async function checkInventoryAvailability(
     },
     body: JSON.stringify({
       items: items.map((item) => ({
-        productId: buildInventoryKey(item),
+        productId: item.productId,
+        freeItemId: item.freeItemId,
+        variantId: item.variantId,
         quantity: item.quantity,
       })),
     }),

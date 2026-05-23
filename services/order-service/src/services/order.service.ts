@@ -243,14 +243,14 @@ class OrderService {
 
     console.info('Running pre-flight inventory check', {
       itemCount: inventoryCheckItems.length,
-      requestedQuantities: inventoryCheckItems.map((item) => `${item.productId}:${item.quantity}`),
+      requestedQuantities: inventoryCheckItems.map((item) => `${item.productId || item.freeItemId}:${item.quantity}`),
     });
 
     const result = await checkInventoryAvailability(inventoryCheckItems);
 
     if (!result.available) {
       const details = result.unavailableItems
-        .map((item) => `${item.productId} requested ${item.requested}, available ${item.available}`)
+        .map((item) => `${item.productId || item.freeItemId} requested ${item.requested}, available ${item.available}`)
         .join('; ');
 
       throw new BadRequestError(
