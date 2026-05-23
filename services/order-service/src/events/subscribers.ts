@@ -118,6 +118,23 @@ export async function setupEventSubscribers(): Promise<void> {
     async (event) => {
       logger.info('Order service received inventory reserved event', { orderId: event.orderId });
       
+      // Get current order status to prevent overwriting cancelled orders
+      const order = await prisma.order.findUnique({
+        where: { id: event.orderId },
+        select: { status: true },
+      });
+
+      if (!order) {
+        logger.error('[EVENT] Order not found for INVENTORY_RESERVED event', { orderId: event.orderId });
+        return;
+      }
+
+      // Do not update order if it's already cancelled to prevent race conditions
+      if (order.status === OrderStatus.CANCELLED) {
+        logger.warn('[EVENT] Ignoring INVENTORY_RESERVED for cancelled order', { orderId: event.orderId });
+        return;
+      }
+      
       // Order can proceed - inventory has been reserved
       await prisma.order.update({
         where: { id: event.orderId },
