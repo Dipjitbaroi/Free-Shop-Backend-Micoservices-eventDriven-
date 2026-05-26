@@ -192,7 +192,8 @@ model OrderItem {
   unit        String?
   
   quantity    Int
-  price       Float     // Price at time of order
+  price       Float     // Price at time of order (retail price)
+  supplierPrice Float   // Supplier cost at time of order
   discount    Float     @default(0)
   total       Float
   freeItems   OrderItemFreeItem[]

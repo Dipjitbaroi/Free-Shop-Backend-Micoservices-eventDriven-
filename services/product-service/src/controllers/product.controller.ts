@@ -144,6 +144,7 @@ export const productController = {
         userId,
         canUpdateAny,
         canUpdatePrice,
+        roleNames,
         actorUserId: userId,
       });
       res.json(successResponse(product, 'Product updated successfully'));

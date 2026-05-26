@@ -37,10 +37,18 @@ interface OrderCreatedPayload {
   paymentMethod?: string;
 }
 
-interface OrderCompletedPayload {
+interface OrderDeliveredPayload {
   orderId: string;
   userId?: string;
-  items: OrderItem[];
+  total: number;
+  shippingFee: number;
+  items: Array<{
+    productId: string;
+    vendorId?: string;
+    quantity: number;
+    price: number;
+    supplierPrice?: number;
+  }>;
 }
 
 interface OrderCancelledPayload {
@@ -77,11 +85,10 @@ export const setupEventSubscribers = async (): Promise<void> => {
 
         const items = payload.items || [];
         const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-        const totalRevenue = payload.totalAmount ?? payload.total ?? 0;
 
+        // Note: Revenue is counted when order is DELIVERED, not when created
         await analyticsService.updateDailySalesReport(new Date(), {
           totalOrders: 1,
-          totalRevenue,
           totalItems,
           pendingOrders: 1,
           codOrders: payload.paymentMethod === 'COD' ? 1 : 0,
@@ -89,23 +96,13 @@ export const setupEventSubscribers = async (): Promise<void> => {
         });
 
         for (const item of items) {
-          const itemSubtotal = item.subtotal ?? item.price * item.quantity;
-
           await analyticsService.updateProductAnalytics(item.productId, new Date(), {
-            purchases: item.quantity,
-            revenue: itemSubtotal,
+            views: 0,
+            purchases: 0, // Purchases counted at delivery
           });
-
-          if (item.vendorId) {
-            await analyticsService.updateVendorReport(item.vendorId, new Date(), {
-              totalOrders: 1,
-              totalRevenue: itemSubtotal,
-              totalItems: item.quantity,
-            });
-          }
         }
 
-        logger.info('Order analytics updated', { orderId: payload.orderId });
+        logger.info('Order created analytics updated', { orderId: payload.orderId });
       } catch (error) {
         logger.error('Error processing order for analytics', {
           error: error instanceof Error ? error.message : 'Unknown error',
@@ -115,23 +112,60 @@ export const setupEventSubscribers = async (): Promise<void> => {
     }
   );
 
-  await messageBroker.subscribe<OrderCompletedPayload>(
+  await messageBroker.subscribe<OrderDeliveredPayload>(
     EXCHANGES.ORDER,
     QUEUES.ANALYTICS_ORDER_COMPLETED,
     getRoutingKey('ORDER', 'DELIVERED'),
     async (rawPayload) => {
-      let payload: OrderCompletedPayload | undefined;
+      let payload: OrderDeliveredPayload | undefined;
       try {
-        payload = unwrapEventData<OrderCompletedPayload>(rawPayload);
-        logger.info('Processing order completed event for analytics', { orderId: payload.orderId });
+        payload = unwrapEventData<OrderDeliveredPayload>(rawPayload);
+        logger.info('Processing order delivered event for analytics', { orderId: payload.orderId });
+
+        // Revenue = Total - Delivery Charge
+        const revenue = payload.total - payload.shippingFee;
+        const items = payload.items || [];
+        const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+
+        // Calculate platform profit = revenue - total supplier charges
+        let totalSupplierCharge = 0;
+        for (const item of items) {
+          const supplierPrice = item.supplierPrice ?? 0;
+          const itemSupplierCharge = supplierPrice * item.quantity;
+          totalSupplierCharge += itemSupplierCharge;
+        }
+        const profit = revenue - totalSupplierCharge;
 
         await analyticsService.updateDailySalesReport(new Date(), {
           completedOrders: 1,
+          totalRevenue: revenue,
+          totalItems,
         });
 
-        logger.info('Order completion analytics updated', { orderId: payload.orderId });
+        // Update product and vendor analytics on delivery
+        for (const item of items) {
+          const itemSubtotal = item.price * item.quantity;
+          const itemSupplierCharge = (item.supplierPrice ?? 0) * item.quantity;
+
+          await analyticsService.updateProductAnalytics(item.productId, new Date(), {
+            purchases: item.quantity,
+            revenue: itemSubtotal,
+          });
+
+          if (item.vendorId) {
+            // Vendor revenue = item subtotal - supplier charge (no delivery charge deduction for vendor)
+            const vendorRevenue = itemSubtotal - itemSupplierCharge;
+            await analyticsService.updateVendorReport(item.vendorId, new Date(), {
+              totalOrders: 1,
+              totalRevenue: vendorRevenue,
+              totalItems: item.quantity,
+            });
+          }
+        }
+
+        logger.info('Order delivery analytics updated', { orderId: payload.orderId, revenue, profit });
       } catch (error) {
-        logger.error('Error processing order completion for analytics', {
+        logger.error('Error processing order delivery for analytics', {
           error: error instanceof Error ? error.message : 'Unknown error',
           orderId: payload?.orderId,
         });
@@ -186,6 +220,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
     }
   );
 
+  // User Created - Count new customers when account is created
   await messageBroker.subscribe<UserCreatedPayload>(
     EXCHANGES.USER,
     QUEUES.ANALYTICS_USER_CREATED,

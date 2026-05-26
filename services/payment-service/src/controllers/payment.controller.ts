@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { paymentService } from '../services/payment.service.js';
-import { successResponse } from '@freeshop/shared-utils';
+import { successResponse, parseDateRange } from '@freeshop/shared-utils';
 import { PaymentMethod, PaymentStatus } from '../../generated/client/client.js';
 
 export const paymentController = {
@@ -86,15 +86,16 @@ export const paymentController = {
 
   async getPayments(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId, orderId, status, method, startDate, endDate, page, limit } = req.query;
+      const { userId, orderId, status, method, page, limit } = req.query;
+      const { startDate, endDate } = parseDateRange(req);
       
       const payments = await paymentService.getPayments({
         userId: userId as string,
         orderId: orderId as string,
         status: status as PaymentStatus,
         method: method as PaymentMethod,
-        startDate: startDate ? new Date(startDate as string) : undefined,
-        endDate: endDate ? new Date(endDate as string) : undefined,
+        startDate: startDate,
+        endDate: endDate,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 20,
       });

@@ -245,10 +245,10 @@ export const setupEventSubscribers = async (): Promise<void> => {
   await messageBroker.subscribe<OrderCompletedPayload>(
     EXCHANGES.ORDER,
     QUEUES.INVENTORY_ORDER_COMPLETED,
-    getRoutingKey('ORDER', 'COMPLETED'),
+    getRoutingKey('ORDER', 'DELIVERED'),
     async (payload) => {
       try {
-        logger.info('Processing order completed event for inventory', { orderId: payload.orderId });
+        logger.info('Processing order delivered event for inventory', { orderId: payload.orderId });
 
         await inventoryService.fulfillReservation(payload.orderId);
 
@@ -265,9 +265,9 @@ export const setupEventSubscribers = async (): Promise<void> => {
           }
         );
 
-        logger.info('Reservation fulfilled for completed order', { orderId: payload.orderId });
+        logger.info('Reservation fulfilled for delivered order', { orderId: payload.orderId });
       } catch (error) {
-        logger.error('Error fulfilling reservation for order', {
+        logger.error('Error fulfilling reservation for delivered order', {
           error: error instanceof Error ? error.message : 'Unknown error',
           orderId: payload.orderId,
         });
