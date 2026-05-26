@@ -1,4 +1,6 @@
 import express, { Application } from 'express';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 import {
   requestId,
@@ -8,12 +10,14 @@ import {
   notFoundHandler,
 } from '@freeshop/shared-middleware';
 
-
 import cartRoutes from './routes/cart.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import deliveryRoutes from './routes/delivery.routes.js';
 import healthRoutes from './routes/health.routes.js';
 import settingsRoutes from './routes/settings.routes.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app: Application = express();
 

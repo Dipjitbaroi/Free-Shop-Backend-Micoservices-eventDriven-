@@ -3161,6 +3161,48 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           404: { $ref: '#/components/responses/NotFound' },
         },
       },
+      put: {
+        tags: ['Orders'],
+        summary: 'Update order details',
+        description: 'Update order notes and shipping address. Shipping address can only be updated before order is shipped.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Order ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  customerNote: { type: 'string', description: 'Customer delivery instructions' },
+                  adminNote: { type: 'string', description: 'Internal admin notes' },
+                  shippingAddress: {
+                    type: 'object',
+                    properties: {
+                      streetAddress: { type: 'string' },
+                      city: { type: 'string' },
+                      postalCode: { type: 'string' },
+                      zoneId: { type: 'string', format: 'uuid' },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Order updated successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
       delete: {
         tags: ['Orders'],
         summary: 'Delete an order (requires ORDER_DELETE permission)',
@@ -3302,6 +3344,233 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
         },
         responses: {
           200: { description: 'Tracking info added' },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
+    // ─── RETURNS ─────────────────────────────────────────────────────────────
+    '/orders/{id}/return': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Initiate a return request',
+        description: 'Customer initiates a return for delivered items. Order must be in DELIVERED or OUT_FOR_DELIVERY status.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Order ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['reason', 'items'],
+                properties: {
+                  reason: { type: 'string', description: 'Main return reason (e.g., Damaged, Wrong item, Defective)' },
+                  description: { type: 'string', description: 'Detailed description of the issue' },
+                  items: {
+                    type: 'array',
+                    minItems: 1,
+                    items: {
+                      type: 'object',
+                      required: ['orderItemId', 'quantity'],
+                      properties: {
+                        orderItemId: { type: 'string', format: 'uuid', description: 'OrderItem ID to return' },
+                        quantity: { type: 'integer', minimum: 1, description: 'Quantity to return' },
+                        reason: { type: 'string', description: 'Item-specific reason' },
+                      },
+                    },
+                  },
+                  customerNote: { type: 'string', description: 'Customer notes for return' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Return request initiated',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderReturnResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/orders/{id}/returns': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get all returns for an order',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Order ID' },
+          { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
+          { name: 'limit', in: 'query', schema: { type: 'integer', default: 20 } },
+        ],
+        responses: {
+          200: {
+            description: 'List of returns for the order',
+            content: { 'application/json': { schema: { type: 'object' } } },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/orders/returns/{returnId}': {
+      get: {
+        tags: ['Orders'],
+        summary: 'Get return details',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'returnId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Return ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Return details',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderReturnResponse' } } },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/orders/returns/{returnId}/approve': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Approve return request (admin / manager)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'returnId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Return ID' },
+        ],
+        requestBody: {
+          required: false,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  adminNote: { type: 'string', description: 'Admin notes for approval' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Return approved',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderReturnResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/orders/returns/{returnId}/reject': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Reject return request (admin / manager)',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'returnId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Return ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['reason'],
+                properties: {
+                  reason: { type: 'string', description: 'Rejection reason' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Return rejected',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderReturnResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/orders/returns/{returnId}/status': {
+      patch: {
+        tags: ['Orders'],
+        summary: 'Update return status (admin / manager)',
+        description: 'Update return workflow status: REQUESTED → APPROVED → IN_TRANSIT → RECEIVED → REFUNDED',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'returnId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Return ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['status'],
+                properties: {
+                  status: { type: 'string', enum: ['REQUESTED', 'APPROVED', 'REJECTED', 'IN_TRANSIT', 'RECEIVED', 'REFUNDED', 'CANCELLED'] },
+                  note: { type: 'string', description: 'Status update note' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Return status updated',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderReturnResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/orders/returns/{returnId}/refund': {
+      post: {
+        tags: ['Orders'],
+        summary: 'Process return refund (admin / manager)',
+        description: 'Process refund for approved and received returns. Return must be in RECEIVED status.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'returnId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Return ID' },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['refundAmount'],
+                properties: {
+                  refundAmount: { type: 'number', minimum: 0, description: 'Amount to refund' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Refund processed',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/OrderReturnResponse' } } },
+          },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
@@ -8223,6 +8492,53 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
               },
             },
           },
+        },
+      },
+      OrderReturnResponse: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean' },
+          data: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', format: 'uuid' },
+              orderId: { type: 'string', format: 'uuid' },
+              reason: { type: 'string' },
+              description: { type: 'string', nullable: true },
+              status: { type: 'string', enum: ['REQUESTED', 'APPROVED', 'REJECTED', 'IN_TRANSIT', 'RECEIVED', 'REFUNDED', 'CANCELLED'] },
+              refundStatus: { type: 'string', enum: ['PENDING', 'PAID', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED'] },
+              refundAmount: { type: 'number', nullable: true },
+              items: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  properties: {
+                    id: { type: 'string', format: 'uuid' },
+                    returnId: { type: 'string', format: 'uuid' },
+                    orderItemId: { type: 'string', format: 'uuid' },
+                    productId: { type: 'string', format: 'uuid' },
+                    quantity: { type: 'integer' },
+                    reason: { type: 'string', nullable: true },
+                    createdAt: { type: 'string', format: 'date-time' },
+                  },
+                },
+              },
+              approvedAt: { type: 'string', format: 'date-time', nullable: true },
+              approvedBy: { type: 'string', nullable: true },
+              rejectedAt: { type: 'string', format: 'date-time', nullable: true },
+              rejectionReason: { type: 'string', nullable: true },
+              refundInitiatedAt: { type: 'string', format: 'date-time', nullable: true },
+              refundedAt: { type: 'string', format: 'date-time', nullable: true },
+              returnReceivedAt: { type: 'string', format: 'date-time', nullable: true },
+              customerNote: { type: 'string', nullable: true },
+              adminNote: { type: 'string', nullable: true },
+              returnTrackingNumber: { type: 'string', nullable: true },
+              returnCarrier: { type: 'string', nullable: true },
+              createdAt: { type: 'string', format: 'date-time' },
+              updatedAt: { type: 'string', format: 'date-time' },
+            },
+          },
+          message: { type: 'string' },
         },
       },
       Payment: {

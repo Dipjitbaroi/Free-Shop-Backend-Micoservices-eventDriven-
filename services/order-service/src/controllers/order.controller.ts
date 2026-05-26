@@ -333,5 +333,119 @@ export const orderController = {
       next(error);
     }
   },
+
+  // ── Return Management Endpoints ──
+
+  async initiateReturn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const orderId = req.params.id as string;
+      const { reason, description, items, customerNote } = req.body;
+
+      const orderReturn = await orderService.initiateReturn(orderId, {
+        reason,
+        description,
+        items,
+        customerNote,
+      });
+
+      res.status(201).json(successResponse(orderReturn, 'Return request initiated'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async approveReturn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const returnId = req.params.returnId as string;
+      const { adminNote } = req.body;
+      const approvedBy = req.user?.id as string;
+
+      const updated = await orderService.approveReturn(returnId, approvedBy, adminNote);
+      res.json(successResponse(updated, 'Return request approved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async rejectReturn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const returnId = req.params.returnId as string;
+      const { reason } = req.body;
+      const rejectedBy = req.user?.id as string;
+
+      const updated = await orderService.rejectReturn(returnId, rejectedBy, reason);
+      res.json(successResponse(updated, 'Return request rejected'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateReturnStatus(req: Request, res: Response, next: NextFunction) {
+    try {
+      const returnId = req.params.returnId as string;
+      const { status, note } = req.body;
+
+      const updated = await orderService.updateReturnStatus(returnId, status, note);
+      res.json(successResponse(updated, 'Return status updated'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async processReturnRefund(req: Request, res: Response, next: NextFunction) {
+    try {
+      const returnId = req.params.returnId as string;
+      const { refundAmount } = req.body;
+
+      const updated = await orderService.processReturnRefund(returnId, refundAmount);
+      res.json(successResponse(updated, 'Return refund processed'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getReturn(req: Request, res: Response, next: NextFunction) {
+    try {
+      const returnId = req.params.returnId as string;
+      const orderReturn = await orderService.getReturn(returnId);
+      res.json(successResponse(orderReturn, 'Return retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getOrderReturns(req: Request, res: Response, next: NextFunction) {
+    try {
+      const orderId = req.params.id as string;
+      const { page, limit } = req.query;
+
+      const returns = await orderService.getOrderReturns(
+        orderId,
+        page ? parseInt(page as string) : 1,
+        limit ? parseInt(limit as string) : 20
+      );
+
+      res.json(successResponse(returns, 'Order returns retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async updateOrder(req: Request, res: Response, next: NextFunction) {
+    try {
+      const orderId = req.params.id as string;
+      const { customerNote, adminNote, shippingAddress } = req.body;
+
+      const updated = await orderService.updateOrder(orderId, {
+        customerNote,
+        adminNote,
+        shippingAddress,
+      });
+
+      res.json(successResponse(updated, 'Order updated successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 
