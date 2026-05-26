@@ -48,23 +48,39 @@ export class RBACService {
                       ? { resource: 'FREE_ITEM', action: PermissionAction.UPDATE, description: 'Update free items' }
                       : code === 'FREE_ITEM_DELETE'
                         ? { resource: 'FREE_ITEM', action: PermissionAction.DELETE, description: 'Delete free items' }
-                        : code === 'REPORT_EXPORT'
-                          ? { resource: 'REPORT', action: PermissionAction.REJECT, description: 'Export reports' }
-                          : code === 'ADMIN_PANEL_ACCESS'
-                            ? { resource: 'ADMIN_PANEL', action: PermissionAction.APPROVE, description: 'Access admin panel' }
-                            : code === 'ANALYTICS_VIEW_PLATFORM_METRICS'
-                              ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View platform-wide metrics (orders, revenue, trends)' }
-                              : code === 'ANALYTICS_VIEW_VENDOR'
-                                ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View vendor performance analytics' }
-                                : code === 'ANALYTICS_VIEW_PRODUCT'
-                                  ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View product analytics (sales, views, inventory)' }
-                                  : code === 'ANALYTICS_VIEW_SALES_REPORT'
-                                    ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View admin sales reports (category, payment, growth)' }
-                                    : code === 'ANALYTICS_VIEW_DELIVERY'
-                                      ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View delivery metrics (performance, time, success)' }
-                                      : code === 'ANALYTICS_VIEW_EXECUTIVE'
-                                        ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View executive dashboard (profitability, financial health)' }
-                                        : null;
+                        : code === 'CATEGORY_CREATE'
+                          ? { resource: 'CATEGORY', action: PermissionAction.CREATE, description: 'Create categories' }
+                          : code === 'CATEGORY_READ'
+                            ? { resource: 'CATEGORY', action: PermissionAction.READ, description: 'View categories' }
+                            : code === 'CATEGORY_UPDATE'
+                              ? { resource: 'CATEGORY', action: PermissionAction.UPDATE, description: 'Update categories' }
+                              : code === 'CATEGORY_DELETE'
+                                ? { resource: 'CATEGORY', action: PermissionAction.DELETE, description: 'Delete categories' }
+                                : code === 'SUBCATEGORY_CREATE'
+                                  ? { resource: 'SUBCATEGORY', action: PermissionAction.CREATE, description: 'Create subcategories' }
+                                  : code === 'SUBCATEGORY_READ'
+                                    ? { resource: 'SUBCATEGORY', action: PermissionAction.READ, description: 'View subcategories' }
+                                    : code === 'SUBCATEGORY_UPDATE'
+                                      ? { resource: 'SUBCATEGORY', action: PermissionAction.UPDATE, description: 'Update subcategories' }
+                                      : code === 'SUBCATEGORY_DELETE'
+                                        ? { resource: 'SUBCATEGORY', action: PermissionAction.DELETE, description: 'Delete subcategories' }
+                                        : code === 'REPORT_EXPORT'
+                                          ? { resource: 'REPORT', action: PermissionAction.REJECT, description: 'Export reports' }
+                                          : code === 'ADMIN_PANEL_ACCESS'
+                                            ? { resource: 'ADMIN_PANEL', action: PermissionAction.APPROVE, description: 'Access admin panel' }
+                                            : code === 'ANALYTICS_VIEW_PLATFORM_METRICS'
+                                              ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View platform-wide metrics (orders, revenue, trends)' }
+                                              : code === 'ANALYTICS_VIEW_VENDOR'
+                                                ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View vendor performance analytics' }
+                                                : code === 'ANALYTICS_VIEW_PRODUCT'
+                                                  ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View product analytics (sales, views, inventory)' }
+                                                  : code === 'ANALYTICS_VIEW_SALES_REPORT'
+                                                    ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View admin sales reports (category, payment, growth)' }
+                                                    : code === 'ANALYTICS_VIEW_DELIVERY'
+                                                      ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View delivery metrics (performance, time, success)' }
+                                                      : code === 'ANALYTICS_VIEW_EXECUTIVE'
+                                                        ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View executive dashboard (profitability, financial health)' }
+                                                        : null;
 
           if (specialPermission) {
             let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });

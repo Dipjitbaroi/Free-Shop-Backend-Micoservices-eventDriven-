@@ -2618,7 +2618,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       post: {
         tags: ['Categories'],
-        summary: 'Create a category (admin / manager)',
+        summary: 'Create a category or subcategory',
+        description: 'Create a new category (root category) or subcategory (by specifying parentId). Requires CATEGORY_CREATE permission.',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -2682,7 +2683,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       patch: {
         tags: ['Categories'],
-        summary: 'Update a category (admin / manager)',
+        summary: 'Update a category or subcategory',
+        description: 'Update category details (name, description, image, etc.). Requires CATEGORY_UPDATE permission.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2706,7 +2708,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       },
       delete: {
         tags: ['Categories'],
-        summary: 'Delete a category (admin / manager)',
+        summary: 'Delete a category or subcategory',
+        description: 'Delete a category or subcategory. Requires CATEGORY_DELETE permission.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2723,7 +2726,8 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
     '/categories/{id}/status': {
       patch: {
         tags: ['Categories'],
-        summary: 'Toggle category active status (admin / manager)',
+        summary: 'Toggle category/subcategory active status',
+        description: 'Enable or disable a category/subcategory. Requires CATEGORY_UPDATE permission.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },

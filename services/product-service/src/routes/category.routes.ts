@@ -51,7 +51,7 @@ router.get(
 router.post(
   '/',
   authenticate,
-  authorizePermission(PERMISSION_CODES.PRODUCT_CREATE),
+  authorizePermission(PERMISSION_CODES.CATEGORY_CREATE),
   createCategoryValidation,
   validate,
   categoryController.createCategory
@@ -60,7 +60,7 @@ router.post(
 router.patch(
   '/:id',
   authenticate,
-  authorizePermission(PERMISSION_CODES.PRODUCT_UPDATE),
+  authorizePermission(PERMISSION_CODES.CATEGORY_UPDATE),
   updateCategoryValidation,
   validate,
   categoryController.updateCategory
@@ -69,7 +69,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  authorizePermission(PERMISSION_CODES.PRODUCT_DELETE),
+  authorizePermission(PERMISSION_CODES.CATEGORY_DELETE),
   param('id').isUUID().withMessage('Valid category ID is required'),
   validate,
   categoryController.deleteCategory
@@ -78,7 +78,7 @@ router.delete(
 router.patch(
   '/:id/status',
   authenticate,
-  authorizePermission(PERMISSION_CODES.PRODUCT_UPDATE),
+  authorizePermission(PERMISSION_CODES.CATEGORY_UPDATE),
   param('id').isUUID().withMessage('Valid category ID is required'),
   body('isActive').isBoolean().withMessage('isActive must be a boolean'),
   validate,
