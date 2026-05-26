@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { reviewController } from '../controllers/review.controller.js';
-import { authenticate, optionalAuth } from '@freeshop/shared-middleware';
+import { authenticate, optionalAuth, authorizePermission } from '@freeshop/shared-middleware';
 import { validate } from '@freeshop/shared-middleware';
 import { body, param, query } from 'express-validator';
+import { PERMISSION_CODES } from '@freeshop/shared-types';
 
 const router: Router = Router();
 
@@ -37,6 +38,7 @@ router.get(
     query('userId').optional().isUUID(),
     query('rating').optional().isInt({ min: 1, max: 5 }),
     query('verified').optional().isIn(['true', 'false']),
+    query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED']),
   ],
   validate,
   reviewController.getReviews
@@ -45,7 +47,7 @@ router.get(
 router.get(
   '/product/:productId',
   param('productId').isUUID().withMessage('Valid product ID is required'),
-  paginationValidation,
+  [...paginationValidation, query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED'])],
   validate,
   reviewController.getProductReviews
 );
@@ -53,6 +55,7 @@ router.get(
 router.get(
   '/product/:productId/stats',
   param('productId').isUUID().withMessage('Valid product ID is required'),
+  query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED']),
   validate,
   reviewController.getProductRatingStats
 );
@@ -60,6 +63,7 @@ router.get(
 router.get(
   '/:id',
   param('id').isUUID().withMessage('Valid review ID is required'),
+  query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED']),
   validate,
   reviewController.getReviewById
 );
@@ -104,6 +108,15 @@ router.post(
   body('reason').isString().notEmpty().withMessage('Report reason is required'),
   validate,
   reviewController.reportReview
+);
+
+router.post(
+  '/:id/approve',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.REVIEW_APPROVE),
+  param('id').isUUID().withMessage('Valid review ID is required'),
+  validate,
+  reviewController.approveReview
 );
 
 export default router;
