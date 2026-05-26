@@ -323,6 +323,8 @@ function generatePermissionCode(resource: PermissionResource, action: Permission
     [PermissionResource.ORDER]: 40,
     [PermissionResource.PRODUCT]: 50,
     [PermissionResource.REVIEW]: 51,
+    [PermissionResource.CATEGORY]: 51,
+    [PermissionResource.SUBCATEGORY]: 52,
     [PermissionResource.FREE_ITEM]: 120,
     [PermissionResource.DELIVERY]: 60,
     [PermissionResource.INVENTORY]: 61,
