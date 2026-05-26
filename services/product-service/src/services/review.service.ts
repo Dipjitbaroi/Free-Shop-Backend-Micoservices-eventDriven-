@@ -11,6 +11,7 @@ interface ReviewFilters {
   userId?: string;
   rating?: number;
   verified?: boolean;
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED';
   page?: number;
   limit?: number;
 }
@@ -66,7 +67,14 @@ class ReviewService {
     return review;
   }
 
-  async getReviewById(id: string): Promise<Review> {
+  async getReviewById(id: string, status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<Review> {
+    const where: Prisma.ReviewWhereInput = { id };
+    
+    // If status is specified, only return if review matches that status
+    if (status) where.status = status;
+    // If no status specified, default to APPROVED for consistency
+    else where.status = 'APPROVED';
+
     const review = await prisma.review.findUnique({
       where: { id },
     });
@@ -75,13 +83,24 @@ class ReviewService {
       throw new NotFoundError('Review not found');
     }
 
+    // Check if review matches the requested status
+    if (status && review.status !== status) {
+      throw new NotFoundError('Review not found');
+    }
+    // If no status specified, only return if approved (default behavior)
+    if (!status && review.status !== 'APPROVED') {
+      throw new NotFoundError('Review not found');
+    }
+
     return review;
   }
 
   async getReviews(filters: ReviewFilters): Promise<IPaginatedResult<Review>> {
-    const { productId, userId, rating, verified, page = 1, limit = 10 } = filters;
+    const { productId, userId, rating, verified, status, page = 1, limit = 10 } = filters;
 
-    const where: Prisma.ReviewWhereInput = {};
+    const where: Prisma.ReviewWhereInput = {
+      status: status || 'APPROVED', // Default to APPROVED if no status specified
+    };
 
     if (productId) where.productId = productId;
     if (userId) where.userId = userId;
@@ -196,13 +215,18 @@ class ReviewService {
     });
   }
 
-  async getProductRatingStats(productId: string): Promise<{
+  async getProductRatingStats(productId: string, status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<{
     averageRating: number;
     totalReviews: number;
     ratingBreakdown: Record<number, number>;
   }> {
+    const where: Prisma.ReviewWhereInput = { 
+      productId,
+      status: status || 'APPROVED', // Default to APPROVED if not specified
+    };
+
     const reviews = await prisma.review.findMany({
-      where: { productId },
+      where,
       select: { rating: true },
     });
 
@@ -227,6 +251,47 @@ class ReviewService {
   private async recalculateProductRating(productId: string): Promise<void> {
     // Delegate rating aggregation and cache clearing to productService
     await productService.updateProductRating(productId);
+  }
+
+  async approveReview(id: string): Promise<Review> {
+    const review = await prisma.review.findUnique({
+      where: { id },
+    });
+
+    if (!review) {
+      throw new NotFoundError('Review not found');
+    }
+
+    if (review.status !== 'PENDING') {
+      throw new BadRequestError('Only PENDING reviews can be approved');
+    }
+
+    const updatedReview = await prisma.review.update({
+      where: { id },
+      data: { status: 'APPROVED' },
+    });
+
+    // Recalculate product rating now that a new review is approved
+    await this.recalculateProductRating(review.productId);
+
+    // Get product details for event
+    const product = await prisma.product.findUnique({
+      where: { id: review.productId },
+    });
+
+    if (product) {
+      // Publish review approved event
+      await eventPublisher.publish(Events.REVIEW_APPROVED, {
+        reviewId: updatedReview.id,
+        productId: updatedReview.productId,
+        userId: updatedReview.userId,
+        rating: updatedReview.rating,
+        vendorId: product.vendorId,
+        status: 'APPROVED',
+      });
+    }
+
+    return updatedReview;
   }
 }
 

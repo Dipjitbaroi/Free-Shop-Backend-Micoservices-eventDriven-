@@ -18,13 +18,14 @@ export const reviewController = {
 
   async getReviews(req: Request, res: Response, next: NextFunction) {
     try {
-      const { productId, userId, rating, verified, page, limit } = req.query;
+      const { productId, userId, rating, verified, status, page, limit } = req.query;
 
       const reviews = await reviewService.getReviews({
         productId: productId as string,
         userId: userId as string,
         rating: rating ? parseInt(rating as string) : undefined,
         verified: verified === 'true' ? true : verified === 'false' ? false : undefined,
+        status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
       });
@@ -37,7 +38,8 @@ export const reviewController = {
 
   async getReviewById(req: Request, res: Response, next: NextFunction) {
     try {
-      const review = await reviewService.getReviewById(req.params.id as string);
+      const { status } = req.query;
+      const review = await reviewService.getReviewById(req.params.id as string, status as 'PENDING' | 'APPROVED' | 'REJECTED' | undefined);
       res.json(successResponse(review, 'Review retrieved successfully'));
     } catch (error) {
       next(error);
@@ -47,10 +49,11 @@ export const reviewController = {
   async getProductReviews(req: Request, res: Response, next: NextFunction) {
     try {
       const { productId } = req.params;
-      const { page, limit } = req.query;
+      const { status, page, limit } = req.query;
 
       const reviews = await reviewService.getReviews({
         productId: productId as string,
+        status: status as 'PENDING' | 'APPROVED' | 'REJECTED' | undefined,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 10,
       });
@@ -63,7 +66,8 @@ export const reviewController = {
 
   async getProductRatingStats(req: Request, res: Response, next: NextFunction) {
     try {
-      const stats = await reviewService.getProductRatingStats(req.params.productId as string);
+      const { status } = req.query;
+      const stats = await reviewService.getProductRatingStats(req.params.productId as string, status as 'PENDING' | 'APPROVED' | 'REJECTED' | undefined);
       res.json(successResponse(stats, 'Rating stats retrieved successfully'));
     } catch (error) {
       next(error);
@@ -112,6 +116,15 @@ export const reviewController = {
       const { reason } = req.body;
       await reviewService.reportReview(req.params.id as string, userId, reason);
       res.json(successResponse(null, 'Review reported successfully'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async approveReview(req: Request, res: Response, next: NextFunction) {
+    try {
+      const review = await reviewService.approveReview(req.params.id as string);
+      res.json(successResponse(review, 'Review approved successfully'));
     } catch (error) {
       next(error);
     }

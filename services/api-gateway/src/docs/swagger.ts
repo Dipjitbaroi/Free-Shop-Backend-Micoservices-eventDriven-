@@ -2429,6 +2429,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Products'],
         summary: 'List all reviews',
+        description: 'Get reviews with optional filtering. Defaults to APPROVED reviews only. Use status=PENDING to see reviews awaiting approval.',
         parameters: [
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
@@ -2436,6 +2437,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           { name: 'userId', in: 'query', schema: { type: 'string', format: 'uuid' }, description: 'Filter by user' },
           { name: 'rating', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 5 }, description: 'Filter by star rating' },
           { name: 'verified', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Filter by verified purchase' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] }, description: 'Filter by review status (defaults to APPROVED if not specified)' },
         ],
         responses: {
           200: { description: 'Paginated reviews', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedReviews' } } } },
@@ -2477,10 +2479,12 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Products'],
         summary: 'Get reviews for a product',
+        description: 'Get reviews for a specific product with optional status filtering. Defaults to APPROVED reviews.',
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
           { $ref: '#/components/parameters/page' },
           { $ref: '#/components/parameters/limit' },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] }, description: 'Filter by review status (defaults to APPROVED if not specified)' },
         ],
         responses: {
           200: { description: 'Product reviews', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaginatedReviews' } } } },
@@ -2492,8 +2496,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Products'],
         summary: 'Get rating stats for a product',
+        description: 'Get rating statistics and breakdown for a product. Can filter by review status (defaults to APPROVED).',
         parameters: [
           { name: 'productId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] }, description: 'Filter statistics by review status (defaults to APPROVED if not specified)' },
         ],
         responses: {
           200: { description: 'Rating statistics' },
@@ -2505,8 +2511,10 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Products'],
         summary: 'Get a review by ID',
+        description: 'Get a single review by ID. By default returns APPROVED reviews. Use status parameter to filter for PENDING or REJECTED reviews.',
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'APPROVED', 'REJECTED'] }, description: 'Filter by review status (defaults to APPROVED if not specified)' },
         ],
         responses: {
           200: { description: 'Review details', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
@@ -2596,6 +2604,24 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           200: { description: 'Review reported' },
           400: { $ref: '#/components/responses/BadRequest' },
           401: { $ref: '#/components/responses/Unauthorized' },
+        },
+      },
+    },
+    '/reviews/{id}/approve': {
+      post: {
+        tags: ['Products'],
+        summary: 'Approve a review (admin only)',
+        description: 'Approve a pending review to make it visible on the product page. Requires REVIEW_APPROVE permission (5105). Only PENDING reviews can be approved.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Review ID' },
+        ],
+        responses: {
+          200: { description: 'Review approved', content: { 'application/json': { schema: { $ref: '#/components/schemas/ReviewResponse' } } } },
+          400: { description: 'Review is not in PENDING status' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { description: 'Insufficient permissions (requires permission 5105)' },
+          404: { $ref: '#/components/responses/NotFound' },
         },
       },
     },
