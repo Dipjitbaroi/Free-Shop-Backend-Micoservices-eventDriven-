@@ -107,6 +107,9 @@ model Order {
   // Delivery Information
   deliveryInfo    DeliveryInfo?
   
+  // Returns
+  returns         OrderReturn[]
+  
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
@@ -349,4 +352,79 @@ enum DeliveryStatus {
   DELIVERED
   FAILED
   CANCELLED
+}
+
+enum ReturnStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  IN_TRANSIT
+  RECEIVED
+  REFUNDED
+  CANCELLED
+}
+
+model OrderReturn {
+  id              String        @id @default(uuid())
+  orderId         String
+  order           Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  // Return details
+  reason          String        // Return reason
+  description     String?       // Detailed description
+  
+  // Items being returned
+  items           ReturnItem[]
+  
+  // Return status
+  status          ReturnStatus  @default(REQUESTED)
+  
+  // Approval/Rejection
+  approvedAt      DateTime?
+  approvedBy      String?       // Admin user ID who approved
+  rejectedAt      DateTime?
+  rejectionReason String?
+  rejectedBy      String?
+  
+  // Refund info
+  refundStatus    PaymentStatus @default(PENDING)
+  refundAmount    Float?
+  refundInitiatedAt DateTime?
+  refundedAt      DateTime?
+  
+  // Return tracking
+  returnTrackingNumber String?
+  returnCarrier   String?
+  returnReceivedAt DateTime?
+  
+  // Notes
+  customerNote    String?
+  adminNote       String?
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@index([refundStatus])
+  @@index([createdAt])
+}
+
+model ReturnItem {
+  id              String   @id @default(uuid())
+  returnId        String
+  return          OrderReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  
+  orderItemId     String   // Reference to original OrderItem
+  productId       String
+  
+  quantity        Int      // Quantity being returned
+  reason          String?  // Item-specific return reason
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([returnId])
+  @@index([orderItemId])
+  @@index([productId])
 }

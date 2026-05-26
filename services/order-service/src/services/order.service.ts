@@ -913,6 +913,262 @@ class OrderService {
 
     return createPaginatedResponse(orders, total.length, page, limit);
   }
+
+  // ── Return Management Methods ──
+
+  async initiateReturn(orderId: string, data: {
+    reason: string;
+    description?: string;
+    items: { orderItemId: string; quantity: number; reason?: string }[];
+    customerNote?: string;
+  }): Promise<any> {
+    // Validate order exists and is in returnable status
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, returns: { where: { status: { not: 'CANCELLED' } } } },
+    });
+
+    if (!order) {
+      throw new NotFoundError('Order not found');
+    }
+
+    // Check if order is in a returnable state (delivered or within return window)
+    if (![OrderStatus.DELIVERED, OrderStatus.OUT_FOR_DELIVERY].includes(order.status as any)) {
+      throw new BadRequestError(`Order cannot be returned when in ${order.status} status`);
+    }
+
+    // Validate items to return
+    const itemIds = data.items.map(item => item.orderItemId);
+    const orderItems = order.items.filter(item => itemIds.includes(item.id));
+
+    if (orderItems.length !== data.items.length) {
+      throw new BadRequestError('Some items do not belong to this order');
+    }
+
+    // Create return request
+    const orderReturn = await prisma.orderReturn.create({
+      data: {
+        orderId,
+        reason: data.reason,
+        description: data.description,
+        customerNote: data.customerNote,
+        status: 'REQUESTED',
+        items: {
+          create: data.items.map(item => ({
+            orderItemId: item.orderItemId,
+            productId: orderItems.find(oi => oi.id === item.orderItemId)?.productId || '',
+            quantity: item.quantity,
+            reason: item.reason,
+          })),
+        },
+      },
+      include: { items: true },
+    });
+
+    // Publish event for return initiated
+    await eventPublisher.publish(Events.ORDER_RETURN_INITIATED, {
+      returnId: orderReturn.id,
+      orderId,
+      reason: data.reason,
+      itemCount: data.items.length,
+    });
+
+    return orderReturn;
+  }
+
+  async approveReturn(returnId: string, approvedBy: string, adminNote?: string): Promise<any> {
+    const orderReturn = await prisma.orderReturn.findUnique({
+      where: { id: returnId },
+      include: { items: true, order: true },
+    });
+
+    if (!orderReturn) {
+      throw new NotFoundError('Return request not found');
+    }
+
+    if (orderReturn.status !== 'REQUESTED') {
+      throw new BadRequestError(`Return cannot be approved when in ${orderReturn.status} status`);
+    }
+
+    const updated = await prisma.orderReturn.update({
+      where: { id: returnId },
+      data: {
+        status: 'APPROVED',
+        approvedAt: new Date(),
+        approvedBy,
+        adminNote,
+      },
+      include: { items: true },
+    });
+
+    // Publish event
+    await eventPublisher.publish(Events.ORDER_RETURN_APPROVED, {
+      returnId,
+      orderId: orderReturn.orderId,
+      itemCount: orderReturn.items.length,
+    });
+
+    return updated;
+  }
+
+  async rejectReturn(returnId: string, rejectedBy: string, reason: string): Promise<any> {
+    const orderReturn = await prisma.orderReturn.findUnique({
+      where: { id: returnId },
+    });
+
+    if (!orderReturn) {
+      throw new NotFoundError('Return request not found');
+    }
+
+    if (orderReturn.status !== 'REQUESTED') {
+      throw new BadRequestError(`Return cannot be rejected when in ${orderReturn.status} status`);
+    }
+
+    const updated = await prisma.orderReturn.update({
+      where: { id: returnId },
+      data: {
+        status: 'REJECTED',
+        rejectedAt: new Date(),
+        rejectedBy,
+        rejectionReason: reason,
+      },
+    });
+
+    // Publish event
+    await eventPublisher.publish(Events.ORDER_RETURN_REJECTED, {
+      returnId,
+      orderId: orderReturn.orderId,
+      reason,
+    });
+
+    return updated;
+  }
+
+  async processReturnRefund(returnId: string, refundAmount: number): Promise<any> {
+    const orderReturn = await prisma.orderReturn.findUnique({
+      where: { id: returnId },
+      include: { order: true },
+    });
+
+    if (!orderReturn) {
+      throw new NotFoundError('Return request not found');
+    }
+
+    if (orderReturn.status !== 'RECEIVED') {
+      throw new BadRequestError(`Refund can only be processed when return is in RECEIVED status, current: ${orderReturn.status}`);
+    }
+
+    const updated = await prisma.orderReturn.update({
+      where: { id: returnId },
+      data: {
+        refundStatus: 'PENDING',
+        refundAmount,
+        refundInitiatedAt: new Date(),
+      },
+    });
+
+    // Publish event for refund processing
+    await eventPublisher.publish(Events.REFUND_INITIATED, {
+      returnId,
+      orderId: orderReturn.orderId,
+      refundAmount,
+    });
+
+    return updated;
+  }
+
+  async updateReturnStatus(returnId: string, status: string, note?: string): Promise<any> {
+    const validStatuses = ['REQUESTED', 'APPROVED', 'REJECTED', 'IN_TRANSIT', 'RECEIVED', 'REFUNDED', 'CANCELLED'];
+    
+    if (!validStatuses.includes(status)) {
+      throw new BadRequestError(`Invalid return status: ${status}`);
+    }
+
+    const orderReturn = await prisma.orderReturn.findUnique({
+      where: { id: returnId },
+    });
+
+    if (!orderReturn) {
+      throw new NotFoundError('Return request not found');
+    }
+
+    const updated = await prisma.orderReturn.update({
+      where: { id: returnId },
+      data: {
+        status: status as any,
+        ...(status === 'RECEIVED' && { returnReceivedAt: new Date() }),
+        ...(status === 'REFUNDED' && { refundedAt: new Date(), refundStatus: 'REFUNDED' }),
+        adminNote: note,
+      },
+      include: { items: true },
+    });
+
+    return updated;
+  }
+
+  async getReturn(returnId: string): Promise<any> {
+    const orderReturn = await prisma.orderReturn.findUnique({
+      where: { id: returnId },
+      include: { items: true, order: true },
+    });
+
+    if (!orderReturn) {
+      throw new NotFoundError('Return request not found');
+    }
+
+    return orderReturn;
+  }
+
+  async getOrderReturns(orderId: string, page: number = 1, limit: number = 20): Promise<any> {
+    const returns = await prisma.orderReturn.findMany({
+      where: { orderId },
+      include: { items: true },
+      skip: calculateOffset(page, limit),
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const total = await prisma.orderReturn.count({
+      where: { orderId },
+    });
+
+    return createPaginatedResponse(returns, total, page, limit);
+  }
+
+  async updateOrder(orderId: string, data: {
+    customerNote?: string;
+    adminNote?: string;
+    shippingAddress?: Record<string, unknown>;
+  }): Promise<OrderWithItems> {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { freeItems: true } } },
+    });
+
+    if (!order) {
+      throw new NotFoundError('Order not found');
+    }
+
+    // Cannot update shipping address if order is already shipped or beyond
+    if (data.shippingAddress && [OrderStatus.SHIPPED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DELIVERED].includes(order.status as any)) {
+      throw new BadRequestError('Shipping address cannot be updated for shipped orders');
+    }
+
+    const updated = await prisma.order.update({
+      where: { id: orderId },
+      data: {
+        ...(data.customerNote !== undefined && { customerNote: data.customerNote }),
+        ...(data.adminNote !== undefined && { adminNote: data.adminNote }),
+        ...(data.shippingAddress !== undefined && { shippingAddress: data.shippingAddress as any }),
+      },
+      include: { items: { include: { freeItems: true } }, deliveryInfo: true },
+    });
+
+    // Invalidate cache
+    await cacheDelete(orderCacheKey(orderId));
+
+    return this.hydrateOrder(updated as any) as Promise<OrderWithItems>;
+  }
 }
 
 export const orderService = new OrderService();

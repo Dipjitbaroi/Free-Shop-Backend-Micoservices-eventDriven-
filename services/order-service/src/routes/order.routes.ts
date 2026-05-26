@@ -281,4 +281,98 @@ router.patch(
   orderController.addTrackingInfo
 );
 
+// ── Order Update API ──
+router.put(
+  '/:id',
+  authenticate,
+  param('id').isUUID(),
+  body('customerNote').optional().isString(),
+  body('adminNote').optional().isString(),
+  body('shippingAddress').optional().isObject(),
+  validate,
+  orderController.updateOrder
+);
+
+// ── Return Management Routes ──
+
+// Initiate return (customers can request returns)
+router.post(
+  '/:id/return',
+  authenticate,
+  param('id').isUUID(),
+  body('reason').isString().notEmpty().withMessage('Return reason is required'),
+  body('description').optional().isString(),
+  body('items').isArray({ min: 1 }).withMessage('At least one item must be returned'),
+  body('items.*.orderItemId').isUUID().withMessage('Valid orderItemId is required'),
+  body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
+  body('items.*.reason').optional().isString(),
+  body('customerNote').optional().isString(),
+  validate,
+  orderController.initiateReturn
+);
+
+// Get all returns for an order
+router.get(
+  '/:id/returns',
+  authenticate,
+  param('id').isUUID(),
+  paginationValidation,
+  validate,
+  orderController.getOrderReturns
+);
+
+// Get specific return details
+router.get(
+  '/returns/:returnId',
+  authenticate,
+  param('returnId').isUUID(),
+  validate,
+  orderController.getReturn
+);
+
+// Approve return (admin only)
+router.post(
+  '/returns/:returnId/approve',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ORDER_UPDATE),
+  param('returnId').isUUID(),
+  body('adminNote').optional().isString(),
+  validate,
+  orderController.approveReturn
+);
+
+// Reject return (admin only)
+router.post(
+  '/returns/:returnId/reject',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ORDER_UPDATE),
+  param('returnId').isUUID(),
+  body('reason').isString().notEmpty().withMessage('Rejection reason is required'),
+  validate,
+  orderController.rejectReturn
+);
+
+// Update return status (admin only)
+router.patch(
+  '/returns/:returnId/status',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ORDER_UPDATE),
+  param('returnId').isUUID(),
+  body('status').isIn(['REQUESTED', 'APPROVED', 'REJECTED', 'IN_TRANSIT', 'RECEIVED', 'REFUNDED', 'CANCELLED']),
+  body('note').optional().isString(),
+  validate,
+  orderController.updateReturnStatus
+);
+
+// Process return refund (admin only)
+router.post(
+  '/returns/:returnId/refund',
+  authenticate,
+  authorizePermission(PERMISSION_CODES.ORDER_UPDATE),
+  param('returnId').isUUID(),
+  body('refundAmount').isFloat({ min: 0 }).withMessage('Valid refund amount is required'),
+  validate,
+  orderController.processReturnRefund
+);
+
 export default router;

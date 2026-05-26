@@ -29,6 +29,13 @@ export const Events = {
   ORDER_REFUNDED: 'order.refunded',
   ORDER_STATUS_CHANGED: 'order.status_changed',
 
+  // Order Return Events
+  ORDER_RETURN_INITIATED: 'order.return_initiated',
+  ORDER_RETURN_APPROVED: 'order.return_approved',
+  ORDER_RETURN_REJECTED: 'order.return_rejected',
+  ORDER_RETURN_RECEIVED: 'order.return_received',
+  REFUND_INITIATED: 'order.refund_initiated',
+
   // Payment Events
   PAYMENT_INITIATED: 'payment.initiated',
   PAYMENT_COMPLETED: 'payment.completed',
