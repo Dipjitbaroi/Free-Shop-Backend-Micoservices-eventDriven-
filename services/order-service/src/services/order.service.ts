@@ -49,6 +49,7 @@ interface CreateOrderData {
     quantity: number;
     freeItems?: FreeItemSnapshot[];
     price: number;
+    supplierPrice?: number;
     discount?: number;
   }[];
 }
@@ -335,6 +336,7 @@ class OrderService {
             unit: item.unit,
             quantity: item.quantity,
             price: item.price,
+            supplierPrice: item.supplierPrice || 0,
             discount: item.discount || 0,
             total: (item.price * item.quantity) - (item.discount || 0),
           })),
@@ -504,6 +506,15 @@ class OrderService {
         orderId: updatedOrder.id,
         orderNumber: updatedOrder.orderNumber,
         userId: updatedOrder.userId,
+        total: updatedOrder.total,
+        shippingFee: updatedOrder.shippingFee,
+        items: updatedOrder.items.map(item => ({
+          productId: item.productId,
+          vendorId: item.vendorId,
+          quantity: item.quantity,
+          price: item.price,
+          supplierPrice: (item as any).supplierPrice,
+        })),
       });
     }
 

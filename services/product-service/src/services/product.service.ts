@@ -41,6 +41,7 @@ interface ProductActorContext {
   canUpdateAny?: boolean;
   canDeleteAny?: boolean;
   canUpdatePrice?: boolean;
+  roleNames?: string[];
 }
 
 type EnrichedUserRef = {
@@ -1064,11 +1065,18 @@ class ProductService {
       throw new NotFoundError('Product not found');
     }
 
-    const isOwner = !!actor.userId && product.vendorId === actor.userId;
-    if (!isOwner && !actor.canUpdateAny) {
+    // Authorization check: Owner can update, or user with PRODUCT_UPDATE permission
+    // Use userId first, fall back to actorUserId
+    const effectiveUserId = actor.userId || actor.actorUserId;
+    const isOwner = !!effectiveUserId && product.vendorId === effectiveUserId;
+    const hasUpdatePermission = actor.canUpdateAny;
+    
+    if (!isOwner && !hasUpdatePermission) {
       throw new ForbiddenError('You can only update your own products unless you have product update permission');
     }
 
+    // Price updates require special permission - vendors cannot change retail price
+    // Only ADMIN/MANAGER/users with PRODUCT_UPDATE_PRICE permission can update price
     if (data.price !== undefined && !actor.canUpdatePrice) {
       throw new ForbiddenError('You are not allowed to update the retail price');
     }

@@ -1,5 +1,11 @@
 import { format, parseISO, addDays, addHours, differenceInDays, isAfter, isBefore } from 'date-fns';
 import { IApiResponse, IPaginatedResult, IPaginationParams } from '@freeshop/shared-types';
+import { Request } from 'express';
+
+export interface DateRange {
+  startDate: Date;
+  endDate: Date;
+}
 
 /**
  * Format date to string
@@ -49,6 +55,49 @@ export const isDateInFuture = (date: Date): boolean => {
  */
 export const getDaysDifference = (date1: Date, date2: Date): number => {
   return differenceInDays(date1, date2);
+};
+
+/**
+ * Parse date range from request query parameters with intelligent defaults
+ * Supports four cases:
+ * 1. Both startDate and endDate provided → use both
+ * 2. Only endDate provided → endDate minus 30 days for startDate
+ * 3. Only startDate provided → startDate to today for endDate
+ * 4. Neither provided → last 30 days default
+ * 5. Auto-swap if startDate > endDate
+ */
+export const parseDateRange = (req: Request | { query: Record<string, any> }): DateRange => {
+  const query = (req as any).query || req;
+  const endDateParam = query.endDate ? new Date(query.endDate as string) : null;
+  const startDateParam = query.startDate ? new Date(query.startDate as string) : null;
+  
+  let endDate: Date;
+  let startDate: Date;
+  
+  if (endDateParam && startDateParam) {
+    // Both provided: use both, but swap if needed
+    endDate = endDateParam;
+    startDate = startDateParam;
+  } else if (endDateParam && !startDateParam) {
+    // Only endDate provided: use 30 days before endDate
+    endDate = endDateParam;
+    startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  } else if (startDateParam && !endDateParam) {
+    // Only startDate provided: use today as endDate
+    startDate = startDateParam;
+    endDate = new Date();
+  } else {
+    // Neither provided: use last 30 days as default
+    endDate = new Date();
+    startDate = new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  }
+  
+  // Auto-swap if startDate > endDate
+  if (startDate > endDate) {
+    [startDate, endDate] = [endDate, startDate];
+  }
+  
+  return { startDate, endDate };
 };
 
 /**

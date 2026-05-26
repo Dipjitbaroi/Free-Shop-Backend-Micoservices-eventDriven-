@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { orderService } from '../services/order.service.js';
 import { cartService } from '../services/cart.service.js';
-import { successResponse } from '@freeshop/shared-utils';
+import { successResponse, parseDateRange } from '@freeshop/shared-utils';
 import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 import { fetchAddressById } from '../lib/user-client.js';
 import { zoneService } from '../services/zone.service.js';
@@ -79,6 +79,7 @@ export const orderController = {
             quantity: item.quantity,
             freeItems: selectedFreeItems,
             price: resolveEffectivePrice(product),
+            supplierPrice: product.supplierPrice || 0,
           };
         })
       );
@@ -132,13 +133,14 @@ export const orderController = {
 
   async getOrders(req: Request, res: Response, next: NextFunction) {
     try {
-      const { status, paymentStatus, startDate, endDate, page, limit } = req.query;
+      const { status, paymentStatus, page, limit } = req.query;
+      const { startDate, endDate } = parseDateRange(req);
       
       const orders = await orderService.getOrders({
         status: status as string | undefined,
         paymentStatus: paymentStatus as string | undefined,
-        startDate: startDate ? new Date(startDate as string) : undefined,
-        endDate: endDate ? new Date(endDate as string) : undefined,
+        startDate: startDate,
+        endDate: endDate,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 20,
       });

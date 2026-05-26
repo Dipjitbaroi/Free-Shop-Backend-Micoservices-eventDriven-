@@ -85,13 +85,26 @@ class AnalyticsService {
     const previousRevenue = Number(previousPeriod._sum.totalRevenue || 0);
     const currentOrders = currentPeriod._sum.totalOrders || 0;
     const previousOrders = previousPeriod._sum.totalOrders || 0;
+    const newCustomers = currentPeriod._sum.newCustomers || 0;
+
+    // Calculate average order value: totalRevenue / totalOrders
+    const averageOrderValue = currentOrders > 0 
+      ? currentRevenue / currentOrders 
+      : 0;
+
+    // Conversion rate: new customers who placed orders / total new customers
+    // If we have new customers but no orders, conversion = 0
+    // If all new customers placed orders, conversion = 100
+    const conversionRate = newCustomers > 0 && currentOrders > 0
+      ? (currentOrders / (newCustomers + currentOrders)) * 100
+      : 0;
 
     const metrics: DashboardMetrics = {
       totalRevenue: currentRevenue,
       totalOrders: currentOrders,
-      averageOrderValue: Number(currentPeriod._avg.averageOrderValue || 0),
-      newCustomers: currentPeriod._sum.newCustomers || 0,
-      conversionRate: 0,
+      averageOrderValue: Number(averageOrderValue),
+      newCustomers: newCustomers,
+      conversionRate: Number(conversionRate),
       revenueGrowth: previousRevenue > 0 
         ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
         : 0,

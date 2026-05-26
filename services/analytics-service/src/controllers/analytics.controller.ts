@@ -1,17 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { analyticsService } from '../services/analytics.service.js';
 import { ApiResponse } from '@freeshop/shared-types';
+import { parseDateRange } from '@freeshop/shared-utils';
 
-const parseDateRange = (req: Request) => {
-  const endDate = req.query.endDate 
-    ? new Date(req.query.endDate as string) 
-    : new Date();
-  const startDate = req.query.startDate 
-    ? new Date(req.query.startDate as string) 
-    : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-  return { startDate, endDate };
-};
 
 export const analyticsController = {
   async getDashboard(req: Request, res: Response, next: NextFunction) {
