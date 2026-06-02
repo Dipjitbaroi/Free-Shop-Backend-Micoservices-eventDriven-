@@ -11,6 +11,7 @@ import {
 import productRoutes from './routes/product.routes.js';
 import categoryRoutes from './routes/category.routes.js';
 import reviewRoutes from './routes/review.routes.js';
+import bannerRoutes from './routes/banner.routes.js';
 import healthRoutes from './routes/health.routes.js';
 
 const app: Application = express();
@@ -26,6 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/', healthRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/reviews', reviewRoutes);
+app.use('/banners', bannerRoutes);
 app.use('/', productRoutes);
 
 // Error handling

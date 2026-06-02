@@ -22,6 +22,7 @@ export const PERMISSION_RESOURCE_CODES = {
   SETTINGS: 100,   // 100x
   ADMIN_PANEL: 110, // 110x
   COUPON: 130,     // 130xx
+  BANNER: 140,     // 140xx
 } as const;
 
 // Actions:
@@ -140,6 +141,13 @@ export const PERMISSION_CODES = {
   COUPON_READ: 13002,
   COUPON_UPDATE: 13003,
   COUPON_DELETE: 13004,
+
+  // Banner permissions (Hero section banners & promotions)
+  BANNER_CREATE: 14001,
+  BANNER_READ: 14002,
+  BANNER_UPDATE: 14003,
+  BANNER_DELETE: 14004,
+  BANNER_REORDER: 14005,
 
   // Analytics permissions - Section-based access
   ANALYTICS_VIEW_PLATFORM_METRICS: 90010, // Platform-wide business metrics (orders, revenue, trends)
