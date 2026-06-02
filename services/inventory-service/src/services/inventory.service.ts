@@ -404,7 +404,8 @@ class InventoryService {
     });
 
     for (const reservation of reservations) {
-      const lockKey = `inventory:${reservation.inventory.productId}`;
+      // Use freeItemId if standalone free item, otherwise variantId, otherwise productId
+      const lockKey = `inventory:${reservation.inventory.freeItemId || reservation.inventory.variantId || reservation.inventory.productId}`;
       const locked = await acquireLock(lockKey);
       
       if (!locked) {
@@ -481,7 +482,8 @@ class InventoryService {
     });
 
     for (const reservation of reservations) {
-      const lockKey = `inventory:${reservation.inventory.productId}`;
+      // Use freeItemId if standalone free item, otherwise variantId, otherwise productId
+      const lockKey = `inventory:${reservation.inventory.freeItemId || reservation.inventory.variantId || reservation.inventory.productId}`;
       const locked = await acquireLock(lockKey);
       
       if (!locked) {

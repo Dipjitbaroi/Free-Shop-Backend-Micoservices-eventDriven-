@@ -25,4 +25,22 @@ router.get(
   inventoryController.checkSingleProductAvailability
 );
 
+// Internal endpoint: Get product availability (optimized - returns only availableStock)
+router.get(
+  '/product/:productId/availability',
+  authenticateService,
+  param('productId').isUUID(),
+  validate,
+  inventoryController.getProductAvailability
+);
+
+// Internal endpoint: Get free item availability (optimized - returns only availableStock)
+router.get(
+  '/free-item/:freeItemId/availability',
+  authenticateService,
+  param('freeItemId').isUUID(),
+  validate,
+  inventoryController.getFreeItemAvailability
+);
+
 export default router;
