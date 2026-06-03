@@ -3,6 +3,7 @@ dist
 .env
 .DS_Store
 **/generated/
+.puku
 
 # Kubernetes secrets — never commit real values
 k8s/secrets/app-secrets.yaml
