@@ -2547,7 +2547,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Banners'],
         summary: 'Get paginated list of banners',
-        description: 'Retrieve a paginated list of banners with optional filtering and search. Requires `BANNER_READ` permission (13002). Results cached for 1 hour.',
+        description: 'Retrieve a paginated list of banners with optional filtering and search. Requires `BANNER_READ` permission (14002). Results cached for 1 hour.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 }, description: 'Page number' },
@@ -2586,7 +2586,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       get: {
         tags: ['Banners'],
         summary: 'Get a banner by ID',
-        description: 'Retrieve a specific banner by its ID. Requires `BANNER_READ` permission (13002).',
+        description: 'Retrieve a specific banner by its ID. Requires `BANNER_READ` permission (14002).',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Banner ID' },
@@ -2604,7 +2604,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       patch: {
         tags: ['Banners'],
         summary: 'Update a banner',
-        description: 'Update banner details. All fields are optional. Requires `BANNER_UPDATE` permission (13003).',
+        description: 'Update banner details. All fields are optional. Requires `BANNER_UPDATE` permission (14003).',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2644,7 +2644,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       delete: {
         tags: ['Banners'],
         summary: 'Delete a banner',
-        description: 'Delete a banner permanently. Requires `BANNER_DELETE` permission (13004).',
+        description: 'Delete a banner permanently. Requires `BANNER_DELETE` permission (14004).',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
@@ -2661,7 +2661,7 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
       post: {
         tags: ['Banners'],
         summary: 'Reorder banners',
-        description: 'Reorder banners by updating their display position. Array order determines position (0, 1, 2, etc.). Requires `BANNER_REORDER` permission (13005).',
+        description: 'Reorder banners by updating their display position. Array order determines position (0, 1, 2, etc.). Requires `BANNER_REORDER` permission (14005).',
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
