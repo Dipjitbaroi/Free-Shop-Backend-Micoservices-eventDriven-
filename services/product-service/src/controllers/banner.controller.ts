@@ -51,7 +51,7 @@ export const bannerController = {
   async getBannerById(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const banner = await bannerService.getBannerById(id);
+      const banner = await bannerService.getBannerById(id as string);
       res.json(successResponse(banner, 'Banner fetched successfully'));
     } catch (error) {
       next(error);
@@ -61,7 +61,7 @@ export const bannerController = {
   async updateBanner(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      const banner = await bannerService.updateBanner(id, req.body);
+      const banner = await bannerService.updateBanner(id as string, req.body);
       res.json(successResponse(banner, 'Banner updated successfully'));
     } catch (error) {
       next(error);
@@ -71,7 +71,7 @@ export const bannerController = {
   async deleteBanner(req: Request, res: Response, next: NextFunction) {
     try {
       const { id } = req.params;
-      await bannerService.deleteBanner(id);
+      await bannerService.deleteBanner(id as string);
       res.json(successResponse(null, 'Banner deleted successfully'));
     } catch (error) {
       next(error);
