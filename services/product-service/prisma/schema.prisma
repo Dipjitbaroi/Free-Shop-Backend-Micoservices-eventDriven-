@@ -176,3 +176,27 @@ model FlashSale {
   @@index([startDate, endDate])
   @@map("flash_sales")
 }
+
+model Banner {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  image       String
+  altText     String?
+  link        String?
+  linkType    String?   @default("internal") // internal, external, product, category
+  targetId    String?   // ID of product/category if linkType is internal
+  position    Int       @default(0) // For ordering banners
+  isActive    Boolean   @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([position])
+  @@index([startDate, endDate])
+  @@index([createdBy])
+  @@map("banners")
+}

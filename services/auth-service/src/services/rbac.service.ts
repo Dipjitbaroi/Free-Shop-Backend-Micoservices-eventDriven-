@@ -80,7 +80,17 @@ export class RBACService {
                                                       ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View delivery metrics (performance, time, success)' }
                                                       : code === 'ANALYTICS_VIEW_EXECUTIVE'
                                                         ? { resource: 'ANALYTICS', action: PermissionAction.READ, description: 'View executive dashboard (profitability, financial health)' }
-                                                        : null;
+                                                        : code === 'BANNER_CREATE'
+                                                          ? { resource: 'BANNER', action: PermissionAction.CREATE, description: 'Create promotional banners' }
+                                                          : code === 'BANNER_READ'
+                                                            ? { resource: 'BANNER', action: PermissionAction.READ, description: 'View banners' }
+                                                            : code === 'BANNER_UPDATE'
+                                                              ? { resource: 'BANNER', action: PermissionAction.UPDATE, description: 'Update banners' }
+                                                              : code === 'BANNER_DELETE'
+                                                                ? { resource: 'BANNER', action: PermissionAction.DELETE, description: 'Delete banners' }
+                                                                : code === 'BANNER_REORDER'
+                                                                  ? { resource: 'BANNER', action: PermissionAction.APPROVE, description: 'Reorder banners' }
+                                                                  : null;
 
           if (specialPermission) {
             let permission = await prisma.permission.findUnique({ where: { permissionCode: permCode } });
