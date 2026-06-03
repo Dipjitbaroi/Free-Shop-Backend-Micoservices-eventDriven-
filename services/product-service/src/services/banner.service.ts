@@ -86,9 +86,9 @@ class BannerService {
     const cacheKey = `${this.bannerCacheKey}:${isActive}:${page}:${limit}:${search || ''}`;
 
     // Try to get from cache
-    const cached = await cacheGet(cacheKey);
+    const cached = await cacheGet<any>(cacheKey);
     if (cached) {
-      return JSON.parse(cached);
+      return cached;
     }
 
     const where: any = {};
@@ -123,9 +123,9 @@ class BannerService {
     const cacheKey = this.activebannersCacheKey;
 
     // Try to get from cache
-    const cached = await cacheGet(cacheKey);
+    const cached = await cacheGet<Banner[]>(cacheKey);
     if (cached) {
-      return JSON.parse(cached);
+      return cached;
     }
 
     const now = new Date();
@@ -159,9 +159,9 @@ class BannerService {
     const cacheKey = this.bannerDetailCacheKey(id);
 
     // Try to get from cache
-    const cached = await cacheGet(cacheKey);
+    const cached = await cacheGet<Banner>(cacheKey);
     if (cached) {
-      return JSON.parse(cached);
+      return cached;
     }
 
     const banner = await prisma.banner.findUnique({
