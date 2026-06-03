@@ -32,6 +32,7 @@ const swaggerDocument = {
     { name: 'Inventory', description: 'Stock & inventory management' },
     { name: 'Notifications', description: 'Notification management (admin)' },
     { name: 'Analytics', description: 'Analytics & reporting (admin/manager)' },
+    { name: 'Banners', description: 'Hero section banners & promotions' },
     { name: 'Health', description: 'Service health checks' },
     { name: 'Settings', description: 'Platform settings (delivery charges etc.)' },
   ],
@@ -2422,6 +2423,285 @@ Only accounts with role \`ADMIN\` or \`MANAGER\` and a stored password hash are 
           401: { $ref: '#/components/responses/Unauthorized' },
           403: { $ref: '#/components/responses/Forbidden' },
           404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/banners/active': {
+      get: {
+        tags: ['Banners'],
+        summary: 'Get active banners for home page hero section',
+        description: 'Retrieves all currently active banners based on `isActive` status and date range. No authentication required. Results are cached for 30 minutes.',
+        responses: {
+          200: {
+            description: 'Active banners retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean', example: true },
+                    data: {
+                      type: 'array',
+                      items: { $ref: '#/components/schemas/BannerResponse' },
+                    },
+                    message: { type: 'string', example: 'Active banners fetched successfully' },
+                  },
+                },
+                examples: {
+                  activeBanners: {
+                    summary: 'Active banners for display',
+                    value: {
+                      success: true,
+                      data: [
+                        {
+                          id: 'banner-uuid-1',
+                          title: 'Summer Sale 2026',
+                          description: 'Up to 50% off on organic products',
+                          image: 'https://cdn.freeshop.com/banners/summer-sale.jpg',
+                          altText: 'Summer Sale Banner',
+                          link: '/products?sale=summer',
+                          linkType: 'internal',
+                          position: 0,
+                          isActive: true,
+                          startDate: '2026-06-01T00:00:00Z',
+                          endDate: '2026-08-31T23:59:59Z',
+                          createdAt: '2026-06-02T10:00:00Z',
+                          updatedAt: '2026-06-02T10:00:00Z',
+                        },
+                        {
+                          id: 'banner-uuid-2',
+                          title: 'Organic Vegetables',
+                          description: 'Fresh organic vegetables delivered daily',
+                          image: 'https://cdn.freeshop.com/banners/organic-veggies.jpg',
+                          altText: 'Organic Vegetables',
+                          link: '/products/category/vegetables',
+                          linkType: 'category',
+                          targetId: 'category-uuid',
+                          position: 1,
+                          isActive: true,
+                          createdAt: '2026-06-01T12:00:00Z',
+                          updatedAt: '2026-06-01T12:00:00Z',
+                        },
+                      ],
+                      message: 'Active banners fetched successfully',
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/banners': {
+      post: {
+        tags: ['Banners'],
+        summary: 'Create a new banner',
+        description: 'Create a promotional banner for the home page hero section. Requires `BANNER_CREATE` permission (14001).',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/CreateBannerRequest' },
+              examples: {
+                internalLink: {
+                  summary: 'Banner with internal product link',
+                  value: {
+                    title: 'Flash Sale: Organic Fruits',
+                    description: '48 hours only - Limited stock',
+                    image: 'https://cdn.freeshop.com/banners/flash-sale.jpg',
+                    altText: 'Flash Sale Fruits',
+                    link: '/products/flash-sale',
+                    linkType: 'internal',
+                    position: 0,
+                    startDate: '2026-06-03T00:00:00Z',
+                    endDate: '2026-06-04T23:59:59Z',
+                  },
+                },
+                externalLink: {
+                  summary: 'Banner with external link',
+                  value: {
+                    title: 'Partner Store',
+                    description: 'Visit our partner store',
+                    image: 'https://cdn.freeshop.com/banners/partner.jpg',
+                    link: 'https://partner.example.com',
+                    linkType: 'external',
+                    position: 2,
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: 'Banner created successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/BannerResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+      get: {
+        tags: ['Banners'],
+        summary: 'Get paginated list of banners',
+        description: 'Retrieve a paginated list of banners with optional filtering and search. Requires `BANNER_READ` permission (14002). Results cached for 1 hour.',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer', minimum: 1, default: 1 }, description: 'Page number' },
+          { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 10 }, description: 'Items per page' },
+          { name: 'search', in: 'query', schema: { type: 'string' }, description: 'Search in title and description' },
+          { name: 'isActive', in: 'query', schema: { type: 'string', enum: ['true', 'false'] }, description: 'Filter by active status' },
+        ],
+        responses: {
+          200: {
+            description: 'Banners retrieved successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: {
+                      type: 'object',
+                      properties: {
+                        data: { type: 'array', items: { $ref: '#/components/schemas/BannerResponse' } },
+                        pagination: { $ref: '#/components/schemas/Pagination' },
+                      },
+                    },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/banners/{id}': {
+      get: {
+        tags: ['Banners'],
+        summary: 'Get a banner by ID',
+        description: 'Retrieve a specific banner by its ID. Requires `BANNER_READ` permission (14002).',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' }, description: 'Banner ID' },
+        ],
+        responses: {
+          200: {
+            description: 'Banner retrieved successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/BannerResponse' } } },
+          },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      patch: {
+        tags: ['Banners'],
+        summary: 'Update a banner',
+        description: 'Update banner details. All fields are optional. Requires `BANNER_UPDATE` permission (14003).',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/UpdateBannerRequest' },
+              examples: {
+                updateSchedule: {
+                  summary: 'Update banner dates',
+                  value: {
+                    startDate: '2026-06-10T00:00:00Z',
+                    endDate: '2026-06-15T23:59:59Z',
+                  },
+                },
+                updateStatus: {
+                  summary: 'Deactivate banner',
+                  value: { isActive: false },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Banner updated successfully',
+            content: { 'application/json': { schema: { $ref: '#/components/schemas/BannerResponse' } } },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      delete: {
+        tags: ['Banners'],
+        summary: 'Delete a banner',
+        description: 'Delete a banner permanently. Requires `BANNER_DELETE` permission (14004).',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } },
+        ],
+        responses: {
+          200: { description: 'Banner deleted successfully' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
+          404: { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/banners/reorder': {
+      post: {
+        tags: ['Banners'],
+        summary: 'Reorder banners',
+        description: 'Reorder banners by updating their display position. Array order determines position (0, 1, 2, etc.). Requires `BANNER_REORDER` permission (14005).',
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['bannerIds'],
+                properties: {
+                  bannerIds: {
+                    type: 'array',
+                    items: { type: 'string', format: 'uuid' },
+                    minItems: 1,
+                    description: 'Array of banner IDs in desired order',
+                    example: ['banner-uuid-1', 'banner-uuid-2', 'banner-uuid-3'],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: 'Banners reordered successfully',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    success: { type: 'boolean' },
+                    data: { type: 'array', items: { $ref: '#/components/schemas/BannerResponse' } },
+                    message: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+          400: { $ref: '#/components/responses/BadRequest' },
+          401: { $ref: '#/components/responses/Unauthorized' },
+          403: { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
@@ -8941,6 +9221,103 @@ You can manually update status for INHOUSE deliveries or after failed attempts. 
         description: 'Filter permissions by specific action (e.g., CREATE, READ, UPDATE, DELETE)',
         required: false,
         schema: { type: 'string', example: 'CREATE' },
+      },
+      
+      // ── Banner schemas ─────────────────────────────────────────────────────
+      BannerResponse: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid', description: 'Banner unique identifier' },
+          title: { type: 'string', description: 'Banner title/heading' },
+          description: { type: 'string', nullable: true, description: 'Optional banner description' },
+          image: { type: 'string', format: 'uri', description: 'Banner image URL' },
+          altText: { type: 'string', nullable: true, description: 'Alt text for accessibility' },
+          link: { type: 'string', nullable: true, description: 'Target link URL' },
+          linkType: { 
+            type: 'string', 
+            enum: ['internal', 'external', 'product', 'category'],
+            description: 'Type of link' 
+          },
+          targetId: { type: 'string', format: 'uuid', nullable: true, description: 'ID of product/category for internal links' },
+          position: { type: 'integer', description: 'Display order' },
+          isActive: { type: 'boolean', description: 'Active status' },
+          startDate: { type: 'string', format: 'date-time', nullable: true, description: 'Optional scheduling start date' },
+          endDate: { type: 'string', format: 'date-time', nullable: true, description: 'Optional scheduling end date' },
+          createdBy: { type: 'string', format: 'uuid', description: 'User ID of banner creator' },
+          createdAt: { type: 'string', format: 'date-time', description: 'Creation timestamp' },
+          updatedAt: { type: 'string', format: 'date-time', description: 'Last update timestamp' },
+        },
+        required: ['id', 'title', 'image', 'position', 'isActive', 'createdBy', 'createdAt', 'updatedAt'],
+        example: {
+          id: 'banner-uuid-123',
+          title: 'Summer Sale 2026',
+          description: 'Up to 50% off on organic products',
+          image: 'https://cdn.freeshop.com/banners/summer-sale.jpg',
+          altText: 'Summer Sale Banner',
+          link: '/products?sale=summer',
+          linkType: 'internal',
+          position: 0,
+          isActive: true,
+          startDate: '2026-06-01T00:00:00Z',
+          endDate: '2026-08-31T23:59:59Z',
+          createdBy: 'user-uuid-456',
+          createdAt: '2026-06-02T10:00:00Z',
+          updatedAt: '2026-06-02T10:00:00Z',
+        },
+      },
+      
+      CreateBannerRequest: {
+        type: 'object',
+        required: ['title', 'image'],
+        properties: {
+          title: { type: 'string', description: 'Banner title' },
+          description: { type: 'string', description: 'Optional description' },
+          image: { type: 'string', format: 'uri', description: 'Banner image URL' },
+          altText: { type: 'string', description: 'Alt text for accessibility' },
+          link: { type: 'string', format: 'uri', description: 'Target link URL' },
+          linkType: { 
+            type: 'string',
+            enum: ['internal', 'external', 'product', 'category'],
+            default: 'internal',
+            description: 'Type of link'
+          },
+          targetId: { type: 'string', format: 'uuid', description: 'ID for internal links (product/category)' },
+          position: { type: 'integer', default: 0, description: 'Display order' },
+          startDate: { type: 'string', format: 'date-time', description: 'Optional scheduling start' },
+          endDate: { type: 'string', format: 'date-time', description: 'Optional scheduling end' },
+        },
+      },
+      
+      UpdateBannerRequest: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Banner title' },
+          description: { type: 'string', description: 'Banner description' },
+          image: { type: 'string', format: 'uri', description: 'Banner image URL' },
+          altText: { type: 'string', description: 'Alt text' },
+          link: { type: 'string', format: 'uri', description: 'Target link' },
+          linkType: { 
+            type: 'string',
+            enum: ['internal', 'external', 'product', 'category'],
+            description: 'Link type'
+          },
+          targetId: { type: 'string', format: 'uuid', description: 'ID for internal links' },
+          position: { type: 'integer', description: 'Display order' },
+          isActive: { type: 'boolean', description: 'Active status' },
+          startDate: { type: 'string', format: 'date-time', description: 'Scheduling start' },
+          endDate: { type: 'string', format: 'date-time', description: 'Scheduling end' },
+        },
+      },
+      
+      Pagination: {
+        type: 'object',
+        properties: {
+          page: { type: 'integer', description: 'Current page number' },
+          limit: { type: 'integer', description: 'Items per page' },
+          total: { type: 'integer', description: 'Total number of items' },
+          pages: { type: 'integer', description: 'Total number of pages' },
+        },
+        example: { page: 1, limit: 10, total: 25, pages: 3 },
       },
     },
 
