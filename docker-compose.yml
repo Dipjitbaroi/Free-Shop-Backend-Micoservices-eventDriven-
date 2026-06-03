@@ -378,6 +378,12 @@ networks:
   freeshop-network:
     driver: bridge
 
+# Build concurrency is controlled via CLI to keep this file declarative:
+#   docker compose build --build-parallelism 2
+# The default of "unlimited" causes 10 services to hit registry.npmjs.org
+# simultaneously and triggers FetchError / connection-reset failures. A
+# value of 2-3 is the sweet spot for typical CI runners.
+
 volumes:
   postgres_data:
   redis_data:

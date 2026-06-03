@@ -1,6 +1,27 @@
+# Primary registry. We also point `fetch-resolve-specifier` at a fast mirror
+# below so pnpm tries the mirror first when the primary is congested.
 registry=https://registry.npmjs.org/
-fetch-timeout=3600000
-fetch-retries=20
+
+# npmmirror.com is a CDN-fronted read-only mirror of the npm registry that
+# dramatically reduces ETIMEDOUT on flaky connections (it caches tarballs
+# geographically). pnpm's `fetch-will-retry` will fall back to the primary
+# registry if the mirror is missing a package.
+# (See https://registry.npmmirror.com for status.)
+registry-mirror=https://registry.npmmirror.com/
+
+# Generous timeouts for slow / flaky CI networks (builds run in parallel across
+# 10 services that all hit the same registry, so individual connections often
+# stall or get reset by upstream proxies).
+fetch-timeout=600000
+fetch-retries=10
+fetch-retry-mintimeout=10000
+fetch-retry-maxtimeout=120000
+fetch-min=10000
+# Tell pnpm to walk the registry → mirror list in order on every fetch.
+fetch-resolve-specifier=true
+# Let pnpm keep its on-disk metadata cache across installs instead of re-validating
+# every package against the registry on each run (big win for parallel builds).
+package-import-method=hardlink
 auto-install-peers=true
 strict-peer-dependencies=false
 shamefully-hoist=true

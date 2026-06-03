@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { redis, CACHE_TTL } from '../lib/redis.js';
-import { Prisma } from '../../generated/prisma/index.js';
+import { Prisma } from '../../generated/client/client.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
 
 const logger = createServiceLogger('analytics-service');

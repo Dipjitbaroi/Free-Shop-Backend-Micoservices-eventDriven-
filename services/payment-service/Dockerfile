@@ -47,8 +47,9 @@ COPY --from=builder /app/services/payment-service/prisma.config.ts ./services/pa
 COPY --from=builder /app/services/payment-service/generated ./services/payment-service/generated
 COPY --from=builder /app/services/payment-service/prisma ./services/payment-service/prisma
 
-# Reinstall with frozen-lockfile to ensure dependencies, uses cache
-RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
+# node_modules was copied above; no need to re-run pnpm install in production stage
+# (a second install would just re-hit the npm registry with no benefit since the
+# builder stage already produced a complete, lockfile-aligned node_modules).
 
 COPY --from=builder /app/services/payment-service/dist ./services/payment-service/dist
 

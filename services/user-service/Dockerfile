@@ -47,8 +47,9 @@ COPY --from=builder /app/services/user-service/prisma.config.ts ./services/user-
 COPY --from=builder /app/services/user-service/generated ./services/user-service/generated
 COPY --from=builder /app/services/user-service/prisma ./services/user-service/prisma
 
-# Reinstall with frozen-lockfile to ensure dependencies, uses cache
-RUN --mount=type=cache,id=pnpm-cache,target=/root/.pnpm-store pnpm install --frozen-lockfile
+# node_modules was copied above; no need to re-run pnpm install in production stage
+# (a second install would just re-hit the npm registry with no benefit since the
+# builder stage already produced a complete, lockfile-aligned node_modules).
 
 COPY --from=builder /app/services/user-service/dist ./services/user-service/dist
 
