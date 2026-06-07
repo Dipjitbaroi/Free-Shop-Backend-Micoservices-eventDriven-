@@ -97,6 +97,15 @@ export const setupRoutes = (app: Application): void => {
     })
   );
 
+  // Banner Service routes (product service)
+  app.use(
+    '/api/v1/banners',
+    createProxyMiddleware({
+      ...getProxyOptions('product', config.services.product.url),
+      pathRewrite: async (path) => `/banners${path === '/' ? '' : path}`,
+    })
+  );
+
   // Order Service routes
   app.use(
     '/api/v1/orders',
