@@ -50,6 +50,7 @@ enum PermissionResource {
   ADMIN_PANEL
   COUPON
   ANALYTICS
+  BANNER
 }
 
 model User {
