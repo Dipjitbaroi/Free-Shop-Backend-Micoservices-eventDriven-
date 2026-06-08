@@ -114,7 +114,7 @@ class BannerService {
     ]);
 
     const result = createPaginatedResponse(banners, total, page, limit);
-    await cacheSet(cacheKey, JSON.stringify(result), 3600); // Cache for 1 hour
+    await cacheSet(cacheKey, result, 3600); // Cache for 1 hour
 
     return result;
   }
@@ -150,7 +150,7 @@ class BannerService {
       orderBy: { position: 'asc' },
     });
 
-    await cacheSet(cacheKey, JSON.stringify(banners), 1800); // Cache for 30 minutes
+    await cacheSet(cacheKey, banners, 1800); // Cache for 30 minutes
 
     return banners;
   }
@@ -172,7 +172,7 @@ class BannerService {
       throw new NotFoundError(`Banner with ID ${id} not found`);
     }
 
-    await cacheSet(cacheKey, JSON.stringify(banner), 3600); // Cache for 1 hour
+    await cacheSet(cacheKey, banner, 3600); // Cache for 1 hour
 
     return banner;
   }
