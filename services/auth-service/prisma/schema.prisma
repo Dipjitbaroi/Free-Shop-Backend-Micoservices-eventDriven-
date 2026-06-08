@@ -29,6 +29,8 @@ enum PermissionAction {
   DELETE
   APPROVE
   REJECT
+  ASSIGN
+  REFUND
 }
 
 enum PermissionResource {
