@@ -6,6 +6,8 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Load the single root .env for the entire monorepo so all services share
+// the same credentials (DB, Redis, RabbitMQ, JWT, etc.).
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
 
 export const config = {

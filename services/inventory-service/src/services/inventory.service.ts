@@ -351,6 +351,28 @@ class InventoryService {
         return null; // Return null instead of throwing - allows partial failure handling
       }
 
+      // Idempotency check: if a reservation already exists for this (order, inventory, variant)
+      // return it instead of creating a duplicate. This guards against RabbitMQ
+      // re-delivery / republishWithRetry duplicate consumption.
+      const existingReservation = await prisma.stockReservation.findFirst({
+        where: {
+          inventoryId: inventory.id,
+          orderId,
+          variantId: variantId || inventory.variantId,
+          status: ReservationStatus.PENDING,
+        },
+      });
+
+      if (existingReservation) {
+        logger.info('Reservation already exists for order, returning existing (idempotent)', {
+          orderId,
+          inventoryId: inventory.id,
+          variantId: variantId || inventory.variantId,
+          reservationId: existingReservation.id,
+        });
+        return existingReservation;
+      }
+
       const expiresAt = new Date(
         Date.now() + config.inventory.reservationExpiryMinutes * 60 * 1000
       );

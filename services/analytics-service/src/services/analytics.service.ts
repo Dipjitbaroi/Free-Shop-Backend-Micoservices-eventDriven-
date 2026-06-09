@@ -10,6 +10,39 @@ interface DateRange {
   endDate: Date;
 }
 
+/**
+ * Convert any Date (UTC or local) to a midnight Date object representing
+ * the local calendar day in `YYYY-MM-DD` form. This avoids the UTC shift
+ * problem where a sale at 02:00 local time in a UTC+6 zone would otherwise
+ * be stored under the previous calendar day.
+ */
+const toLocalDateOnly = (date: Date | string): Date => {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  // Construct a local-time midnight Date so Prisma/Postgres stores it on
+  // the intended local day regardless of the server's UTC offset.
+  return new Date(yyyy, parseInt(mm, 10) - 1, parseInt(dd, 10));
+};
+
+/**
+ * Build a Prisma-compatible date filter for a @db.Date column.
+ * The `date` column stores midnight values, so we anchor:
+ *   - startDate → start of the local day (00:00:00.000)
+ *   - endDate   → start of the NEXT local day, then use `lt` so we include
+ *                 the entire end day.
+ */
+const buildDateFilter = (dateRange: DateRange) => {
+  const start = toLocalDateOnly(dateRange.startDate);
+  const endDayStart = toLocalDateOnly(dateRange.endDate);
+  // Move end to the start of the next day so the entire end day is included
+  // even when endDate carries a non-zero time component.
+  const endExclusive = new Date(endDayStart);
+  endExclusive.setDate(endExclusive.getDate() + 1);
+  return { gte: start, lt: endExclusive };
+};
+
 interface DashboardMetrics {
   totalRevenue: number;
   totalOrders: number;
@@ -43,13 +76,9 @@ class AnalyticsService {
       return JSON.parse(cached);
     }
 
+    const dateFilter = buildDateFilter(dateRange);
     const currentPeriod = await prisma.dailySalesReport.aggregate({
-      where: {
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
-      },
+      where: { date: dateFilter },
       _sum: {
         totalRevenue: true,
         totalOrders: true,
@@ -60,21 +89,28 @@ class AnalyticsService {
       },
     });
 
-    const daysDiff = Math.ceil(
-      (dateRange.endDate.getTime() - dateRange.startDate.getTime()) / (1000 * 60 * 60 * 24)
+    const daysDiff = Math.max(
+      1,
+      Math.ceil(
+        (toLocalDateOnly(dateRange.endDate).getTime() -
+          toLocalDateOnly(dateRange.startDate).getTime()) /
+          (1000 * 60 * 60 * 24)
+      ) + 1
     );
-    const previousStartDate = new Date(dateRange.startDate);
+    const previousStartDate = toLocalDateOnly(dateRange.startDate);
     previousStartDate.setDate(previousStartDate.getDate() - daysDiff);
-    const previousEndDate = new Date(dateRange.startDate);
+    const previousEndDate = toLocalDateOnly(dateRange.startDate);
     previousEndDate.setDate(previousEndDate.getDate() - 1);
+    const previousFilter = {
+      gte: previousStartDate,
+      lt: (() => {
+        const d = toLocalDateOnly(dateRange.startDate);
+        return d;
+      })(),
+    };
 
     const previousPeriod = await prisma.dailySalesReport.aggregate({
-      where: {
-        date: {
-          gte: previousStartDate,
-          lte: previousEndDate,
-        },
-      },
+      where: { date: previousFilter },
       _sum: {
         totalRevenue: true,
         totalOrders: true,
@@ -88,8 +124,8 @@ class AnalyticsService {
     const newCustomers = currentPeriod._sum.newCustomers || 0;
 
     // Calculate average order value: totalRevenue / totalOrders
-    const averageOrderValue = currentOrders > 0 
-      ? currentRevenue / currentOrders 
+    const averageOrderValue = currentOrders > 0
+      ? currentRevenue / currentOrders
       : 0;
 
     // Conversion rate: new customers who placed orders / total new customers
@@ -105,11 +141,11 @@ class AnalyticsService {
       averageOrderValue: Number(averageOrderValue),
       newCustomers: newCustomers,
       conversionRate: Number(conversionRate),
-      revenueGrowth: previousRevenue > 0 
-        ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
+      revenueGrowth: previousRevenue > 0
+        ? ((currentRevenue - previousRevenue) / previousRevenue) * 100
         : 0,
-      orderGrowth: previousOrders > 0 
-        ? ((currentOrders - previousOrders) / previousOrders) * 100 
+      orderGrowth: previousOrders > 0
+        ? ((currentOrders - previousOrders) / previousOrders) * 100
         : 0,
     };
 
@@ -119,23 +155,14 @@ class AnalyticsService {
   }
 
   async getSalesReport(dateRange: DateRange) {
+    const dateFilter = buildDateFilter(dateRange);
     const reports = await prisma.dailySalesReport.findMany({
-      where: {
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
-      },
+      where: { date: dateFilter },
       orderBy: { date: 'asc' },
     });
 
     const summary = await prisma.dailySalesReport.aggregate({
-      where: {
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
-      },
+      where: { date: dateFilter },
       _sum: {
         totalRevenue: true,
         totalOrders: true,
@@ -155,13 +182,11 @@ class AnalyticsService {
   }
 
   async getVendorReport(vendorId: string, dateRange: DateRange) {
+    const dateFilter = buildDateFilter(dateRange);
     const reports = await prisma.vendorReport.findMany({
       where: {
         vendorId: vendorId,
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
+        date: dateFilter,
       },
       orderBy: { date: 'asc' },
     });
@@ -169,10 +194,7 @@ class AnalyticsService {
     const summary = await prisma.vendorReport.aggregate({
       where: {
         vendorId: vendorId,
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
+        date: dateFilter,
       },
       _sum: {
         totalRevenue: true,
@@ -191,13 +213,11 @@ class AnalyticsService {
   }
 
   async getProductAnalytics(productId: string, dateRange: DateRange) {
+    const dateFilter = buildDateFilter(dateRange);
     const analytics = await prisma.productAnalytics.findMany({
       where: {
         productId,
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
+        date: dateFilter,
       },
       orderBy: { date: 'asc' },
     });
@@ -205,10 +225,7 @@ class AnalyticsService {
     const summary = await prisma.productAnalytics.aggregate({
       where: {
         productId,
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
+        date: dateFilter,
       },
       _sum: {
         views: true,
@@ -238,12 +255,7 @@ class AnalyticsService {
 
     const topProducts = await prisma.productAnalytics.groupBy({
       by: ['productId'],
-      where: {
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
-      },
+      where: { date: buildDateFilter(dateRange) },
       _sum: {
         purchases: true,
         revenue: true,
@@ -277,12 +289,7 @@ class AnalyticsService {
 
     const topVendors = await prisma.vendorReport.groupBy({
       by: ['vendorId'],
-      where: {
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
-      },
+      where: { date: buildDateFilter(dateRange) },
       _sum: {
         totalOrders: true,
         totalRevenue: true,
@@ -307,23 +314,14 @@ class AnalyticsService {
   }
 
   async getUserAnalytics(dateRange: DateRange) {
+    const dateFilter = buildDateFilter(dateRange);
     const analytics = await prisma.userAnalytics.findMany({
-      where: {
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
-      },
+      where: { date: dateFilter },
       orderBy: { date: 'asc' },
     });
 
     const summary = await prisma.userAnalytics.aggregate({
-      where: {
-        date: {
-          gte: dateRange.startDate,
-          lte: dateRange.endDate,
-        },
-      },
+      where: { date: dateFilter },
       _sum: {
         newRegistrations: true,
         activeUsers: true,
@@ -415,53 +413,69 @@ class AnalyticsService {
     bkashOrders: number;
     otherPayments: number;
   }>) {
-    const dateOnly = new Date(date.toISOString().split('T')[0]);
+    const dateOnly = toLocalDateOnly(date);
 
     const report = await prisma.dailySalesReport.upsert({
       where: { date: dateOnly },
       create: {
         date: dateOnly,
         ...data,
-        averageOrderValue: data.totalOrders && data.totalRevenue 
-          ? data.totalRevenue / data.totalOrders 
+        averageOrderValue: data.totalOrders && data.totalRevenue
+          ? data.totalRevenue / data.totalOrders
           : 0,
       },
       update: {
-        totalOrders: data.totalOrders !== undefined 
-          ? { increment: data.totalOrders } 
+        totalOrders: data.totalOrders !== undefined
+          ? { increment: data.totalOrders }
           : undefined,
-        totalRevenue: data.totalRevenue !== undefined 
-          ? { increment: data.totalRevenue } 
+        totalRevenue: data.totalRevenue !== undefined
+          ? { increment: data.totalRevenue }
           : undefined,
-        totalItems: data.totalItems !== undefined 
-          ? { increment: data.totalItems } 
+        totalItems: data.totalItems !== undefined
+          ? { increment: data.totalItems }
           : undefined,
-        completedOrders: data.completedOrders !== undefined 
-          ? { increment: data.completedOrders } 
+        completedOrders: data.completedOrders !== undefined
+          ? { increment: data.completedOrders }
           : undefined,
-        cancelledOrders: data.cancelledOrders !== undefined 
-          ? { increment: data.cancelledOrders } 
+        cancelledOrders: data.cancelledOrders !== undefined
+          ? { increment: data.cancelledOrders }
           : undefined,
         pendingOrders: data.pendingOrders !== undefined
           ? { increment: data.pendingOrders }
           : undefined,
-        newCustomers: data.newCustomers !== undefined 
-          ? { increment: data.newCustomers } 
+        newCustomers: data.newCustomers !== undefined
+          ? { increment: data.newCustomers }
           : undefined,
         returningCustomers: data.returningCustomers !== undefined
           ? { increment: data.returningCustomers }
           : undefined,
-        codOrders: data.codOrders !== undefined 
-          ? { increment: data.codOrders } 
+        codOrders: data.codOrders !== undefined
+          ? { increment: data.codOrders }
           : undefined,
-        bkashOrders: data.bkashOrders !== undefined 
-          ? { increment: data.bkashOrders } 
+        bkashOrders: data.bkashOrders !== undefined
+          ? { increment: data.bkashOrders }
           : undefined,
         otherPayments: data.otherPayments !== undefined
           ? { increment: data.otherPayments }
           : undefined,
       },
     });
+
+    // Always recompute averageOrderValue from the persisted totals so AOV
+    // reflects the current state regardless of which event triggered the upsert.
+    const recomputedAov =
+      report.totalOrders > 0
+        ? Number(report.totalRevenue) / report.totalOrders
+        : 0;
+
+    if (recomputedAov !== Number(report.averageOrderValue)) {
+      const updated = await prisma.dailySalesReport.update({
+        where: { date: dateOnly },
+        data: { averageOrderValue: recomputedAov },
+      });
+      await redis.del(`dashboard:*`);
+      return updated;
+    }
 
     await redis.del(`dashboard:*`);
 
@@ -475,7 +489,7 @@ class AnalyticsService {
     productViews: number;
     newReviews: number;
   }>) {
-    const dateOnly = new Date(date.toISOString().split('T')[0]);
+    const dateOnly = toLocalDateOnly(date);
 
     return prisma.vendorReport.upsert({
       where: { vendorId_date: { vendorId, date: dateOnly } },
@@ -513,7 +527,7 @@ class AnalyticsService {
     searchImpressions: number;
     searchClicks: number;
   }>) {
-    const dateOnly = new Date(date.toISOString().split('T')[0]);
+    const dateOnly = toLocalDateOnly(date);
 
     return prisma.productAnalytics.upsert({
       where: { productId_date: { productId, date: dateOnly } },
@@ -552,7 +566,7 @@ class AnalyticsService {
   async getOrderTrends(dateRange: DateRange) {
     return prisma.dailySalesReport.findMany({
       where: {
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       select: { date: true, totalOrders: true },
       orderBy: { date: 'asc' },
@@ -586,7 +600,7 @@ class AnalyticsService {
   async getPaymentMethodDistribution(dateRange: DateRange) {
     const aggregate = await prisma.dailySalesReport.aggregate({
       where: {
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       _sum: {
         codOrders: true,
@@ -614,7 +628,7 @@ class AnalyticsService {
     const report = await prisma.vendorReport.aggregate({
       where: {
         vendorId,
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       _sum: { totalRevenue: true, totalOrders: true },
       _avg: { averageRating: true },
@@ -632,7 +646,7 @@ class AnalyticsService {
     return prisma.vendorReport.groupBy({
       by: ['vendorId'],
       where: {
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       _sum: { totalRevenue: true, totalOrders: true },
     });
@@ -642,7 +656,7 @@ class AnalyticsService {
     const report = await prisma.vendorReport.aggregate({
       where: {
         vendorId,
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       _sum: { totalRevenue: true, totalOrders: true, totalItems: true },
       _avg: { averageRating: true },
@@ -672,7 +686,7 @@ class AnalyticsService {
   async getVendorProductsAnalytics(vendorId: string, dateRange: DateRange) {
     return prisma.productAnalytics.findMany({
       where: {
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       select: {
         productId: true,
@@ -689,7 +703,7 @@ class AnalyticsService {
     const trend = await prisma.vendorReport.findMany({
       where: {
         vendorId,
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       select: { date: true, totalRevenue: true },
       orderBy: { date: 'asc' },
@@ -718,7 +732,7 @@ class AnalyticsService {
     return prisma.productAnalytics.findMany({
       where: {
         productId,
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       orderBy: { date: 'asc' },
     });
@@ -728,7 +742,7 @@ class AnalyticsService {
     const analytics = await prisma.productAnalytics.aggregate({
       where: {
         productId,
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       _sum: { views: true, addToCart: true, purchases: true },
     });
@@ -790,7 +804,7 @@ class AnalyticsService {
   async getDailySalesReport(dateRange: DateRange) {
     return prisma.dailySalesReport.findMany({
       where: {
-        date: { gte: dateRange.startDate, lte: dateRange.endDate },
+        date: buildDateFilter(dateRange),
       },
       orderBy: { date: 'asc' },
     });

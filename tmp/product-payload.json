@@ -1,0 +1,13 @@
+{
+  "name": "Test Mango",
+  "description": "Fresh mango for inventory test",
+  "shortDescription": "Test mango",
+  "categoryId": "85f38b7d-c722-4dfb-91db-13fd912e4f01",
+  "supplierPrice": "5.00",
+  "price": "10.00",
+  "stock": 100,
+  "lowStockThreshold": 5,
+  "unit": "piece",
+  "isOrganic": false,
+  "status": "ACTIVE"
+}
