@@ -1,10 +1,13 @@
 import { DeliveryInfo } from '../../generated/client/client.js';
 import { BadRequestError, NotFoundError, ServiceUnavailableError, createServiceLogger } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
+import { eventPublisher } from '../lib/message-broker.js';
+import { Events } from '@freeshop/shared-events';
 import { DeliveryProvider, DeliveryStatus } from '@freeshop/shared-types';
 import { OrderStatus, PaymentMethod, PaymentStatus } from '../../generated/client/client.js';
 import { completeCODPayment } from '../lib/payment-client.js';
 import { steadfastClient } from '../lib/steadfast-client.js';
+import { orderService } from './order.service.js';
 
 const logger = createServiceLogger('delivery-service');
 
@@ -415,10 +418,89 @@ class DeliveryService {
         }
 
         if (currentOrder.status !== newOrderStatus) {
-          const result = await prisma.order.update({
-            where: { id: delivery.orderId },
-            data: { status: newOrderStatus },
-          });
+          // Route through orderService.updateOrderStatus() so that:
+          //  1. Order timestamps (deliveredAt, shippedAt, cancelledAt, ...) are set
+          //  2. ORDER_STATUS_CHANGED is published
+          //  3. ORDER_DELIVERED / ORDER_CANCELLED are published (so inventory's
+          //     fulfillReservation / releaseReservation subscribers fire and the
+          //     actual stock decrement happens). Previously this method wrote
+          //     directly via prisma.order.update() which bypassed the event
+          //     pipeline, leaving reserved stock stranded and never converted
+          //     to a sale on delivery.
+          try {
+            await orderService.updateOrderStatus(
+              delivery.orderId,
+              newOrderStatus,
+              `Auto-synced from delivery ${deliveryId} (${newDeliveryStatus})`
+            );
+          } catch (syncError) {
+            // Fallback: do the DB write directly and publish the event so we
+            // never strand reserved stock, even if orderService throws (e.g.
+            // because of an unrelated guard). This is best-effort and logs
+            // loudly so the issue is visible.
+            logger.error('orderService.updateOrderStatus failed during delivery sync, falling back to direct update + event publish', {
+              error: syncError instanceof Error ? syncError.message : 'Unknown error',
+              deliveryId,
+              orderId: delivery.orderId,
+              newOrderStatus,
+            });
+
+            const updateData: any = { status: newOrderStatus };
+            const now = new Date();
+            if (newOrderStatus === OrderStatus.SHIPPED) updateData.shippedAt = now;
+            if (newOrderStatus === OrderStatus.DELIVERED) updateData.deliveredAt = now;
+            if (newOrderStatus === OrderStatus.CANCELLED) {
+              updateData.cancelledAt = now;
+              updateData.cancellationReason = `Auto-synced from delivery ${deliveryId}`;
+            }
+
+            await prisma.order.update({
+              where: { id: delivery.orderId },
+              data: updateData,
+            });
+
+            // Publish the event manually so the inventory pipeline still fires.
+            if (newOrderStatus === OrderStatus.DELIVERED) {
+              const order = await prisma.order.findUnique({
+                where: { id: delivery.orderId },
+                include: { items: true },
+              });
+              if (order) {
+                await eventPublisher.publish(Events.ORDER_DELIVERED, {
+                  orderId: order.id,
+                  orderNumber: order.orderNumber,
+                  userId: order.userId,
+                  total: order.total,
+                  shippingFee: order.shippingFee,
+                  items: order.items.map((item) => ({
+                    productId: item.productId,
+                    vendorId: item.vendorId,
+                    quantity: item.quantity,
+                    price: item.price,
+                    supplierPrice: (item as any).supplierPrice,
+                  })),
+                });
+              }
+            } else if (newOrderStatus === OrderStatus.CANCELLED) {
+              const order = await prisma.order.findUnique({
+                where: { id: delivery.orderId },
+                include: { items: true },
+              });
+              if (order) {
+                await eventPublisher.publish(Events.ORDER_CANCELLED, {
+                  orderId: order.id,
+                  orderNumber: order.orderNumber,
+                  userId: order.userId,
+                  reason: `Auto-synced from delivery ${deliveryId}`,
+                  items: order.items.map((item) => ({
+                    productId: item.productId,
+                    quantity: item.quantity,
+                  })),
+                });
+              }
+            }
+          }
+
           console.log(`✓ Synced delivery ${deliveryId} (${newDeliveryStatus}) → Order ${delivery.orderId} status (${newOrderStatus})`);
         }
       }

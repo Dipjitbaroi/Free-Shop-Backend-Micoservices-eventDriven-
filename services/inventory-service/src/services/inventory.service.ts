@@ -413,10 +413,21 @@ class InventoryService {
       }
 
       try {
+        // Compute the post-decrement available stock so we can refresh the
+        // isLowStock / isOutOfStock flags. After fulfilment, the stock is
+        // permanently removed from the warehouse, so:
+        //   newAvailableStock = previousTotal - quantity
+        //   newReservedStock  = previousReserved - quantity
+        const previousTotal = reservation.inventory.totalStock;
+        const previousReserved = reservation.inventory.reservedStock;
+        const newTotalStock = previousTotal - reservation.quantity;
+        const newReservedStock = previousReserved - reservation.quantity;
+        const newAvailableStock = newTotalStock - newReservedStock;
+
         await prisma.$transaction([
           prisma.stockReservation.update({
             where: { id: reservation.id },
-            data: { 
+            data: {
               status: ReservationStatus.FULFILLED,
               fulfilledAt: new Date(),
             },
@@ -426,6 +437,8 @@ class InventoryService {
             data: {
               totalStock: { decrement: reservation.quantity },
               reservedStock: { decrement: reservation.quantity },
+              isLowStock: newAvailableStock <= reservation.inventory.lowStockThreshold,
+              isOutOfStock: newAvailableStock === 0,
               lastSoldAt: new Date(),
             },
           }),
@@ -439,8 +452,8 @@ class InventoryService {
           reservation.inventoryId,
           MovementType.SALE,
           -reservation.quantity,
-          reservation.inventory.totalStock,
-          reservation.inventory.totalStock - reservation.quantity,
+          previousTotal,
+          newTotalStock,
           `Sold - Order ${orderId}`,
           undefined,
           orderId
