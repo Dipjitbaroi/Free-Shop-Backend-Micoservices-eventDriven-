@@ -46,11 +46,13 @@ const buildDateFilter = (dateRange: DateRange) => {
 interface DashboardMetrics {
   totalRevenue: number;
   totalOrders: number;
+  totalSales: number;
   averageOrderValue: number;
   newCustomers: number;
   conversionRate: number;
   revenueGrowth: number;
   orderGrowth: number;
+  salesGrowth: number;
 }
 
 interface TopProduct {
@@ -82,10 +84,8 @@ class AnalyticsService {
       _sum: {
         totalRevenue: true,
         totalOrders: true,
+        completedOrders: true,
         newCustomers: true,
-      },
-      _avg: {
-        averageOrderValue: true,
       },
     });
 
@@ -114,38 +114,46 @@ class AnalyticsService {
       _sum: {
         totalRevenue: true,
         totalOrders: true,
+        completedOrders: true,
       },
     });
 
     const currentRevenue = Number(currentPeriod._sum.totalRevenue || 0);
     const previousRevenue = Number(previousPeriod._sum.totalRevenue || 0);
     const currentOrders = currentPeriod._sum.totalOrders || 0;
+    const currentCompleted = currentPeriod._sum.completedOrders || 0;
     const previousOrders = previousPeriod._sum.totalOrders || 0;
+    const previousCompleted = previousPeriod._sum.completedOrders || 0;
     const newCustomers = currentPeriod._sum.newCustomers || 0;
 
-    // Calculate average order value: totalRevenue / totalOrders
-    const averageOrderValue = currentOrders > 0
-      ? currentRevenue / currentOrders
+    // Average order value uses COMPLETED orders (real sales), not totalOrders
+    // which includes pending/cancelled. This is the standard AOV definition:
+    // revenue / number of orders that were actually fulfilled.
+    const averageOrderValue = currentCompleted > 0
+      ? currentRevenue / currentCompleted
       : 0;
 
-    // Conversion rate: new customers who placed orders / total new customers
-    // If we have new customers but no orders, conversion = 0
-    // If all new customers placed orders, conversion = 100
-    const conversionRate = newCustomers > 0 && currentOrders > 0
-      ? (currentOrders / (newCustomers + currentOrders)) * 100
+    // Conversion rate: completed orders vs total orders placed
+    // (how many placed orders actually became sales, regardless of payment method)
+    const conversionRate = currentOrders > 0
+      ? (currentCompleted / currentOrders) * 100
       : 0;
 
     const metrics: DashboardMetrics = {
       totalRevenue: currentRevenue,
       totalOrders: currentOrders,
-      averageOrderValue: Number(averageOrderValue),
+      totalSales: currentCompleted,
+      averageOrderValue: Number(averageOrderValue.toFixed(2)),
       newCustomers: newCustomers,
-      conversionRate: Number(conversionRate),
+      conversionRate: Number(conversionRate.toFixed(2)),
       revenueGrowth: previousRevenue > 0
-        ? ((currentRevenue - previousRevenue) / previousRevenue) * 100
+        ? Number((((currentRevenue - previousRevenue) / previousRevenue) * 100).toFixed(2))
         : 0,
       orderGrowth: previousOrders > 0
-        ? ((currentOrders - previousOrders) / previousOrders) * 100
+        ? Number((((currentOrders - previousOrders) / previousOrders) * 100).toFixed(2))
+        : 0,
+      salesGrowth: previousCompleted > 0
+        ? Number((((currentCompleted - previousCompleted) / previousCompleted) * 100).toFixed(2))
         : 0,
     };
 
@@ -420,8 +428,8 @@ class AnalyticsService {
       create: {
         date: dateOnly,
         ...data,
-        averageOrderValue: data.totalOrders && data.totalRevenue
-          ? data.totalRevenue / data.totalOrders
+        averageOrderValue: data.completedOrders && data.totalRevenue
+          ? data.totalRevenue / data.completedOrders
           : 0,
       },
       update: {
@@ -461,11 +469,21 @@ class AnalyticsService {
       },
     });
 
+    // Clamp pendingOrders to 0 if it went negative (e.g. due to race condition
+    // between ORDER.CREATED and ORDER.DELIVERED/PAYMENT.RECEIVED events)
+    if (report.pendingOrders < 0) {
+      await prisma.dailySalesReport.update({
+        where: { date: dateOnly },
+        data: { pendingOrders: 0 },
+      });
+    }
+
     // Always recompute averageOrderValue from the persisted totals so AOV
     // reflects the current state regardless of which event triggered the upsert.
+    // AOV = totalRevenue / completedOrders (only delivered orders count as sales)
     const recomputedAov =
-      report.totalOrders > 0
-        ? Number(report.totalRevenue) / report.totalOrders
+      report.completedOrders > 0
+        ? Number(report.totalRevenue) / report.completedOrders
         : 0;
 
     if (recomputedAov !== Number(report.averageOrderValue)) {

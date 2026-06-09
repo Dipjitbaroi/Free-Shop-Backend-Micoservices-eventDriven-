@@ -140,6 +140,7 @@ export const setupEventSubscribers = async (): Promise<void> => {
           completedOrders: 1,
           totalRevenue: revenue,
           totalItems,
+          pendingOrders: -1, // remove from pending (was counted at ORDER.CREATED)
         });
 
         // Update product and vendor analytics on delivery
@@ -258,9 +259,18 @@ export const setupEventSubscribers = async (): Promise<void> => {
           method: payload.method,
         });
 
-        await analyticsService.updateDailySalesReport(new Date(), {
-          pendingOrders: -1,
-        });
+        // Only decrement pendingOrders for prepaid methods (e.g. BKASH).
+        // For COD the payment.received event is fired by the payment-service
+        // on delivery, AFTER ORDER.DELIVERED has already moved the order out
+        // of pending — decrementing again here would underflow the counter.
+        const method = (payload.method || '').toUpperCase();
+        const isPrepaid = method === 'BKASH' || method === 'CARD' || method === 'ONLINE';
+
+        if (isPrepaid) {
+          await analyticsService.updateDailySalesReport(new Date(), {
+            pendingOrders: -1,
+          });
+        }
       } catch (error) {
         logger.error('Error processing payment received for analytics', {
           error: error instanceof Error ? error.message : 'Unknown error',
