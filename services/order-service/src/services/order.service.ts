@@ -501,7 +501,11 @@ class OrderService {
           quantity: item.quantity,
         })),
       });
-    } else if (status === OrderStatus.DELIVERED) {
+    } else if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
+      // Only publish ORDER.DELIVERED on the actual PENDING→DELIVERED (or any
+      // other status→DELIVERED) transition. Re-PATCHing an order that is
+      // already DELIVERED must NOT re-fire the event, otherwise analytics
+      // double-counts revenue and completed orders.
       await eventPublisher.publish(Events.ORDER_DELIVERED, {
         orderId: updatedOrder.id,
         orderNumber: updatedOrder.orderNumber,

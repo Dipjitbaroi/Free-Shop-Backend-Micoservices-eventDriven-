@@ -11,36 +11,65 @@ interface DateRange {
 }
 
 /**
- * Convert any Date (UTC or local) to a midnight Date object representing
- * the local calendar day in `YYYY-MM-DD` form. This avoids the UTC shift
- * problem where a sale at 02:00 local time in a UTC+6 zone would otherwise
- * be stored under the previous calendar day.
+ * Convert any Date (UTC or local) to a `YYYY-MM-DD` string representing
+ * its **UTC** calendar day. All dates in this service are stored and
+ * queried as UTC calendar dates — the server's local timezone (e.g.
+ * Asia/Dhaka, UTC+6) is ignored on purpose. The query parameters
+ * `?startDate=2026-06-01` are parsed by JavaScript as `2026-06-01T00:00:00Z`,
+ * and the same convention is used when bucketing events into a daily row.
  */
-const toLocalDateOnly = (date: Date | string): Date => {
+const toCalendarDateString = (date: Date | string): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  // Construct a local-time midnight Date so Prisma/Postgres stores it on
-  // the intended local day regardless of the server's UTC offset.
-  return new Date(yyyy, parseInt(mm, 10) - 1, parseInt(dd, 10));
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 };
 
 /**
- * Build a Prisma-compatible date filter for a @db.Date column.
- * The `date` column stores midnight values, so we anchor:
- *   - startDate → start of the local day (00:00:00.000)
- *   - endDate   → start of the NEXT local day, then use `lt` so we include
- *                 the entire end day.
+ * Build a `Date` whose UTC components are the UTC calendar day described
+ * by `date`. Used by the upsert path: Prisma's `PrismaPg` adapter sends
+ * a `Date` to Postgres as a `date` literal using the **UTC** components,
+ * so constructing the `Date` via `Date.UTC(...)` guarantees the row
+ * key matches the `YYYY-MM-DD` strings produced by `toCalendarDateString`.
+ */
+const toUtcDate = (date: Date | string): Date => {
+  const [y, m, d] = toCalendarDateString(date).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+};
+
+/**
+ * Add `days` calendar days to a `YYYY-MM-DD` string, returning a new
+ * `YYYY-MM-DD` string. Negative values subtract.
+ */
+const addDays = (yyyyMmDd: string, days: number): string => {
+  const [y, m, d] = yyyyMmDd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() + days);
+  const yyyy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+/**
+ * Build a Prisma-compatible date filter for a @db.Date column. We must
+ * return real `Date` objects (not date strings) so Prisma's typed
+ * `DateTimeFilter` accepts them; the strings would be rejected with
+ * "Expected ISO-8601 DateTime". Prisma's `PrismaPg` adapter then
+ * serializes a `Date` to a `date 'YYYY-MM-DD'` literal using the
+ * **UTC** components of that `Date` — so we construct each `Date` via
+ * `Date.UTC(...)` to guarantee the stored calendar day matches the
+ * caller's intent regardless of the host server's timezone.
  */
 const buildDateFilter = (dateRange: DateRange) => {
-  const start = toLocalDateOnly(dateRange.startDate);
-  const endDayStart = toLocalDateOnly(dateRange.endDate);
-  // Move end to the start of the next day so the entire end day is included
-  // even when endDate carries a non-zero time component.
-  const endExclusive = new Date(endDayStart);
-  endExclusive.setDate(endExclusive.getDate() + 1);
-  return { gte: start, lt: endExclusive };
+  const startStr = toCalendarDateString(dateRange.startDate);
+  const endStr = toCalendarDateString(dateRange.endDate);
+  // End is exclusive: include the entire end day by moving to the start
+  // of the next day, so an `endDate` with a non-zero time component is
+  // still fully covered.
+  const endExclusiveStr = addDays(endStr, 1);
+  return { gte: toUtcDate(startStr), lt: toUtcDate(endExclusiveStr) };
 };
 
 interface DashboardMetrics {
@@ -89,24 +118,20 @@ class AnalyticsService {
       },
     });
 
+    const startStr = toCalendarDateString(dateRange.startDate);
+    const endStr = toCalendarDateString(dateRange.endDate);
+    // Inclusive day count: (end - start) in days + 1
     const daysDiff = Math.max(
       1,
-      Math.ceil(
-        (toLocalDateOnly(dateRange.endDate).getTime() -
-          toLocalDateOnly(dateRange.startDate).getTime()) /
+      Math.floor(
+        (Date.parse(`${endStr}T00:00:00Z`) - Date.parse(`${startStr}T00:00:00Z`)) /
           (1000 * 60 * 60 * 24)
       ) + 1
     );
-    const previousStartDate = toLocalDateOnly(dateRange.startDate);
-    previousStartDate.setDate(previousStartDate.getDate() - daysDiff);
-    const previousEndDate = toLocalDateOnly(dateRange.startDate);
-    previousEndDate.setDate(previousEndDate.getDate() - 1);
+    const previousStartStr = addDays(startStr, -daysDiff);
     const previousFilter = {
-      gte: previousStartDate,
-      lt: (() => {
-        const d = toLocalDateOnly(dateRange.startDate);
-        return d;
-      })(),
+      gte: toUtcDate(previousStartStr),
+      lt: toUtcDate(startStr), // exclusive upper bound = start of current period
     };
 
     const previousPeriod = await prisma.dailySalesReport.aggregate({
@@ -117,7 +142,6 @@ class AnalyticsService {
         completedOrders: true,
       },
     });
-
     const currentRevenue = Number(currentPeriod._sum.totalRevenue || 0);
     const previousRevenue = Number(previousPeriod._sum.totalRevenue || 0);
     const currentOrders = currentPeriod._sum.totalOrders || 0;
@@ -421,7 +445,7 @@ class AnalyticsService {
     bkashOrders: number;
     otherPayments: number;
   }>) {
-    const dateOnly = toLocalDateOnly(date);
+    const dateOnly = toUtcDate(date);
 
     const report = await prisma.dailySalesReport.upsert({
       where: { date: dateOnly },
@@ -507,7 +531,7 @@ class AnalyticsService {
     productViews: number;
     newReviews: number;
   }>) {
-    const dateOnly = toLocalDateOnly(date);
+    const dateOnly = toUtcDate(date);
 
     return prisma.vendorReport.upsert({
       where: { vendorId_date: { vendorId, date: dateOnly } },
@@ -545,7 +569,7 @@ class AnalyticsService {
     searchImpressions: number;
     searchClicks: number;
   }>) {
-    const dateOnly = toLocalDateOnly(date);
+    const dateOnly = toUtcDate(date);
 
     return prisma.productAnalytics.upsert({
       where: { productId_date: { productId, date: dateOnly } },
