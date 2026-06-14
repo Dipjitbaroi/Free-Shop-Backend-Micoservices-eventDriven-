@@ -12,12 +12,15 @@ import {
   createPaginatedResponse,
   calculateOffset,
   IPaginatedResult,
+  createServiceLogger,
 } from '@freeshop/shared-utils';
 import { prisma } from '../lib/prisma.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
 import { acquireLock, releaseLock } from '../lib/redis.js';
 import config from '../config/index.js';
+
+const logger = createServiceLogger('inventory-service');
 
 interface InventoryWithDetails extends Inventory {
   reservations?: StockReservation[];
@@ -48,10 +51,17 @@ class InventoryService {
     });
   }
 
-  // Initialize inventory for a product or free item
-  // For standalone free items: pass freeItemId with undefined productId
-  // For product variants: pass productId with variantId
-  // For product-attached free items: pass both productId and freeItemId
+  // Initialize inventory for a product, product variant, or free item.
+  //
+  // All three foreign keys (productId, variantId, freeItemId) are optional at
+  // the schema level. The valid combinations are:
+  //   - (productId)             → simple product
+  //   - (productId, variantId)  → product variant
+  //   - (productId, freeItemId) → free item attached to a product
+  //   - (freeItemId)            → standalone free item
+  //
+  // At least one of productId / freeItemId must be provided; this is enforced
+  // at the controller boundary.
   async initializeInventory(
     userId: string,
     initialStock: number = 0,
@@ -60,13 +70,15 @@ class InventoryService {
     variantId?: string,
     freeItemId?: string
   ): Promise<Inventory> {
-    const whereClause: Prisma.InventoryWhereInput = {
-      variantId,
-      freeItemId,
-    };
-    if (productId) {
-      whereClause.productId = productId;
-    }
+    // ── Lookup: build the where clause conditionally. We treat `undefined`
+    //    arguments as "not part of the lookup key" (the column may be NULL in
+    //    the matching row), and we only add fields that were actually
+    //    provided. This avoids Prisma 7's behaviour of interpreting
+    //    `undefined` as a literal `NULL` filter in some code paths.
+    const whereClause: Prisma.InventoryWhereInput = {};
+    if (productId !== undefined) whereClause.productId = productId;
+    if (variantId !== undefined) whereClause.variantId = variantId;
+    if (freeItemId !== undefined) whereClause.freeItemId = freeItemId;
 
     const existing = await prisma.inventory.findFirst({
       where: whereClause,
@@ -76,23 +88,23 @@ class InventoryService {
       return existing;
     }
 
-    const dataClause: any = {
+    // ── Insert: explicitly emit `null` for any FK the caller did not provide.
+    //    We must NOT omit the field — Prisma 7's client-side validation for
+    //    composite unique constraints requires every member to be present in
+    //    the data payload, and an absent key is treated as `missing`, not
+    //    `null`. See the migration `20260615000000_partial_unique_inventory_indexes`
+    //    for the database-level uniqueness rules.
+    const dataClause: Prisma.InventoryUncheckedCreateInput = {
       userId,
+      productId: productId ?? null,
+      variantId: variantId ?? null,
+      freeItemId: freeItemId ?? null,
       totalStock: initialStock,
       availableStock: initialStock,
       lowStockThreshold: lowStockThreshold || config.inventory.defaultLowStockThreshold,
       isLowStock: initialStock <= (lowStockThreshold || config.inventory.defaultLowStockThreshold),
       isOutOfStock: initialStock === 0,
     };
-    if (productId) {
-      dataClause.productId = productId;
-    }
-    if (variantId) {
-      dataClause.variantId = variantId;
-    }
-    if (freeItemId) {
-      dataClause.freeItemId = freeItemId;
-    }
 
     const inventory = await prisma.inventory.create({
       data: dataClause,
@@ -116,20 +128,28 @@ class InventoryService {
     return inventory;
   }
 
-  // Get inventory for a product or free item
-  // Pass productId for regular products, variantId for variants, freeItemId for free items
+  // Get inventory for a product, product variant, or free item.
+  //
+  // Callers MUST pass the identifier(s) they want to look up by. The valid
+  // combinations match `initializeInventory`:
+  //   - (productId)             → simple product
+  //   - (productId, variantId)  → product variant
+  //   - (freeItemId)            → standalone free item
+  //
+  // NOTE: We build the where clause conditionally. Including `variantId:
+  // undefined` or `freeItemId: undefined` would, in Prisma 7, generate
+  // `WHERE variantId IS NULL` — which would match every inventory row with
+  // a NULL variant, not the row the caller is looking for. Omitting the
+  // field is the correct way to express "I don't care about this column".
   async getInventory(
     productId?: string,
     variantId?: string,
     freeItemId?: string
   ): Promise<InventoryWithDetails> {
-    const whereClause: Prisma.InventoryWhereInput = {
-      variantId,
-      freeItemId,
-    };
-    if (productId) {
-      whereClause.productId = productId;
-    }
+    const whereClause: Prisma.InventoryWhereInput = {};
+    if (productId !== undefined) whereClause.productId = productId;
+    if (variantId !== undefined) whereClause.variantId = variantId;
+    if (freeItemId !== undefined) whereClause.freeItemId = freeItemId;
 
     const inventory = await prisma.inventory.findFirst({
       where: whereClause,
@@ -311,8 +331,9 @@ class InventoryService {
     }
   }
 
-  // Reserve stock for an order
-  // Pass productId for regular products, variantId for variants, freeItemId for free items
+  // Reserve stock for an order. Identifiers are optional individually but the
+  // caller must pass whichever ones identify the row to lock + reserve. See
+  // `initializeInventory` for the valid combinations.
   async reserveStock(
     orderId: string,
     quantity: number,
@@ -323,18 +344,34 @@ class InventoryService {
     // Build lock key from the actual identifier
     const lockKey = `inventory:${freeItemId || variantId || productId}`;
     const locked = await acquireLock(lockKey);
-    
+
     if (!locked) {
       throw new BadRequestError('Unable to acquire lock. Try again.');
     }
 
     try {
-      const whereClause: Prisma.InventoryWhereInput = {
-        variantId,
-        freeItemId,
-      };
-      if (productId) {
-        whereClause.productId = productId;
+      // Build where clause conditionally — never include `undefined` keys,
+      // they would translate to `IS NULL` filters in some Prisma versions and
+      // match the wrong rows.
+      //
+      // CRITICAL: `productId` in the order event refers to the *product line item*
+      // in the order, not the inventory row's productId. For free items the
+      // inventory row has `productId=NULL` and `freeItemId=<id>`. If we include
+      // the order's productId in the where clause along with freeItemId, the
+      // query will never match the standalone free-item inventory row.
+      // Resolution: when `freeItemId` is provided, it uniquely identifies the
+      // inventory row — ignore productId/variantId in that case.
+      const whereClause: Prisma.InventoryWhereInput = {};
+      if (freeItemId !== undefined) {
+        whereClause.freeItemId = freeItemId;
+        // Standalone free-item inventory rows have productId=null — make
+        // absolutely sure we don't accidentally match a row that has the same
+        // freeItemId but a non-null productId (shouldn't exist by schema, but
+        // belt-and-braces).
+        whereClause.productId = null;
+      } else {
+        if (productId !== undefined) whereClause.productId = productId;
+        if (variantId !== undefined) whereClause.variantId = variantId;
       }
 
       const inventory = await prisma.inventory.findFirst({

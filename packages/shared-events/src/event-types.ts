@@ -126,8 +126,15 @@ export interface IPaymentFailedPayload {
 }
 
 // Inventory Event Payloads
+//
+// `productId` is intentionally nullable: inventory rows may be bound to a
+// standalone free item (no associated product) or to a product/variant. When
+// the inventory service publishes an update for a free item it sets
+// `productId = null` and `freeItemId` is set. Consumers (e.g. product-service
+// for status sync) MUST guard against a null productId before looking up a
+// product row.
 export interface IInventoryUpdatedPayload {
-  productId: string;
+  productId: string | null;
   previousStock: number;
   newStock: number;
   totalStock?: number;
@@ -135,16 +142,20 @@ export interface IInventoryUpdatedPayload {
   lowStockThreshold?: number;
   isLowStock?: boolean;
   isOutOfStock?: boolean;
-  variantId?: string;
-  freeItemId?: string;
+  variantId?: string | null;
+  freeItemId?: string | null;
   userId?: string;
   action: string;
   reason?: string;
 }
 
+// NOTE: `productId` is nullable on reservation/release events because the
+// inventory service may publish a reservation that is bound only to a
+// standalone free item. Consumers should treat null productId as "not a
+// product — no product-level action required".
 export interface IStockReservedPayload {
   reservationId: string;
-  productId: string;
+  productId: string | null;
   orderId: string;
   quantity: number;
   expiresAt: string;
@@ -152,14 +163,14 @@ export interface IStockReservedPayload {
 
 export interface IStockReleasedPayload {
   reservationId: string;
-  productId: string;
+  productId: string | null;
   orderId: string;
   quantity: number;
   reason: string;
 }
 
 export interface ILowStockAlertPayload {
-  productId: string;
+  productId: string | null;
   vendorId: string;
   productName: string;
   currentStock: number;
@@ -174,8 +185,8 @@ export interface IInventoryRefundedPayload {
 
 export interface IInventoryReservationFailedPayload {
   orderId: string;
-  productId: string;
-  variantId?: string;
+  productId: string | null;
+  variantId?: string | null;
   reason: string;
 }
 
