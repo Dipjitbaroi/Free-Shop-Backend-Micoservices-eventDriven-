@@ -98,9 +98,12 @@ class ReviewService {
   async getReviews(filters: ReviewFilters): Promise<IPaginatedResult<Review>> {
     const { productId, userId, rating, verified, status, page = 1, limit = 10 } = filters;
 
-    const where: Prisma.ReviewWhereInput = {
-      status: status || 'APPROVED', // Default to APPROVED if no status specified
-    };
+    const where: Prisma.ReviewWhereInput = {};
+
+    // Only filter by status if explicitly provided.
+    // When no status is given, return reviews of all statuses
+    // (PENDING, APPROVED, REJECTED) instead of defaulting to APPROVED only.
+    if (status) where.status = status;
 
     if (productId) where.productId = productId;
     if (userId) where.userId = userId;
