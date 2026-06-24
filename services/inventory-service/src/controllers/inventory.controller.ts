@@ -295,5 +295,46 @@ export const inventoryController = {
       next(error);
     }
   },
+
+  // ============ OPTIMIZED INTERNAL APIS FOR SERVICE-TO-SERVICE ============
+
+  async getProductAvailability(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { productId } = req.params;
+      const { variantId } = req.query;
+
+      const inventory = await inventoryService.getInventory(
+        productId as string,
+        variantId as string | undefined,
+        undefined
+      );
+
+      // Return only essential data (optimize for network/performance)
+      res.json(successResponse({
+        availableStock: inventory.availableStock,
+      }, 'Product availability retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async getFreeItemAvailability(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { freeItemId } = req.params;
+
+      const inventory = await inventoryService.getInventory(
+        undefined,
+        undefined,
+        freeItemId as string
+      );
+
+      // Return only essential data (optimize for network/performance)
+      res.json(successResponse({
+        availableStock: inventory.availableStock,
+      }, 'Free item availability retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  },
 };
 

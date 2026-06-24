@@ -344,6 +344,8 @@ function generatePermissionCode(resource: PermissionResource, action: Permission
     [PermissionAction.DELETE]: 4,
     [PermissionAction.APPROVE]: 5,
     [PermissionAction.REJECT]: 6,
+    [PermissionAction.ASSIGN]: 7,
+    [PermissionAction.REFUND]: 8,
   };
 
   // Multiply resource by 100 and add action

@@ -560,6 +560,21 @@ class AuthService {
       },
     });
 
+    // Publish user.created event (fire-and-forget) so analytics and any other
+    // subscribers (UserAnalytics, DailySalesReport.newCustomers, etc.) see the
+    // new account. The Firebase login path does the same thing.
+    eventPublisher.userCreated({
+      userId: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phone: user.phone ?? undefined,
+      avatar: user.avatar ?? undefined,
+      role: 'CUSTOMER',
+    }).catch((err) =>
+      logger.error('Failed to publish user.created event', { error: err?.message })
+    );
+
     return {
       user: {
         id: user.id,

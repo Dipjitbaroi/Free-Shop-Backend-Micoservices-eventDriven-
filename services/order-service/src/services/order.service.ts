@@ -13,7 +13,7 @@ import { zoneService } from './zone.service.js';
 import { eventPublisher } from '../lib/message-broker.js';
 import { Events } from '@freeshop/shared-events';
 import { cacheDelete, orderCacheKey } from '../lib/redis.js';
-import { checkInventoryAvailability } from '../lib/inventory-client.js';
+import { checkInventoryAvailabilityInternal } from '../lib/inventory-client.js';
 
 import config from '../config/index.js';
 import { cartService } from './cart.service.js';
@@ -247,7 +247,7 @@ class OrderService {
       requestedQuantities: inventoryCheckItems.map((item) => `${item.productId || item.freeItemId}:${item.quantity}`),
     });
 
-    const result = await checkInventoryAvailability(inventoryCheckItems);
+    const result = await checkInventoryAvailabilityInternal(inventoryCheckItems);
 
     if (!result.available) {
       const details = result.unavailableItems
@@ -501,7 +501,11 @@ class OrderService {
           quantity: item.quantity,
         })),
       });
-    } else if (status === OrderStatus.DELIVERED) {
+    } else if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
+      // Only publish ORDER.DELIVERED on the actual PENDING→DELIVERED (or any
+      // other status→DELIVERED) transition. Re-PATCHing an order that is
+      // already DELIVERED must NOT re-fire the event, otherwise analytics
+      // double-counts revenue and completed orders.
       await eventPublisher.publish(Events.ORDER_DELIVERED, {
         orderId: updatedOrder.id,
         orderNumber: updatedOrder.orderNumber,

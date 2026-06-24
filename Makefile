@@ -1,5 +1,5 @@
 # Development shortcuts
-.PHONY: dev dev-infra dev-services stop logs clean build migrate
+.PHONY: dev dev-infra dev-services stop logs clean build build-serial migrate prisma-generate install
 
 # Start infrastructure only (for local development)
 dev-infra:
@@ -25,60 +25,54 @@ clean:
 	docker-compose down -v
 	docker system prune -f
 
-# Build all services
+# Build all services with a *persistent* BuildKit cache (see
+# scripts/build/build-services.ps1). The script loops over the 10
+# service Dockerfiles using a single `docker-container` BuildKit
+# builder that shares one local cache backend, so once the first
+# service has populated the pnpm store the other 9 are effectively
+# free on rebuild. Services are built serially to avoid the
+# registry.npmjs.org ETIMEDOUT storm that `--build-parallelism N`
+# triggers when N >= 2.
 build:
-	docker-compose build
+	pwsh scripts/build/build-services.ps1
 
-# Build specific service
+# Build a single service (full parallelism is fine for a single image).
 build-%:
-	docker-compose build $*
+	pwsh scripts/build/build-services.ps1 -Service $*
+
+# Force a cold build (no cache reuse) — useful when the cache itself
+# has been poisoned or you changed pnpm version.
+build-cold:
+	pwsh scripts/build/build-services.ps1 -NoCache
+
+# Backwards-compat alias. Prefer `make build` (above).
+build-serial:
+	pwsh scripts/build/build-services.ps1
 
 # Run all services in production mode
 prod:
 	docker-compose up -d
 
-# Run migrations for all services
+# Run migrations for all services (uses pnpm to invoke prisma, consistent with Dockerfiles)
 migrate:
 	@echo "Running migrations for all services..."
-	cd services/auth-service && npx prisma migrate deploy
-	cd services/user-service && npx prisma migrate deploy
-	cd services/product-service && npx prisma migrate deploy
-	cd services/order-service && npx prisma migrate deploy
-	cd services/payment-service && npx prisma migrate deploy
-	cd services/inventory-service && npx prisma migrate deploy
-	cd services/vendor-service && npx prisma migrate deploy
-	cd services/notification-service && npx prisma migrate deploy
-	cd services/analytics-service && npx prisma migrate deploy
+	cd services/auth-service && pnpm exec prisma migrate deploy
+	cd services/user-service && pnpm exec prisma migrate deploy
+	cd services/product-service && pnpm exec prisma migrate deploy
+	cd services/order-service && pnpm exec prisma migrate deploy
+	cd services/payment-service && pnpm exec prisma migrate deploy
+	cd services/inventory-service && pnpm exec prisma migrate deploy
+	cd services/vendor-service && pnpm exec prisma migrate deploy
+	cd services/notification-service && pnpm exec prisma migrate deploy
+	cd services/analytics-service && pnpm exec prisma migrate deploy
 
-# Install all dependencies
+# Install all dependencies (workspace-aware via pnpm; no per-package cd needed)
 install:
-	npm install
-	cd packages/shared-types && npm install
-	cd packages/shared-utils && npm install
-	cd packages/shared-events && npm install
-	cd packages/shared-middleware && npm install
-	cd services/api-gateway && npm install
-	cd services/auth-service && npm install
-	cd services/user-service && npm install
-	cd services/product-service && npm install
-	cd services/order-service && npm install
-	cd services/payment-service && npm install
-	cd services/inventory-service && npm install
-	cd services/vendor-service && npm install
-	cd services/notification-service && npm install
-	cd services/analytics-service && npm install
+	pnpm install --frozen-lockfile
 
-# Generate Prisma clients
+# Generate Prisma clients for every service in one workspace pass
 prisma-generate:
-	cd services/auth-service && npx prisma generate
-	cd services/user-service && npx prisma generate
-	cd services/product-service && npx prisma generate
-	cd services/order-service && npx prisma generate
-	cd services/payment-service && npx prisma generate
-	cd services/inventory-service && npx prisma generate
-	cd services/vendor-service && npx prisma generate
-	cd services/notification-service && npx prisma generate
-	cd services/analytics-service && npx prisma generate
+	pnpm -r --filter "./services/**" exec prisma generate
 
 # Build shared packages
 build-packages:

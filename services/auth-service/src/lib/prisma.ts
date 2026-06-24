@@ -6,9 +6,7 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 const prismaClientSingleton = () => {
-  const adapter = new PrismaPg({
-    connectionString: process.env.AUTH_DATABASE_URL,
-  });
+  const adapter = new PrismaPg(process.env.AUTH_DATABASE_URL!);
 
   return new PrismaClient({
     adapter,

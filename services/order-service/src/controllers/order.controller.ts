@@ -6,8 +6,7 @@ import { fetchProduct, resolveEffectivePrice } from '../lib/product-client.js';
 import { fetchAddressById } from '../lib/user-client.js';
 import { zoneService } from '../services/zone.service.js';
 import { BadRequestError } from '@freeshop/shared-utils';
-import axios from 'axios';
-import config from '../config/index.js';
+import { checkInventoryAvailabilityInternal } from '../lib/inventory-client.js';
 
 export const orderController = {
   async createOrder(req: Request, res: Response, next: NextFunction) {
@@ -17,6 +16,11 @@ export const orderController = {
 
       // Resolve product details server-side — never trust client-supplied price/vendorId
       const rawItems = req.body.items as { productId: string; quantity: number; freeItemId?: string; freeItemIds?: string[] }[];
+      
+      // Step 1: Resolve all product details and free items
+      const productMap = new Map<string, any>();
+      const freeItemMap = new Map<string, { productName: string; freeItemName: string }>();
+      
       const resolvedItems = await Promise.all(
         rawItems.map(async (item) => {
           const product = await fetchProduct(item.productId);
@@ -24,32 +28,7 @@ export const orderController = {
             throw new BadRequestError(`Product "${product.name}" is not available for purchase`);
           }
           
-          // Check inventory availability
-          try {
-            const serviceToken = process.env.SERVICE_AUTH_TOKEN;
-            const inventoryResponse = await axios.get(
-              `${config.inventoryServiceUrl}/internal/check-availability/${item.productId}`,
-              {
-                timeout: 3000,
-                headers: serviceToken ? { Authorization: `Bearer ${serviceToken}` } : {},
-              }
-            );
-            const availableStock = inventoryResponse.data?.data?.availableStock ?? 0;
-            if (availableStock < item.quantity) {
-              throw new BadRequestError(`Insufficient stock for "${product.name}". Available: ${availableStock}`);
-            }
-          } catch (error: unknown) {
-            if (axios.isAxiosError(error)) {
-              if (error.response?.status === 404) {
-                throw new BadRequestError('Product inventory not found');
-              }
-              if (error.response?.data?.message) {
-                throw new BadRequestError(error.response.data.message);
-              }
-            }
-            // Fallback: if inventory service is unreachable, reject the request
-            throw new BadRequestError('Could not verify inventory availability');
-          }
+          productMap.set(product.id, product);
           
           // Validate freeItemIds if provided; limit to 1 for now
           const incomingFreeIds: string[] | undefined = Array.isArray(item.freeItemIds)
@@ -68,7 +47,9 @@ export const orderController = {
               throw new BadRequestError(`Invalid freeItemId for product "${product.name}"`);
             }
             selectedFreeItems = [{ id: found.id, name: found.name, sku: found.sku, image: found.image }];
+            freeItemMap.set(fid, { productName: product.name, freeItemName: found.name });
           }
+          
           return {
             productId: product.id,
             vendorId: product.vendorId,
@@ -83,6 +64,45 @@ export const orderController = {
           };
         })
       );
+
+      // Step 2: Check inventory availability for ALL items including free items in one batch
+      const inventoryCheckItems = rawItems.map((item) => {
+        const incomingFreeIds: string[] | undefined = Array.isArray(item.freeItemIds)
+          ? item.freeItemIds
+          : item.freeItemId
+          ? [item.freeItemId]
+          : undefined;
+        return {
+          productId: item.productId,
+          quantity: item.quantity,
+          freeItemId: incomingFreeIds && incomingFreeIds.length === 1 ? incomingFreeIds[0] : undefined,
+        };
+      });
+
+      try {
+        const availabilityResult = await checkInventoryAvailabilityInternal(inventoryCheckItems);
+        if (!availabilityResult.available) {
+          // Build detailed error message with product and free item names
+          const errorDetails = availabilityResult.unavailableItems.map((item) => {
+            if (item.freeItemId) {
+              const freeItemInfo = freeItemMap.get(item.freeItemId);
+              return `Free item "${freeItemInfo?.freeItemName || item.freeItemId}" for "${freeItemInfo?.productName || 'Unknown'}" (requested: ${item.requested}, available: ${item.available})`;
+            } else if (item.productId) {
+              const product = productMap.get(item.productId);
+              return `Product "${product?.name || item.productId}" (requested: ${item.requested}, available: ${item.available})`;
+            } else {
+              return `Item (requested: ${item.requested}, available: ${item.available})`;
+            }
+          }).join('; ');
+          throw new BadRequestError(`Insufficient inventory for: ${errorDetails}`);
+        }
+      } catch (error: unknown) {
+        if (error instanceof BadRequestError) {
+          throw error;
+        }
+        // Fallback: if inventory service is unreachable, reject the request
+        throw new BadRequestError('Could not verify inventory availability');
+      }
 
       // Resolve shipping address: prefer saved address ID, fall back to inline object
       const { shippingAddressId, shippingAddress: inlineShippingAddress } = req.body;

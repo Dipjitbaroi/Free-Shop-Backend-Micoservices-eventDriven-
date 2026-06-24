@@ -1,0 +1,10 @@
+const path = require('path');
+const fs = require('fs');
+const root = 'd:/GitHub/Free-Shop-Backend-Micoservices(eventDriven)';
+const d = 'services/api-gateway/src';
+const r2 = path.resolve(root, d, '../../.env');
+const r3 = path.resolve(root, d, '../../../.env');
+const r4 = path.resolve(root, d, '../../../../.env');
+console.log('2-up:', r2, fs.existsSync(r2));
+console.log('3-up:', r3, fs.existsSync(r3));
+console.log('4-up:', r4, fs.existsSync(r4));

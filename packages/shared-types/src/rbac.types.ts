@@ -90,11 +90,11 @@ export const PERMISSION_CODES = {
   FREE_ITEM_DELETE: 12004,
 
   // Review permissions
-  REVIEW_CREATE: 5101,
-  REVIEW_READ: 5102,
-  REVIEW_UPDATE: 5103,
-  REVIEW_DELETE: 5104,
-  REVIEW_APPROVE: 5105,
+  REVIEW_CREATE: 5301,
+  REVIEW_READ: 5302,
+  REVIEW_UPDATE: 5303,
+  REVIEW_DELETE: 5304,
+  REVIEW_APPROVE: 5305,
 
   // Delivery permissions
   DELIVERY_CREATE: 6001,
@@ -304,6 +304,8 @@ export enum PermissionAction {
   DELETE = 'DELETE',
   APPROVE = 'APPROVE',
   REJECT = 'REJECT',
+  ASSIGN = 'ASSIGN',
+  REFUND = 'REFUND',
 }
 
 export enum PermissionResource {

@@ -218,6 +218,9 @@ class BannerService {
       throw new NotFoundError(`Banner with ID ${id} not found`);
     }
 
+    // Hard delete: permanently remove the banner row from the database.
+    // We intentionally do NOT set isActive = false or any soft-delete flag.
+    // This is a full, irreversible delete of the record.
     await prisma.banner.delete({
       where: { id },
     });

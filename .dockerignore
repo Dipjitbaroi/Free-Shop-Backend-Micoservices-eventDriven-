@@ -1,13 +1,87 @@
+# =============================================================================
+# Root .dockerignore for the monorepo build context.
+# This is THE biggest single build-speed win: without it, every `docker build`
+# that uses `.` as context re-uploads the full monorepo to the BuildKit
+# daemon, including every service's node_modules, dist, .git, etc.
+# =============================================================================
+
+# ----- VCS / IDE noise -----
 .git
 .gitignore
-.env
-.env.local
-*.log
-*.md
-dist
-coverage
-.nyc_output
+.gitattributes
+.github
+.gitkeep
+.husky
 .vscode
 .idea
-*.swp
-*.swo
+.vs
+.DS_Store
+Thumbs.db
+
+# ----- Build artefacts (rebuilt inside the image) -----
+**/node_modules
+**/dist
+**/build
+**/out
+**/.next
+**/.turbo
+**/.cache
+**/coverage
+**/.nyc_output
+
+# ----- Test / lint output -----
+**/*.log
+**/logs
+**/tmp
+**/.tmp
+**/.temp
+
+# ----- Documentation-only files (don't ship them in the image) -----
+*.md
+!packages/**/README.md
+LICENSE
+LICENSE.*
+*.lock.snap
+
+# ----- OS / editor cruft -----
+**/*.swp
+**/*.swo
+**/*~
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.production
+
+# ----- Docker / k8s files (not needed in image) -----
+Dockerfile*
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+deploy/
+helm/
+k8s/
+k8s-backup/
+ingress/
+infrastructure/
+
+# ----- Scripts (only used by maintainers, not by the running app) -----
+scripts/
+tmp/
+
+# ----- Prisma artefacts (re-generated inside builder) -----
+# Keep schema.prisma and migrations, drop the local generated client.
+**/generated/
+
+# ----- Service-local files that aren't needed in the runtime image -----
+**/*.test.ts
+**/*.spec.ts
+**/tests/
+**/__tests__/
+**/jest.config.*
+**/vitest.config.*
+**/.eslintrc*
+**/.prettierrc*
+
+# ----- Per-service exclusions to keep context tiny -----
+# (Add service-specific globs here as needed.)

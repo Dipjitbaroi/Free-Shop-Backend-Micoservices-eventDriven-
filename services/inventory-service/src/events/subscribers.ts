@@ -95,69 +95,125 @@ export const setupEventSubscribers = async (): Promise<void> => {
         let hasAnyFailure = false;
 
         for (const item of payload.items) {
-          const freeItemId = Array.isArray(item.freeItemIds) && item.freeItemIds.length ? item.freeItemIds[0] : item.freeItemId;
-          // Reserve quantity: 1 for free items (regardless of product quantity), or product quantity for regular items
-          const reserveQuantity = freeItemId ? 1 : item.quantity;
+          // An order item can be a product line (productId + quantity) AND/OR
+          // a free-item line (freeItemIds[]. Each is reserved as a SEPARATE
+          // inventory row. We need to issue up to TWO reserveStock calls per
+          // order item: one for the product (if any) and one for each free
+          // item (if any).
+          const reserveTargets: Array<{
+            label: 'product' | 'freeItem';
+            productId?: string;
+            variantId?: string;
+            freeItemId?: string;
+            quantity: number;
+          }> = [];
 
-          try {
-            const reserved = await inventoryService.reserveStock(
-              payload.orderId,
-              reserveQuantity,
-              item.productId,
-              item.variantId,
-              freeItemId
-            );
-
-            if (reserved) {
-              reservedItems.push({
-                productId: item.productId,
-                variantId: item.variantId,
-                freeItemId: item.freeItemId,
-                freeItemIds: item.freeItemIds,
-                quantity: item.quantity,
-              });
-            } else {
-              hasAnyFailure = true;
-              failedItems.push({
-                productId: item.productId,
-                variantId: item.variantId,
-                freeItemId: item.freeItemId,
-                quantity: item.quantity,
-              });
-
-              logger.warn('Failed to reserve stock for order item', {
-                orderId: payload.orderId,
-                productId: item.productId,
-                variantId: item.variantId,
-                requestedQuantity: item.quantity,
-              });
-
-              // Publish reservation failure event
-              await messageBroker.publish(
-                EXCHANGES.INVENTORY,
-                getRoutingKey('INVENTORY', 'RESERVATION_FAILED'),
-                {
-                  orderId: payload.orderId,
-                  productId: item.productId,
-                  variantId: item.variantId,
-                  reason: 'Insufficient stock',
-                }
-              );
-            }
-          } catch (itemError) {
-            hasAnyFailure = true;
-            failedItems.push({
+          if (item.productId && item.quantity > 0) {
+            reserveTargets.push({
+              label: 'product',
               productId: item.productId,
               variantId: item.variantId,
-              freeItemId: item.freeItemId,
               quantity: item.quantity,
             });
+          }
 
-            logger.error('Error reserving stock for order item', {
-              error: itemError instanceof Error ? itemError.message : 'Unknown error',
-              orderId: payload.orderId,
-              productId: item.productId,
+          if (Array.isArray(item.freeItemIds) && item.freeItemIds.length > 0) {
+            for (const fid of item.freeItemIds) {
+              reserveTargets.push({
+                label: 'freeItem',
+                freeItemId: fid,
+                quantity: 1, // free items always 1 per item line
+              });
+            }
+          } else if (item.freeItemId) {
+            // Backwards-compat: singular freeItemId field
+            reserveTargets.push({
+              label: 'freeItem',
+              freeItemId: item.freeItemId,
+              quantity: 1,
             });
+          }
+
+          // Defensive: if neither productId nor freeItemId is present, skip
+          if (reserveTargets.length === 0) {
+            logger.warn('Skipping order item with no productId or freeItemId', {
+              orderId: payload.orderId,
+              item,
+            });
+            continue;
+          }
+
+          for (const target of reserveTargets) {
+            try {
+              const reserved = await inventoryService.reserveStock(
+                payload.orderId,
+                target.quantity,
+                target.productId,
+                target.variantId,
+                target.freeItemId
+              );
+
+              if (reserved) {
+                reservedItems.push({
+                  productId: target.productId,
+                  variantId: target.variantId,
+                  freeItemId: target.freeItemId,
+                  freeItemIds: target.label === 'freeItem' && target.freeItemId
+                    ? [target.freeItemId]
+                    : item.freeItemIds,
+                  quantity: target.quantity,
+                  label: target.label,
+                });
+              } else {
+                hasAnyFailure = true;
+                failedItems.push({
+                  productId: target.productId,
+                  variantId: target.variantId,
+                  freeItemId: target.freeItemId,
+                  quantity: target.quantity,
+                  label: target.label,
+                });
+
+                logger.warn('Failed to reserve stock for order item target', {
+                  orderId: payload.orderId,
+                  label: target.label,
+                  productId: target.productId,
+                  variantId: target.variantId,
+                  freeItemId: target.freeItemId,
+                  requestedQuantity: target.quantity,
+                });
+
+                // Publish reservation failure event
+                await messageBroker.publish(
+                  EXCHANGES.INVENTORY,
+                  getRoutingKey('INVENTORY', 'RESERVATION_FAILED'),
+                  {
+                    orderId: payload.orderId,
+                    productId: target.productId,
+                    variantId: target.variantId,
+                    freeItemId: target.freeItemId,
+                    reason: 'Insufficient stock',
+                  }
+                );
+              }
+            } catch (itemError) {
+              hasAnyFailure = true;
+              failedItems.push({
+                productId: target.productId,
+                variantId: target.variantId,
+                freeItemId: target.freeItemId,
+                quantity: target.quantity,
+                label: target.label,
+              });
+
+              logger.error('Error reserving stock for order item target', {
+                error: itemError instanceof Error ? itemError.message : 'Unknown error',
+                orderId: payload.orderId,
+                label: target.label,
+                productId: target.productId,
+                freeItemId: target.freeItemId,
+              });
+            }
           }
         }
 

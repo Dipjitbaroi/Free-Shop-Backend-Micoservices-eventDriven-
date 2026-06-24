@@ -1,3 +1,14 @@
+// IMPORTANT: load env BEFORE reading process.env below (ESM imports are hoisted)
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env') });
+
 const config = {
   port: parseInt(process.env.ORDER_SERVICE_PORT || '3004', 10),
   environment: process.env.NODE_ENV || 'development',

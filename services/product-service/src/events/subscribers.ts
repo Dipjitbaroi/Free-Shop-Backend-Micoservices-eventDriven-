@@ -14,8 +14,18 @@ export async function setupEventSubscribers(): Promise<void> {
     async (event) => {
       logger.info('Product service received inventory update event', {
         productId: event.productId,
+        freeItemId: event.freeItemId,
         action: event.action,
       });
+
+      // Free-item inventory rows have no associated product — the inventory
+      // service publishes `productId: null` for them. Product-status sync is
+      // only meaningful for product/variant rows, so skip the rest of the
+      // handler in that case. (The inventory service is the source of truth
+      // for free-item stock.)
+      if (event.productId === null || event.productId === undefined) {
+        return;
+      }
 
       const product = await prisma.product.findUnique({ where: { id: event.productId } });
 

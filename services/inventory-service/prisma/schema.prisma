@@ -8,59 +8,77 @@ datasource db {
 }
 
 model Inventory {
-  id              String   @id @default(uuid())
-  productId       String?  // Optional: null for standalone free items
-  variantId       String?  // For product variants
-  freeItemId      String?  // For free items (can be standalone or tied to product)
-  userId          String
-  
-  // Stock levels
-  totalStock      Int      @default(0)
-  reservedStock   Int      @default(0)
-  availableStock  Int      @default(0) // totalStock - reservedStock
-  
-  // Alerts
-  lowStockThreshold Int    @default(10)
-  isLowStock      Boolean  @default(false)
-  isOutOfStock    Boolean  @default(false)
-  
-  // Tracking
-  lastRestockAt   DateTime?
-  lastSoldAt      DateTime?
-  
-  reservations    StockReservation[]
-  movements       StockMovement[]
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id         String  @id @default(uuid())
+  // All three identifiers are OPTIONAL. Any combination may be present:
+  //  - (productId, variantId) for a product variant
+  //  - (productId, freeItemId) for a free item tied to a product
+  //  - (freeItemId) for a standalone free item
+  //  - (productId) for a simple product
+  // At least one of productId / freeItemId is required (enforced in service layer).
+  productId  String?
+  variantId  String?
+  freeItemId String?
+  userId     String
 
-  // Unique constraints: 
-  // 1. productId:variantId:freeItemId (product variants or product free items)
-  // 2. freeItemId alone (standalone free items with productId=null)
-  @@unique([productId, variantId, freeItemId])
-  @@unique([freeItemId]) // Standalone free items (productId is null)
+  // Stock levels
+  totalStock     Int @default(0)
+  reservedStock  Int @default(0)
+  availableStock Int @default(0) // totalStock - reservedStock
+
+  // Alerts
+  lowStockThreshold Int     @default(10)
+  isLowStock        Boolean @default(false)
+  isOutOfStock      Boolean @default(false)
+
+  // Tracking
+  lastRestockAt DateTime?
+  lastSoldAt    DateTime?
+
+  reservations StockReservation[]
+  movements    StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // NOTE: We do NOT declare a composite @@unique([productId, variantId, freeItemId])
+  // here. Prisma 7's client-side validation requires every member of a composite
+  // unique to be present (non-undefined) on create/update, which makes it
+  // impossible to insert a row that only sets freeItemId for a standalone free
+  // item — Prisma throws `Argument productId is missing` even when productId is
+  // String?.
+  //
+  // Uniqueness is enforced in the database via two PARTIAL unique indexes
+  // added in the migration (see migrations/<ts>_partial_unique_indexes):
+  //   1) WHERE "freeItemId" IS NULL      ON ("productId", "variantId")
+  //        → a product (or product variant) can only have one Inventory row
+  //   2) WHERE "productId" IS NULL       ON ("freeItemId")
+  //        → a free item can only have one Inventory row
+  // This lets us insert either shape without supplying the "missing" foreign
+  // key, while still preventing duplicate inventory rows per product/variant
+  // or per free item.
+
+  @@unique([freeItemId]) // Prisma-level safety net (always present, including NULLs as a group)
   @@index([productId])
-  @@index([userId])
-  @@index([isLowStock])
+  @@index([freeItemId])
   @@index([isOutOfStock])
 }
 
 model StockReservation {
-  id          String            @id @default(uuid())
+  id          String    @id @default(uuid())
   inventoryId String
-  inventory   Inventory         @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
-  
-  orderId     String
-  variantId   String?           // Support for product variants
-  quantity    Int
-  status      ReservationStatus @default(PENDING)
-  
-  expiresAt   DateTime?         // Auto-release after expiry
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  orderId   String
+  variantId String? // Support for product variants
+  quantity  Int
+  status    ReservationStatus @default(PENDING)
+
+  expiresAt   DateTime? // Auto-release after expiry
   releasedAt  DateTime?
   fulfilledAt DateTime?
-  
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([inventoryId, orderId, variantId])
   @@index([orderId])
@@ -69,21 +87,21 @@ model StockReservation {
 }
 
 model StockMovement {
-  id          String        @id @default(uuid())
+  id          String    @id @default(uuid())
   inventoryId String
-  inventory   Inventory     @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
-  
-  type        MovementType
-  quantity    Int           // Positive for in, negative for out
-  reason      String?
-  reference   String?       // Order ID, adjustment ID, etc.
-  
+  inventory   Inventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+
+  type      MovementType
+  quantity  Int // Positive for in, negative for out
+  reason    String?
+  reference String? // Order ID, adjustment ID, etc.
+
   previousStock Int
   newStock      Int
-  
+
   performedBy String?
-  
-  createdAt   DateTime      @default(now())
+
+  createdAt DateTime @default(now())
 
   @@index([inventoryId])
   @@index([type])
@@ -91,16 +109,16 @@ model StockMovement {
 }
 
 model InventoryAlert {
-  id          String     @id @default(uuid())
+  id          String @id @default(uuid())
   inventoryId String
   productId   String
   userId      String
-  
-  type        AlertType
-  message     String
-  isRead      Boolean    @default(false)
-  
-  createdAt   DateTime   @default(now())
+
+  type    AlertType
+  message String
+  isRead  Boolean   @default(false)
+
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([isRead])
@@ -108,19 +126,19 @@ model InventoryAlert {
 }
 
 model EventProcessingLog {
-  id          String   @id @default(uuid())
-  eventType   String   // e.g., ORDER_CREATED, PAYMENT_REFUNDED
-  eventId     String   // Unique event identifier
-  orderId     String?  // For order-related events
-  
-  status      String   @default("PROCESSING")  // PROCESSING, SUCCESS, FAILED, COMPENSATED
-  payload     String?  // JSON payload for debugging
-  error       String?  // Error message if failed
-  
-  processedAt DateTime @default(now())
+  id        String  @id @default(uuid())
+  eventType String // e.g., ORDER_CREATED, PAYMENT_REFUNDED
+  eventId   String // Unique event identifier
+  orderId   String? // For order-related events
+
+  status  String  @default("PROCESSING") // PROCESSING, SUCCESS, FAILED, COMPENSATED
+  payload String? // JSON payload for debugging
+  error   String? // Error message if failed
+
+  processedAt DateTime  @default(now())
   completedAt DateTime?
-  
-  createdAt   DateTime @default(now())
+
+  createdAt DateTime @default(now())
 
   @@unique([eventType, eventId])
   @@index([orderId])

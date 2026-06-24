@@ -2,4 +2,12 @@ packages:
   - 'packages/*'
   - 'services/*'
 
+allowBuilds:
+  '@firebase/util': true
+  '@prisma/engines': true
+  '@scarf/scarf': true
+  esbuild: true
+  prisma: true
+  protobufjs: true
+
 shared-workspace-lockfile: true

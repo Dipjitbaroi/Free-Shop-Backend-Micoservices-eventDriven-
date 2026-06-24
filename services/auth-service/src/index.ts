@@ -24,16 +24,22 @@ const startServer = async (): Promise<void> => {
     await prisma.$connect();
     logger.info('Connected to PostgreSQL');
 
-    // Connect to message broker
-    await messageBroker.connect();
-    logger.info('Connected to RabbitMQ');
-
-    // Initialize RBAC (creates default roles & permissions if not already present)
+    // Initialize RBAC FIRST (creates default roles & permissions if not already present)
+    // This is database-only work and must complete before message broker connection
+    // so the auth-service can start even if RabbitMQ is temporarily unavailable.
     try {
       await RBACService.initializeDefaultRoles();
       logger.info('RBAC system initialized');
     } catch (err: any) {
       logger.warn('RBAC initialization warning', { message: err?.message });
+    }
+
+    // Connect to message broker (non-fatal: service can run without events for RBAC)
+    try {
+      await messageBroker.connect();
+      logger.info('Connected to RabbitMQ');
+    } catch (err: any) {
+      logger.warn('Message broker connection failed; continuing without events', { message: err?.message });
     }
 
     // Register event subscribers

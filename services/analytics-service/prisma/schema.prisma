@@ -9,7 +9,7 @@ datasource db {
 
 model DailySalesReport {
   id              String   @id @default(uuid())
-  date            DateTime @db.Date
+  date            DateTime @db.Timestamptz(6)
   
   totalOrders     Int      @default(0)
   totalRevenue    Decimal  @default(0) @db.Decimal(12, 2)
@@ -37,7 +37,7 @@ model DailySalesReport {
 model VendorReport {
   id              String   @id @default(uuid())
   vendorId        String
-  date            DateTime @db.Date
+  date            DateTime @db.Timestamptz(6)
   
   totalOrders     Int      @default(0)
   totalRevenue    Decimal  @default(0) @db.Decimal(12, 2)
@@ -62,7 +62,7 @@ model VendorReport {
 model ProductAnalytics {
   id              String   @id @default(uuid())
   productId       String
-  date            DateTime @db.Date
+  date            DateTime @db.Timestamptz(6)
   
   views           Int      @default(0)
   uniqueViews     Int      @default(0)
@@ -87,7 +87,7 @@ model ProductAnalytics {
 model CategoryAnalytics {
   id              String   @id @default(uuid())
   categoryId      String
-  date            DateTime @db.Date
+  date            DateTime @db.Timestamptz(6)
   
   views           Int      @default(0)
   productViews    Int      @default(0)
@@ -106,7 +106,7 @@ model CategoryAnalytics {
 
 model UserAnalytics {
   id              String   @id @default(uuid())
-  date            DateTime @db.Date
+  date            DateTime @db.Timestamptz(6)
   
   newRegistrations Int     @default(0)
   activeUsers     Int      @default(0)

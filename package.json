@@ -19,7 +19,11 @@
     "clean": "npm run clean --workspaces --if-present",
     "db:migrate": "npm run db:migrate --workspaces --if-present",
     "db:seed": "npm run db:seed --workspaces --if-present",
-    "migrate:deploy:all": "bash ./scripts/migrate-deploy-all.sh || powershell -File ./scripts/migrate-deploy-all.ps1"
+    "migrate:deploy:all": "bash ./scripts/migrate-deploy-all.sh || powershell -File ./scripts/migrate-deploy-all.ps1",
+    "dev:services": "node scripts/dev/run-services.mjs",
+    "dev:all": "concurrently -n infra,services -c green,blue \"docker-compose -f docker-compose.dev.yml up\" \"pnpm dev:services\"",
+    "env:local": "node scripts/dev/use-local-env.mjs",
+    "env:docker": "node scripts/dev/use-docker-env.mjs"
   },
   "keywords": [
     "ecommerce",
@@ -41,6 +45,7 @@
     "@types/hpp": "^0.2.7",
     "@types/node": "^25.5.2",
     "@types/on-finished": "^2.3.5",
+    "concurrently": "^9.1.0",
     "typescript": "^6.0.2"
   }
 }

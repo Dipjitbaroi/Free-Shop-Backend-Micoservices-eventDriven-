@@ -133,7 +133,7 @@ export const errorHandler: ErrorRequestHandler = (
 
   if (error.name === 'PrismaClientValidationError') {
     res.status(400).json(
-      createErrorResponse('VALIDATION_ERROR', 'Invalid data provided', undefined, requestId)
+      createErrorResponse('VALIDATION_ERROR', `Invalid data provided: ${(error as Error).message}`, undefined, requestId)
     );
     return;
   }
