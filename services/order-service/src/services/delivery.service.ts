@@ -133,64 +133,87 @@ class DeliveryService {
     return 0;
   }
 
-  private getSteadfastOrderNote(order: any): string | null {
-    const parts: string[] = [];
-    
-    // Add customer/seller/admin notes
-    const customNote = this.normalizeText(order.customerNote || order.sellerNote || order.adminNote);
-    if (customNote) {
-      parts.push(customNote);
-    }
-    
-    // Add product descriptions
+  private getSteadfastItemDescription(order: any): string | null {
+    // Steadfast's `item_description` field (Item Description in their portal).
+    // Single free-text string describing the items in the parcel.
     try {
       const items = Array.isArray(order.items) ? order.items : [];
-      if (items.length > 0) {
-        const productSummary = items
-          .map((item: any) => {
-            const name = this.normalizeText(item.productName || item.name);
-            const qty = item.quantity || 1;
-            return qty > 1 ? `${name} (x${qty})` : name;
-          })
-          .filter(Boolean)
-          .join(', ');
-        
-        if (productSummary) {
-          parts.push(`Items: ${productSummary}`);
-        }
+      if (items.length === 0) {
+        return null;
       }
+
+      const MAX_LEN = 500; // Steadfast portal caps this at 500 chars
+
+      const summary = items
+        .map((item: any) => {
+          const name = this.normalizeText(item.productName || item.name);
+          const qty = Number(item.quantity) || 1;
+          if (!name) return '';
+          return qty > 1 ? `${name} (x${qty})` : name;
+        })
+        .filter(Boolean)
+        .join(', ');
+
+      if (!summary) return null;
+      return summary.length > MAX_LEN ? summary.slice(0, MAX_LEN) : summary;
     } catch (error) {
-      console.warn('Failed to include product descriptions in note:', error);
+      console.warn('Failed to build Steadfast item_description:', error);
+      return null;
     }
-    
-    return parts.length > 0 ? parts.join(' | ') : null;
   }
 
-  private getSteadfastDistrict(address: Record<string, unknown> | null | undefined): string | undefined {
-    if (!address) return undefined;
-    const district = this.getShippingAddressValue(address, ['district', 'city']);
-    return district || undefined;
-  }
-
-  private getSteadfastUpazila(address: Record<string, unknown> | null | undefined): string | undefined {
-    if (!address) return undefined;
-    // Single field used for both Thana/Upazila
-    const upazila = this.getShippingAddressValue(address, ['upazila']);
-    return upazila || undefined;
+  private getSteadfastOrderNote(order: any): string | null {
+    // Steadfast's `note` field — for customer/seller/admin notes only.
+    // Product details go in `item_description` (see getSteadfastItemDescription).
+    const customNote = this.normalizeText(order.customerNote || order.sellerNote || order.adminNote);
+    return customNote || null;
   }
 
   private buildSteadfastPayload(order: any) {
     const shippingAddress = (order.shippingAddress || {}) as Record<string, unknown>;
+
+    // District and upazila are forwarded verbatim. The frontend owns the
+    // canonical spelling (it ships Steadfast's own dropdown values), and
+    // Steadfast's panel does the fuzzy match against its internal master.
+    // We still emit a warning if either field is missing so the issue is
+    // visible in logs without us trying to second-guess the user input.
+    const warnings: string[] = [];
+    const district =
+      typeof shippingAddress.district === 'string' && shippingAddress.district.trim()
+        ? shippingAddress.district.trim()
+        : undefined;
+    // Steadfast's portal labels this field "Thana". Accept both `thana` (preferred
+    // by Steadfast's own UI) and `upazila` (the field name used by the frontend
+    // form) so neither frontend nor backend change is forced.
+    const thanaRaw =
+      typeof shippingAddress.thana === 'string' && shippingAddress.thana.trim()
+        ? shippingAddress.thana.trim()
+        : typeof shippingAddress.upazila === 'string' && shippingAddress.upazila.trim()
+          ? shippingAddress.upazila.trim()
+          : undefined;
+
+    if (!district) warnings.push('Missing district in shipping address');
+    if (!thanaRaw) warnings.push('Missing thana/upazila in shipping address');
+
+    if (warnings.length > 0) {
+      logger.warn('[STEADFAST] Address field warnings', {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        warnings,
+        rawShippingAddress: shippingAddress,
+      });
+    }
 
     return {
       invoice: order.orderNumber,
       recipient_name: this.getSteadfastRecipientName(order),
       recipient_phone: this.getSteadfastRecipientPhone(order),
       recipient_address: this.formatSteadfastAddress(shippingAddress),
-      district: this.getSteadfastDistrict(shippingAddress),  // District
-      upazila: this.getSteadfastUpazila(shippingAddress),    // Thana/Upazila (single field)
+      district,
+      thana: thanaRaw,
       cod_amount: this.getSteadfastCodAmount(order),
-      note: this.getSteadfastOrderNote(order),               // Includes order notes + product descriptions
+      item_description: this.getSteadfastItemDescription(order), // Steadfast "Item Description" field
+      note: this.getSteadfastOrderNote(order),               // Customer/delivery note
     };
   }
 
