@@ -99,6 +99,36 @@ messageQueue:
     port: 5672
     # user and password come from secrets
 
+# API Gateway-specific configuration
+# Only rendered into the ConfigMap when serviceName == "api-gateway" (see configmap.yaml).
+# Per-tier rate limits, CORS, and the public-facing API URL all live here so they're
+# overrideable per environment via values-prod.yaml.
+gateway:
+  # Comma-separated list of allowed CORS origins. Override per environment.
+  corsOrigin: "http://localhost:3000"
+  # Public-facing API base URL consumed by Swagger UI "Try it out".
+  publicApiUrl: "http://localhost:3000/api/v1"
+  rateLimit:
+    # General API tier (anonymous storefront traffic)
+    windowMs: 60000
+    max: 300
+    # Admin / manager tier (dashboard, bulk operations)
+    admin:
+      windowMs: 60000
+      max: 1000
+    # Auth endpoints (login/register/forgot)
+    auth:
+      windowMs: 900000
+      max: 20
+    # File uploads
+    upload:
+      windowMs: 3600000
+      max: 200
+    # Webhooks (trusted services only)
+    webhook:
+      windowMs: 60000
+      max: 300
+
 # Logging configuration
 logging:
   level: info

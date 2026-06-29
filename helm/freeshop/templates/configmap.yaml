@@ -43,3 +43,29 @@ data:
   # Logging Configuration
   LOG_LEVEL: {{ .Values.logging.level | quote }}
   LOG_FORMAT: {{ .Values.logging.format | quote }}
+
+  {{- if eq .Values.serviceName "api-gateway" }}
+  # ── API Gateway-only configuration ──────────────────────────────────
+  # Sourced from .Values.gateway.*; rendered only when this ConfigMap is
+  # for the api-gateway service. Override per-env in values-prod.yaml.
+
+  # CORS / Public API URL
+  CORS_ORIGIN:    {{ .Values.gateway.corsOrigin    | quote }}
+  PUBLIC_API_URL: {{ .Values.gateway.publicApiUrl  | quote }}
+
+  # Rate limiting — general API tier (anonymous storefront traffic)
+  RATE_LIMIT_WINDOW_MS:     {{ .Values.gateway.rateLimit.windowMs | quote }}
+  RATE_LIMIT_MAX_REQUESTS:  {{ .Values.gateway.rateLimit.max      | quote }}
+  # Rate limiting — admin / manager tier (dashboard, bulk operations)
+  ADMIN_RATE_LIMIT_WINDOW_MS:    {{ .Values.gateway.rateLimit.admin.windowMs | quote }}
+  ADMIN_RATE_LIMIT_MAX_REQUESTS: {{ .Values.gateway.rateLimit.admin.max      | quote }}
+  # Rate limiting — auth endpoints (login/register/forgot)
+  AUTH_RATE_LIMIT_WINDOW_MS:    {{ .Values.gateway.rateLimit.auth.windowMs | quote }}
+  AUTH_RATE_LIMIT_MAX_REQUESTS: {{ .Values.gateway.rateLimit.auth.max      | quote }}
+  # Rate limiting — file uploads
+  UPLOAD_RATE_LIMIT_WINDOW_MS:    {{ .Values.gateway.rateLimit.upload.windowMs | quote }}
+  UPLOAD_RATE_LIMIT_MAX_REQUESTS: {{ .Values.gateway.rateLimit.upload.max      | quote }}
+  # Rate limiting — webhooks (trusted services only)
+  WEBHOOK_RATE_LIMIT_WINDOW_MS:    {{ .Values.gateway.rateLimit.webhook.windowMs | quote }}
+  WEBHOOK_RATE_LIMIT_MAX_REQUESTS: {{ .Values.gateway.rateLimit.webhook.max      | quote }}
+  {{- end }}

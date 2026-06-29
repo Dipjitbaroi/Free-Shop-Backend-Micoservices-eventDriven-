@@ -3,7 +3,7 @@ import { createProxyMiddleware, Options } from 'http-proxy-middleware';
 import { IncomingMessage, ServerResponse } from 'http';
 import config from '../config/index.js';
 import { createServiceLogger } from '@freeshop/shared-utils';
-import { authRateLimiter } from '@freeshop/shared-middleware';
+import { authRateLimiter, adminRateLimiter, optionalAuth, authenticate, authorizePermission } from '@freeshop/shared-middleware';
 
 const logger = createServiceLogger('api-gateway');
 
@@ -23,11 +23,26 @@ const getProxyOptions = (serviceName: string, serviceUrl: string): Options => ({
       if (expressReq.requestId) {
         proxyReq.setHeader('X-Request-ID', expressReq.requestId);
       }
-      // Forward user info if authenticated
-      if (expressReq.user) {
+      // Forward user info if authenticated. Only set headers when the
+      // value is actually defined — Node's http.setHeader rejects the
+      // literal string "undefined" with ERR_HTTP_INVALID_HEADER_VALUE,
+      // which would otherwise crash the gateway process mid-proxy.
+      if (expressReq.user?.userId) {
         proxyReq.setHeader('X-User-ID', expressReq.user.userId);
-        // Note: role no longer available - roles are queried from RBAC system separately
-        proxyReq.setHeader('X-User-Email', expressReq.user.email);
+        if (expressReq.user.email) {
+          proxyReq.setHeader('X-User-Email', expressReq.user.email);
+        }
+        const tier = (expressReq.user as any).tier as string | undefined;
+        if (tier) {
+          proxyReq.setHeader('X-User-Tier', tier);
+        }
+        // Role is no longer available locally — RBAC handles authorization
+        // on the auth-service side. The product-service still calls
+        // /internal/profile/:id which uses the SYSTEM token below.
+        const authHeader = expressReq.headers.authorization;
+        if (authHeader) {
+          proxyReq.setHeader('X-Forwarded-User-Auth', authHeader);
+        }
       }
       // Log request
       logger.debug(`Proxying ${expressReq.method} ${expressReq.originalUrl} to ${serviceName}`);
@@ -187,6 +202,8 @@ export const setupRoutes = (app: Application): void => {
   // Notification Service routes (internal, admin only)
   app.use(
     '/api/v1/notifications',
+    optionalAuth,
+    adminRateLimiter,
     createProxyMiddleware({
       ...getProxyOptions('notification', config.services.notification.url),
       pathRewrite: async (path) => `/api/notifications${path === '/' ? '' : path}`,
@@ -196,6 +213,8 @@ export const setupRoutes = (app: Application): void => {
   // Analytics Service routes (admin/manager only)
   app.use(
     '/api/v1/analytics',
+    optionalAuth,
+    adminRateLimiter,
     createProxyMiddleware({
       ...getProxyOptions('analytics', config.services.analytics.url),
       pathRewrite: async (path) => `/api/analytics${path === '/' ? '' : path}`,

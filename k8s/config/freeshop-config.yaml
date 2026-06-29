@@ -32,4 +32,23 @@ data:
   RABBITMQ_PORT: "5672"
   
   # API Gateway
-  API_GATEWAY_PORT: "3000"
+  API_GATEWAY_PORT: "3000"  # Comma-separated list of allowed CORS origins. Override per-environment.
+  CORS_ORIGIN: "https://www.freeshopbd.com,https://freeshopbd.com,https://api.freeshopbd.com,http://localhost:3000"
+  # Public-facing API base URL (consumed by Swagger UI "Try it out").
+  PUBLIC_API_URL: "https://api.freeshopbd.com/api/v1"
+
+  # Rate limiting — general API tier (anonymous storefront traffic)
+  RATE_LIMIT_WINDOW_MS: "60000"
+  RATE_LIMIT_MAX_REQUESTS: "300"
+  # Rate limiting — admin/manager tier (dashboard, bulk operations)
+  ADMIN_RATE_LIMIT_WINDOW_MS: "60000"
+  ADMIN_RATE_LIMIT_MAX_REQUESTS: "1000"
+  # Rate limiting — auth endpoints (login/register/forgot)
+  AUTH_RATE_LIMIT_WINDOW_MS: "900000"
+  AUTH_RATE_LIMIT_MAX_REQUESTS: "20"
+  # Rate limiting — file uploads
+  UPLOAD_RATE_LIMIT_WINDOW_MS: "3600000"
+  UPLOAD_RATE_LIMIT_MAX_REQUESTS: "200"
+  # Rate limiting — webhooks (trusted services only)
+  WEBHOOK_RATE_LIMIT_WINDOW_MS: "60000"
+  WEBHOOK_RATE_LIMIT_MAX_REQUESTS: "300"
