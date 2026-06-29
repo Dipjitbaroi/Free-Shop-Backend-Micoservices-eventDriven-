@@ -26,25 +26,28 @@ spec:
             - name: NODE_ENV
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: freeshop-config-api-gateway
                   key: NODE_ENV
             - name: PORT
-              value: "3000"
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: API_GATEWAY_PORT
             - name: API_GATEWAY_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: freeshop-config-api-gateway
                   key: API_GATEWAY_PORT
             # Redis Configuration
             - name: REDIS_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: freeshop-config-api-gateway
                   key: REDIS_HOST
             - name: REDIS_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: freeshop-config-api-gateway
                   key: REDIS_PORT
             - name: REDIS_PASSWORD
               valueFrom:
@@ -55,12 +58,12 @@ spec:
             - name: RABBITMQ_HOST
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: freeshop-config-api-gateway
                   key: RABBITMQ_HOST
             - name: RABBITMQ_PORT
               valueFrom:
                 configMapKeyRef:
-                  name: freeshop-config
+                  name: freeshop-config-api-gateway
                   key: RABBITMQ_PORT
             - name: RABBITMQ_USER
               valueFrom:
@@ -79,28 +82,91 @@ spec:
                 secretKeyRef:
                   name: freeshop-secrets
                   key: JWT_SECRET
+            # Service-to-service URLs are derived from ConfigMap-exposed
+            # service name + port so they stay consistent with freeshop-config.
             - name: AUTH_SERVICE_URL
-              value: "http://auth-service:3001"
+              value: "http://auth-service:$(AUTH_SERVICE_PORT)"
             - name: USER_SERVICE_URL
-              value: "http://user-service:3002"
+              value: "http://user-service:$(USER_SERVICE_PORT)"
             - name: PRODUCT_SERVICE_URL
-              value: "http://product-service:3003"
+              value: "http://product-service:$(PRODUCT_SERVICE_PORT)"
             - name: ORDER_SERVICE_URL
-              value: "http://order-service:3004"
+              value: "http://order-service:$(ORDER_SERVICE_PORT)"
             - name: PAYMENT_SERVICE_URL
-              value: "http://payment-service:3005"
+              value: "http://payment-service:$(PAYMENT_SERVICE_PORT)"
             - name: INVENTORY_SERVICE_URL
-              value: "http://inventory-service:3006"
+              value: "http://inventory-service:$(INVENTORY_SERVICE_PORT)"
             - name: VENDOR_SERVICE_URL
-              value: "http://vendor-service:3007"
+              value: "http://vendor-service:$(VENDOR_SERVICE_PORT)"
             - name: NOTIFICATION_SERVICE_URL
-              value: "http://notification-service:3008"
+              value: "http://notification-service:$(NOTIFICATION_SERVICE_PORT)"
             - name: ANALYTICS_SERVICE_URL
-              value: "http://analytics-service:3009"
+              value: "http://analytics-service:$(ANALYTICS_SERVICE_PORT)"
             - name: PUBLIC_API_URL
-              value: "https://api.freeshopbd.com/api/v1"  # set to your live API base URL
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: PUBLIC_API_URL
             - name: CORS_ORIGIN
-              value: "https://www.freeshopbd.com,https://freeshopbd.com,https://api.freeshopbd.com,http://localhost:3000"  # allow frontend (www + non-www), API and Swagger UI origins
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: CORS_ORIGIN
+            # Rate limiting — general API tier (anonymous storefront traffic)
+            - name: RATE_LIMIT_WINDOW_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: RATE_LIMIT_WINDOW_MS
+            - name: RATE_LIMIT_MAX_REQUESTS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: RATE_LIMIT_MAX_REQUESTS
+            # Rate limiting — admin/manager tier (dashboard, bulk operations)
+            - name: ADMIN_RATE_LIMIT_WINDOW_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: ADMIN_RATE_LIMIT_WINDOW_MS
+            - name: ADMIN_RATE_LIMIT_MAX_REQUESTS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: ADMIN_RATE_LIMIT_MAX_REQUESTS
+            # Rate limiting — auth (login/register/forgot)
+            - name: AUTH_RATE_LIMIT_WINDOW_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: AUTH_RATE_LIMIT_WINDOW_MS
+            - name: AUTH_RATE_LIMIT_MAX_REQUESTS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: AUTH_RATE_LIMIT_MAX_REQUESTS
+            # Rate limiting — file uploads
+            - name: UPLOAD_RATE_LIMIT_WINDOW_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: UPLOAD_RATE_LIMIT_WINDOW_MS
+            - name: UPLOAD_RATE_LIMIT_MAX_REQUESTS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: UPLOAD_RATE_LIMIT_MAX_REQUESTS
+            # Rate limiting — webhooks (trusted services only)
+            - name: WEBHOOK_RATE_LIMIT_WINDOW_MS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: WEBHOOK_RATE_LIMIT_WINDOW_MS
+            - name: WEBHOOK_RATE_LIMIT_MAX_REQUESTS
+              valueFrom:
+                configMapKeyRef:
+                  name: freeshop-config-api-gateway
+                  key: WEBHOOK_RATE_LIMIT_MAX_REQUESTS
           resources:
             requests:
               cpu: "150m"

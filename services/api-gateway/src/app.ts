@@ -13,6 +13,7 @@ import {
   errorHandler,
   notFoundHandler,
   apiRateLimiter,
+  attachPermissions,
 } from '@freeshop/shared-middleware';
 
 import { setupRoutes } from './routes/index.js';
@@ -20,6 +21,20 @@ import { healthRoutes } from './routes/health.routes.js';
 import swaggerDocument from './docs/swagger.js';
 
 const app: Application = express();
+
+// Crash safety nets — without these, an `ERR_HTTP_INVALID_HEADER_VALUE`
+// from the proxy (e.g. setting an undefined header) would tear down the
+// whole gateway process and leave port 3000 with only TIME_WAIT entries.
+// We log loudly so the underlying bug is still visible, but we keep
+// serving traffic.
+process.on('uncaughtException', (err) => {
+  // eslint-disable-next-line no-console
+  console.error('[api-gateway] uncaughtException:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  // eslint-disable-next-line no-console
+  console.error('[api-gateway] unhandledRejection:', reason);
+});
 
 // Trust the full proxy chain (nginx ingress + cloudflare) so req.ip
 // resolves to the real client IP and rate-limit keys are not collapsed
@@ -41,7 +56,12 @@ app.use(httpLogger);
 // Each downstream service parses its own body.
 app.use(cookieParser());
 
-// Rate limiting
+// Attach user permissions (non-blocking) so the rate limiter can pick
+// the correct tier (anonymous / customer / vendor / manager / admin).
+// Must run BEFORE the rate limiter so `req.user.tier` is available.
+app.use('/api', attachPermissions);
+
+// Tier-aware rate limiting (per user / per IP, per workload tier)
 app.use('/api', apiRateLimiter);
 
 // API Documentation — inject correct server URL from env so Swagger "Try it out"

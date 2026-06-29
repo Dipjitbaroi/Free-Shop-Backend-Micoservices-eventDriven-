@@ -47,6 +47,13 @@ database:
   postgres:
     sslMode: require  # Force SSL in production
 
+# API Gateway — production overrides
+# Per-tier rate-limit values inherit base defaults; only environment-specific
+# items (CORS origins, public API URL) are overridden here.
+gateway:
+  corsOrigin: "https://www.freeshopbd.com,https://freeshopbd.com,https://api.freeshopbd.com,http://localhost:3000"
+  publicApiUrl: "https://api.freeshopbd.com/api/v1"
+
 logging:
   level: warn  # Less verbose logging in production
   format: json
