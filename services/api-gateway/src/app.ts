@@ -21,8 +21,10 @@ import swaggerDocument from './docs/swagger.js';
 
 const app: Application = express();
 
-// Trust proxy (for rate limiting and IP detection behind load balancer)
-app.set('trust proxy', 1);
+// Trust the full proxy chain (nginx ingress + cloudflare) so req.ip
+// resolves to the real client IP and rate-limit keys are not collapsed
+// onto a single shared address per pod.
+app.set('trust proxy', true);
 
 // Basic middleware
 app.use(requestId);

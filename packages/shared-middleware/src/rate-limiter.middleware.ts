@@ -20,8 +20,20 @@ export const createRateLimiter = (options?: Partial<Options>): RateLimitRequestH
       );
     },
     keyGenerator: (req: Request): string => {
-      // Use user ID if authenticated, otherwise IP
-      return req.user?.userId || req.ip || 'unknown';
+      // Prefer authenticated user ID so logged-in traffic doesn't share
+      // a bucket with anonymous traffic. For anonymous requests, take
+      // the leftmost (original client) entry from X-Forwarded-For; fall
+      // back to the socket address if the header is missing.
+      if (req.user?.userId) {
+        return `user:${req.user.userId}`;
+      }
+      const xff = (req.headers['x-forwarded-for'] as string) || '';
+      const clientIp =
+        xff.split(',')[0]?.trim() ||
+        req.ip ||
+        req.socket?.remoteAddress ||
+        'unknown';
+      return `ip:${clientIp}`;
     },
     skip: (req: Request): boolean => {
       // Skip rate limiting for health checks
